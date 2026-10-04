@@ -9,6 +9,7 @@ import {call} from '../lib/backendClient.js';
 import {runApplyFlow} from '../lib/applyFlow.js';
 import {actionLabel, supportsProfilesAndThemes, automaticLabel} from '../lib/stateModel.js';
 import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from '../lib/uiCommon.js';
+import {AboutSupport} from './aboutSupport.js';
 
 export class MaintenancePage {
     constructor(controlPath, win, settings) {
@@ -103,6 +104,8 @@ export class MaintenancePage {
         revertRow.add_suffix(this._btnRevert);
         danger.add(revertRow);
         this.page.add(danger);
+        this._about = new AboutSupport(this._win);
+        this.page.add(this._about.group);
     }
 
     retranslate() {
@@ -112,6 +115,7 @@ export class MaintenancePage {
             this._languageRow.set_selected(Math.max(0, LANGUAGE_CHOICES.indexOf(
                 this._settings.get_string('ui-language'))));
         } finally { this._syncingLanguage = false; }
+        this._about.retranslate();
         this.refresh();
     }
 

@@ -16,6 +16,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 EXTENSION = PROJECT / 'extension'
 TESTED_SHELL = {'51'}
 ALLOWED_SUFFIXES = {'.js', '.json', '.xml', '.compiled', '.css', '.svg'}
+SUPPORT_ASSETS = {'assets/support/wechat.png', 'assets/support/alipay.jpg'}
 IMPORT = re.compile(r"\bimport\s+(?:[\w{},*\s]+?\s+from\s+)?['\"]([^'\"]+)['\"]")
 
 
@@ -57,7 +58,8 @@ def inspect_source(submission: bool = False) -> dict:
           (PROJECT/'LICENSE').read_bytes() == (EXTENSION/'LICENSE').read_bytes())
     files = [p for p in EXTENSION.rglob('*') if p.is_file()]
     unexpected = [str(p.relative_to(EXTENSION)) for p in files
-                  if p.name != 'LICENSE' and p.suffix not in ALLOWED_SUFFIXES]
+                  if p.name != 'LICENSE' and p.suffix not in ALLOWED_SUFFIXES and
+                  p.relative_to(EXTENSION).as_posix() not in SUPPORT_ASSETS]
     check('extension_source_only', not unexpected, ', '.join(unexpected))
     check('no_extension_symlinks', not any(p.is_symlink() for p in EXTENSION.rglob('*')))
     check('strict_schema_compiled', (EXTENSION/'schemas/gschemas.compiled').is_file())
@@ -67,7 +69,8 @@ def inspect_source(submission: bool = False) -> dict:
     parsed = urlparse(url)
     real_url = parsed.scheme == 'https' and bool(parsed.netloc) and parsed.path not in ('', '/') and not any(
         token in parsed.netloc for token in ['example.', '.invalid', 'localhost'])
-    if submission: check('public_source_url', real_url, 'A real public source/issue tracker URL is needed.')
+    if submission:
+        check('source_url_format', real_url, 'URL format only; repository visibility and availability need separate verification.')
     elif not real_url: warnings.append('Public project URL is pending; --submission will fail until it is supplied.')
     return {'ok': all(c['passed'] for c in checks), 'submission_mode': submission,
             'checks': checks, 'warnings': warnings,

@@ -7,6 +7,7 @@ The extension UUID is a public upgrade identifier and is intentionally allowed.
 """
 from __future__ import annotations
 import argparse
+from io import BytesIO
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -30,6 +31,22 @@ PRIVATE_SUFFIXES = {'.pem', '.key', '.p12', '.pfx', '.log'}
 LOCAL_COMPONENTS = {'__pycache__', '.mypy_cache', '.pytest_cache', '.venv', 'work',
                     'outputs', 'evidence', 'screenshots', 'backups', '.git'}
 
+def scan_text(contents: bytes) -> str:
+    if contents.startswith((b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff')):
+        # Compressed pixel bytes can resemble tokens or emails by chance.
+        # Inspect readable metadata; visual content still needs manual review.
+        from PIL import Image
+        with Image.open(BytesIO(contents)) as image:
+            metadata = {key: value for key, value in image.info.items()
+                        if key not in ('icc_profile', 'exif')}
+            exif = image.getexif()
+            metadata['exif_fields'] = dict(exif)
+            for tag in (0x8769, 0x8825):
+                if tag in exif:
+                    metadata[f'exif_ifd_{tag}'] = exif.get_ifd(tag)
+            return repr(metadata)
+    return contents.decode('utf-8', errors='ignore')
+
 def inspect(root: Path, archives: list[Path]) -> dict:
     uuid = json.loads((root / 'extension/metadata.json').read_text())['uuid']
     findings: list[dict] = []
@@ -41,7 +58,7 @@ def inspect(root: Path, archives: list[Path]) -> dict:
         basename = PurePosixPath(name).name
         if any(part in LOCAL_COMPONENTS for part in parts) or PurePosixPath(name).suffix in PRIVATE_SUFFIXES or basename.startswith('.env'):
             findings.append({'file': name, 'category': 'local_or_credential_file'})
-        text = contents.decode('utf-8', errors='ignore')
+        text = scan_text(contents)
         for category, pattern in PATTERNS.items():
             matches = list(pattern.finditer(text))
             if category == 'email':
@@ -80,7 +97,7 @@ def inspect(root: Path, archives: list[Path]) -> dict:
     return {'ok': not findings, 'checked_files_and_members': checked, 'findings': findings,
             'public_identifier_retained': uuid,
             'exclusions': 'Caches, runtime state, logs and local screenshots are not part of the export allowlist.',
-            'limitations': 'Pattern scan and account-header checks complement manual review; they cannot prove all secrets absent.'}
+            'limitations': 'Pattern scan, image-metadata and account-header checks complement manual visual review; they cannot prove all secrets absent.'}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

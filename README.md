@@ -97,6 +97,13 @@ python3 tests/frontend/test_runtime.py
 更换 GTK/Shell 外观主题不修改视觉参数；重新选择原素材主题不会强制激活覆盖层。
 “完全还原”恢复最近选择的素材主题。迁移失败会保留原有配置、图标与还原记录。
 
-本版前端 **1.1.0**、后端 **3.1.0**，上架候选只声明实测 **GNOME 51**。
+本版前端 **1.1.1**、后端 **3.1.0**，上架候选只声明实测 **GNOME 51**。
 发布准备和配套服务审核说明见 [SUBMISSION.md](docs/SUBMISSION.md)。
 源码许可证为 GPL-3.0-or-later，全文见 [LICENSE](LICENSE)。项目源码与问题反馈见 [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin)；提交 GNOME Extensions 前仓库须公开。
+
+## 作者与支持
+
+作者：**[TengJoe](https://github.com/TengJoe)**。
+设置窗口的「维护 → 关于与支持」提供项目主页、反馈入口、版本与许可证，
+以及微信和支付宝收款码。所有功能均可免费使用，支持开发完全自愿。
+详见 [支持说明 / Support](docs/SUPPORT.md)。
