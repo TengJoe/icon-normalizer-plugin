@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "_comment": "Reviewed classifications for well-known icons. Entries bind to the exact source_sha256 and expire automatically when a package updates its artwork. Machine-specific entries (e.g. absolute-path icons) belong in ~/.local/state/icon-normalizer/overrides.json, which is merged over this file.",
+  "icons": {
+    "mini.xterm": {
+      "class": "glyph",
+      "source_sha256": "919a42e878a5b6a28e153dd5b9521f29a6e546f501818c38080e7aa9e79b6efb",
+      "reason": "裸露的 X/T 字标，补底板"
+    },
+    "com.github.johnfactotum.Foliate": {
+      "class": "artwork",
+      "source_sha256": "e37b215fb6cfc1f887db3ceae74dfa5ad70ebda2aa1efdc6d3e1dd88ae3b241a",
+      "reason": "书本插画已是完整应用图标，仅调整尺寸"
+    },
+    "ibus-setup": {
+      "class": "glyph",
+      "source_sha256": "b9d1788db4d57965d09017c64d614fe0a8ee7fc7212bce4f1645ec4e4f718bfa",
+      "reason": "镂空齿轮标志；当前 GNOME 不显示此入口"
+    },
+    "gimp": {
+      "class": "glyph",
+      "source_sha256": "3e6e0abaeb3cf70140ba70491af8760c9db1947f35ecc0edc56836cddb479cd0",
+      "reason": "透明背景的 Wilber 吉祥物，补底板"
+    },
+    "gvim": {
+      "class": "glyph",
+      "source_sha256": "00742eb7b6a145f8b39d8c41857dd0e4b2908cf140f2f6fd07221e1534981292",
+      "reason": "透明背景的 Vim 字标；启动项目前失效"
+    },
+    "org.gnome.Resources": {
+      "class": "artwork",
+      "source_sha256": "9932d4c7faf87c10cf8b24b2587ad2a1e49a44e15a9fa5c37bee5f92ea2847ee",
+      "reason": "保留完整仪表盘轮廓，仅调整尺寸"
+    },
+    "steam": {
+      "class": "plate-circle",
+      "source_sha256": "b7087da76b8315024887b9a9313be5b9e6ba87d25eb624eac2d6542a823bb87d",
+      "reason": "已有圆形底板；透明连杆孔不能作为裸 Logo 判据"
+    },
+    "com.github.jeromerobert.pdfarranger": {
+      "class": "artwork",
+      "source_sha256": "b1725614a94ea2d6147555c3777b37a7da3d947effe8f4011ed0af710656ff8f",
+      "reason": "叠放卡片不是圆形底板，保留原轮廓"
+    },
+    "org.inkscape.Inkscape": {
+      "class": "glyph",
+      "source_sha256": "ec8cf907733ce94ad586d863743d37788b0baad1c1069c6642748e9d3126c362",
+      "reason": "透明背景的 Inkscape 标志，补底板"
+    }
+  }
+}

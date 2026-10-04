@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.icon-normalizer" path="/org/gnome/shell/extensions/icon-normalizer/">
+    <key name="ui-language" type="s">
+      <choices><choice value="system"/><choice value="zh"/><choice value="en"/></choices>
+      <default>'system'</default>
+      <summary>Interface language</summary>
+      <description>Follow the system language, Simplified Chinese, or English. Shared by the top bar and preferences.</description>
+    </key>
+    <key name="preview-size" type="i">
+      <default>48</default>
+      <summary>Default preview size</summary>
+      <description>One of 32,48,64,128,256; persisted by the preview dialog.</description>
+    </key>
+    <key name="preview-background" type="s">
+      <default>'light'</default>
+      <summary>Preview background</summary>
+      <description>'light' or 'dark'; persisted by the preview dialog.</description>
+    </key>
+    <key name="list-filter" type="s">
+      <default>'all'</default>
+      <summary>Last used app list filter pill</summary>
+      <description>One of all,changed,keep,skipped,plate.</description>
+    </key>
+    <key name="show-panel-indicator" type="b">
+      <default>false</default>
+      <summary>Show the top bar indicator</summary>
+      <description>When off (default) the extension provides only its preferences window; the background maintenance is unaffected.</description>
+    </key>
+  </schema>
+</schemalist>

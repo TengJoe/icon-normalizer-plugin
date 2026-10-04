@@ -1,0 +1,17 @@
+[Unit]
+Description=Normalize application icons from original artwork
+# icon-index-guard is an external companion unit (repairs the user hicolor
+# index/cache). systemd silently tolerates its absence.
+Wants=icon-index-guard.service
+After=icon-index-guard.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @CONTROL@ --scheduled
+TimeoutStartSec=120s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/icons/DockNormalized %h/.local/share/applications %h/.local/state/icon-normalizer %h/.cache/icon-normalizer

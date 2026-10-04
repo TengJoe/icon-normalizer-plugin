@@ -1,0 +1,22 @@
+[project]
+name = "icon-normalizer"
+version = "3.1.0"
+description = "GNOME application icon normalization backend (Gtk3/GdkPixbuf isolated process)"
+requires-python = ">=3.10"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+pretty = true
+files = ["backend/icon_normalizer"]
+
+[[tool.mypy.overrides]]
+module = ["PIL.*", "numpy", "gi", "gi.repository.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "icon_normalizer.core.*"
+# GdkPixbuf/Gtk dynamic attributes surface as Any; the strict core otherwise holds.
+disallow_any_expr = false

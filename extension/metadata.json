@@ -1,0 +1,11 @@
+{
+  "uuid": "icon-normalizer@joeydeng.local",
+  "name": "Icon Normalizer",
+  "description": "Control a separately installed application icon normalization backend. Provides status, automatic maintenance controls and preferences.",
+  "shell-version": [
+    "51"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.icon-normalizer",
+  "version-name": "1.1.0",
+  "url": "https://github.com/TengJoe/icon-normalizer-plugin"
+}

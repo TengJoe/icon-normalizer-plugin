@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 0.98
+    },
+    "deadband": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.1
+    },
+    "inner": {
+      "type": "number",
+      "minimum": 0.4,
+      "maximum": 0.95
+    },
+    "sizes": {
+      "const": [
+        16,
+        24,
+        32,
+        48,
+        64,
+        96,
+        128,
+        256,
+        512
+      ]
+    },
+    "base_theme": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "target",
+    "deadband",
+    "inner",
+    "sizes",
+    "base_theme"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:icon-normalizer:policy:v1",
+  "title": "Effective policy; cross-field validation also required",
+  "$comment": "Validate 0 < target-deadband and target+deadband <= 1 in code; reject non-finite numbers."
+}

@@ -1,0 +1,42 @@
+# Local builds and interpreter/tool caches
+/dist/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+extension/schemas/gschemas.compiled
+
+# Local work, acceptance evidence and credentials are never source files
+/work/
+/outputs/
+/screenshots/
+/evidence/
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*~
+*.swp
+
+# Host-specific preferences and managed icon state
+/config.json
+/manifest.json
+/baseline.json
+/overrides.json
+/profiles.json
+/theme-follow.json
+/last-run.json
+/last-scan.json
+/pending.json
+/settings-pending.json
+/revert-pending.json
+/backups/

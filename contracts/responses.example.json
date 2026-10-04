@@ -1,0 +1,49 @@
+[
+  {
+    "api_version": 1,
+    "request_id": "example-01",
+    "operation": "status",
+    "ok": true,
+    "result": {
+      "installed": true,
+      "backend_version": "0.1.0",
+      "revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "automatic": "on",
+      "units": {
+        "timer": {
+          "enabled": true,
+          "active": true
+        },
+        "path": {
+          "enabled": true,
+          "active": true
+        }
+      },
+      "busy": false,
+      "recovery_pending": false,
+      "active_theme": "DockNormalized",
+      "source_theme": "Yaru-blue-dark",
+      "overlay_in_use": true,
+      "last_apply_at": "2026-10-01T10:58:00Z",
+      "last_scan_at": null,
+      "summary": {
+        "managed_icons": 25
+      },
+      "stale": false,
+      "last_error": null
+    },
+    "warnings": []
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-09",
+    "operation": "apply",
+    "ok": false,
+    "error": {
+      "code": "BUSY",
+      "message": "后台正在处理图标，请稍后重试。",
+      "retryable": true,
+      "details": {}
+    }
+  }
+]

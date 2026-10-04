@@ -1,0 +1,108 @@
+[
+  {
+    "api_version": 1,
+    "request_id": "example-01",
+    "operation": "status",
+    "arguments": {}
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-02",
+    "operation": "doctor",
+    "arguments": {}
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-03",
+    "operation": "scan",
+    "arguments": {}
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-04",
+    "operation": "preview",
+    "arguments": {
+      "icon_id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "source_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "size": 48,
+      "draft": {
+        "target": 0.88
+      }
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-05",
+    "operation": "configure",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "patch": {
+        "target": 0.88,
+        "deadband": 0.02,
+        "inner": 0.72
+      }
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-06",
+    "operation": "rules.set",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "icon_id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rule": {
+        "skip": false,
+        "classification": "glyph",
+        "source_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-07",
+    "operation": "rules.set",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "icon_id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rule": {
+        "skip": true,
+        "classification": "auto"
+      }
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-08",
+    "operation": "rules.set",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "icon_id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rule": {
+        "reset": true
+      }
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-09",
+    "operation": "apply",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "activate": false
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-10",
+    "operation": "automation.set",
+    "arguments": {
+      "enabled": false
+    }
+  },
+  {
+    "api_version": 1,
+    "request_id": "example-11",
+    "operation": "revert",
+    "arguments": {}
+  }
+]

@@ -1,0 +1,186 @@
+{
+  "type": "object",
+  "properties": {
+    "api_version": {
+      "const": 1
+    },
+    "request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "operation": {
+      "enum": [
+        "status",
+        "doctor",
+        "scan",
+        "preview",
+        "configure",
+        "rules.set",
+        "apply",
+        "automation.set",
+        "revert",
+        null,
+        "profiles.list",
+        "profiles.save",
+        "profiles.delete",
+        "theme.follow",
+        "theme.sync"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "result": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/warning"
+      }
+    },
+    "error": {
+      "$ref": "#/$defs/error"
+    }
+  },
+  "required": [
+    "api_version",
+    "request_id",
+    "operation",
+    "ok"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:icon-normalizer:response:v1",
+  "title": "Proposed Icon Normalizer v1 response envelope",
+  "$defs": {
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "enum": [
+            "INVALID_REQUEST",
+            "UNSUPPORTED_VERSION",
+            "INVALID_CONFIG",
+            "NOT_INSTALLED",
+            "DEPENDENCY_MISSING",
+            "UNSUPPORTED_ENVIRONMENT",
+            "BUSY",
+            "REVISION_CONFLICT",
+            "STALE_SOURCE",
+            "NOT_FOUND",
+            "SOURCE_UNAVAILABLE",
+            "RECOVERY_REQUIRED",
+            "OWNERSHIP_CONFLICT",
+            "AUTOMATION_FAILED",
+            "TIMEOUT",
+            "IO_ERROR",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    "warning": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "result",
+          "warnings"
+        ],
+        "not": {
+          "required": [
+            "error"
+          ]
+        },
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "status",
+              "doctor",
+              "scan",
+              "preview",
+              "configure",
+              "rules.set",
+              "apply",
+              "automation.set",
+              "revert",
+              "profiles.list",
+              "profiles.save",
+              "profiles.delete",
+              "theme.follow",
+              "theme.sync"
+            ]
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "error"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "result"
+              ]
+            },
+            {
+              "required": [
+                "warnings"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

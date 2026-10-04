@@ -1,0 +1,208 @@
+{
+  "type": "object",
+  "properties": {
+    "installed": {
+      "type": "boolean"
+    },
+    "backend_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "automatic": {
+      "enum": [
+        "on",
+        "off",
+        "partial",
+        "unknown"
+      ]
+    },
+    "units": {
+      "type": "object",
+      "properties": {
+        "timer": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "active": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "enabled",
+            "active"
+          ],
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "active": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "enabled",
+            "active"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "timer",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "busy": {
+      "type": "boolean"
+    },
+    "recovery_pending": {
+      "type": "boolean"
+    },
+    "active_theme": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_theme": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "overlay_in_use": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "last_apply_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "last_scan_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "summary": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "stale": {
+      "type": "boolean"
+    },
+    "last_error": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_REQUEST",
+                "UNSUPPORTED_VERSION",
+                "INVALID_CONFIG",
+                "NOT_INSTALLED",
+                "DEPENDENCY_MISSING",
+                "UNSUPPORTED_ENVIRONMENT",
+                "BUSY",
+                "REVISION_CONFLICT",
+                "STALE_SOURCE",
+                "NOT_FOUND",
+                "SOURCE_UNAVAILABLE",
+                "RECOVERY_REQUIRED",
+                "OWNERSHIP_CONFLICT",
+                "AUTOMATION_FAILED",
+                "TIMEOUT",
+                "IO_ERROR",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "theme_follow": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "installed",
+    "backend_version",
+    "revision",
+    "automatic",
+    "units",
+    "busy",
+    "recovery_pending",
+    "active_theme",
+    "source_theme",
+    "overlay_in_use",
+    "last_apply_at",
+    "last_scan_at",
+    "summary",
+    "stale",
+    "last_error"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:icon-normalizer:status:v1",
+  "title": "Proposed Icon Normalizer v1 status result"
+}

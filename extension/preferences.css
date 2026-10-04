@@ -1,0 +1,78 @@
+/* GTK-only styles. Shell keeps its own stylesheet.css, so native GTK theme
+   colors and alpha() never reach the St parser. */
+.normalizer-action {
+    min-height: 24px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+.normalizer-filters > flowboxchild, .normalizer-adaptive > flowboxchild {
+    padding: 0;
+    background: none;
+}
+.normalizer-filter {
+    min-height: 24px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background-color: alpha(@window_fg_color, 0.06);
+    box-shadow: none;
+}
+.normalizer-filter:checked {
+    background-color: alpha(@accent_bg_color, 0.18);
+    color: @accent_color;
+}
+.badge-pill {
+    min-height: 18px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 500;
+}
+.badge-keep {
+    background-color: alpha(@window_fg_color, 0.08);
+    color: alpha(@window_fg_color, 0.72);
+}
+.badge-enlarge, .badge-shrink {
+    background-color: alpha(@accent_bg_color, 0.15);
+    color: @accent_color;
+}
+.badge-add-plate {
+    background-color: rgba(145, 65, 172, 0.16);
+    color: #a96bc4;
+}
+.badge-skipped, .badge-warn {
+    background-color: alpha(@warning_bg_color, 0.16);
+    color: @warning_color;
+}
+.badge-active {
+    background-color: alpha(@success_bg_color, 0.16);
+    color: @success_color;
+}
+.normalizer-notice image { color: @accent_color; }
+.normalizer-notice.notice-error image { color: @error_color; }
+.normalizer-notice.notice-success image { color: @success_color; }
+.normalizer-app-list {
+    background: none;
+    border-radius: 12px;
+}
+.normalizer-app-list row {
+    padding: 8px 12px;
+}
+.normalizer-app-list row:hover { background-color: alpha(@window_fg_color, 0.04); }
+.normalizer-app-list row:selected { background-color: alpha(@accent_bg_color, 0.10); }
+.preview-stage-card {
+    border-radius: 12px;
+    padding: 16px;
+    background-color: #191919;
+    color: #eeeeec;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.preview-stage-card.light-mode {
+    background-color: #fafafa;
+    color: #323232;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.mono-stat {
+    font-family: monospace;
+    font-size: 0.85em;
+}

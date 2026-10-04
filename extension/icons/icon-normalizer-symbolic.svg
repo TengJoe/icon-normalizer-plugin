@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="#bebebe">
+    <path d="M4 0h8a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4zm0 1.5A2.5 2.5 0 0 0 1.5 4v8A2.5 2.5 0 0 0 4 14.5h8a2.5 2.5 0 0 0 2.5-2.5V4A2.5 2.5 0 0 0 12 1.5z"/>
+    <rect x="3.5" y="3.5" width="3.5" height="3.5" rx="1"/>
+    <rect x="9" y="3.5" width="3.5" height="3.5" rx="1"/>
+    <rect x="3.5" y="9" width="3.5" height="3.5" rx="1"/>
+    <rect x="9" y="9" width="3.5" height="3.5" rx="1"/>
+  </g>
+</svg>
