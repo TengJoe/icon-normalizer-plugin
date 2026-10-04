@@ -49,11 +49,12 @@ source/archive equality, SPDX-compatible license, version, schemas and the teste
 Shell declaration. The builder runs local source gates before making artifacts.
 
 Source and issue tracker: [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin).
-`metadata.json` contains this project URL. The repository must be publicly
-accessible before an EGO submission; a private staging repository does not meet
-that requirement. Rebuild, rerun acceptance and the submission gate after changes.
-Publish the full source and companion release there. Do not upload the full tarball
-as the GNOME extension ZIP. No store submission has been made.
+`metadata.json` contains this project URL. The public source and companion release
+are available at [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
+Rebuild, rerun acceptance and the submission gate after changes. The local URL
+gate checks syntax; repository accessibility needs separate verification.
+Do not upload the full tarball as the GNOME extension ZIP.
+No GNOME Extensions store submission has been made.
 
 The EGO service assigns its own numeric extension version. Preserve version-name
 as the release's human-readable version, and keep the current UUID for upgrades.

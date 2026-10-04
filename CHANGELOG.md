@@ -1,5 +1,8 @@
 # Changelog
 
+v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。
+See [first public release notes](docs/RELEASE-1.1.1.md) for downloads and installation.
+
 ## 前端 1.1.1 — 作者署名与中英文支持入口（后端保持 3.1.0）
 
 - 维护页增加「关于与支持」：作者 TengJoe、版本、项目主页、反馈和许可证。

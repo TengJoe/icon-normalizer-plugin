@@ -2,6 +2,10 @@
 
 [简体中文](README.md)
 
+[Download v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) ·
+[Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) ·
+[Support development](docs/SUPPORT.md)
+
 Icon Normalizer is a GNOME Shell extension and a user-level background service
 that gives third-party application icons a consistent visual size and shape.
 It reads original artwork without modifying system files and keeps recovery
@@ -12,7 +16,23 @@ Earlier GNOME versions require separate testing before being declared supported.
 
 ## Install or upgrade
 
-From the project directory:
+For a first installation, download `icon-normalizer-plugin-1.1.1.tar.gz` and
+`SHA256SUMS` from [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
+Prepare the runtime dependencies listed below on GNOME Shell 51, then run as
+your normal user:
+
+```bash
+sha256sum --ignore-missing -c SHA256SUMS
+tar -xzf icon-normalizer-plugin-1.1.1.tar.gz
+cd icon-normalizer-plugin
+python3 tools/install.py
+```
+
+The extension ZIP is for frontend installation or upgrades with an existing
+companion backend, and for GNOME Extensions submission. It does not include
+the Python backend. Use the full tarball for a complete first installation.
+
+For source development or rebuilding, run from the project directory:
 
 ```bash
 python3 tools/build.py
@@ -125,8 +145,9 @@ source itself does not force overlay reactivation. Restore returns to the latest
 selected source theme. Failed migrations roll back icons, policy and restore data.
 
 See [submission notes](docs/SUBMISSION.md) for the separate companion service and
-review boundaries. Source and issues are at [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin). The repository must be public before an EGO submission. Source is licensed under
-GPL-3.0-or-later; see [LICENSE](LICENSE).
+review boundaries. Public source and issues are at the [GitHub project](https://github.com/TengJoe/icon-normalizer-plugin),
+with installable packages in [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
+Source is licensed under GPL-3.0-or-later; see [LICENSE](LICENSE).
 
 ## Author and support
 
