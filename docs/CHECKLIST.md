@@ -1,4 +1,4 @@
-# 发布验收 Checklist（前端 1.1.0 / 后端 3.1.0）
+# 发布验收 Checklist（前端 1.1.1 / 后端 3.1.0）
 
 > 一键命令全部可在仓库根目录直接执行；标注 [手动] 的项目需要真实桌面会话。
 
@@ -8,15 +8,15 @@
 |---|---|---|---|
 | Q1 | 后端类型严格检查 | `~/.local/bin/mypy` | `Success: no issues found in 22 source files` |
 | Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 147 tests OK |
-| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 15 JS files ok，依赖存在 |
+| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 JS files ok，依赖存在 |
 | Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 11/11 passed |
 | Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 17 tests OK，独立假 manager |
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；dist/ 三件套生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
-| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 8 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理与旧后台升级提示 |
+| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 9 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
 | Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 12/12，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
-| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部 209 条翻译、占位符、自动检测、17 错误码与回切 |
+| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部 225 条翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、
@@ -53,7 +53,7 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 ## 3. 安装与生命周期 [手动 + Q5]
 
 - [ ] `python3 tools/install.py` 在真实桌面通过（status 探活 ok=true）
-- [ ] 升级路径：前端 1.0.6 / 后端 3.0.2 安装态被 1.1.0 / 3.1.0 接管（manifest 兼容），
+- [ ] 升级路径：前端 1.0.6 / 后端 3.0.2 安装态被 1.1.1 / 3.1.0 接管（manifest 兼容），
       保留视觉参数、用户规则与自动维护状态；必要重建后 `status.stale == false`
 - [ ] `systemctl --user status icon-normalizer.{timer,path}` 均 enabled+active；
       `touch ~/.local/share/applications/*.desktop` 后 ≤60s 内 `last-run.json` 更新
@@ -81,6 +81,8 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 - [ ] 顶栏指示器（开启后）：状态摘要、立即检查/应用、自动维护开关、设置入口；
       锁屏/解锁不残留 UI、不触碰后台
 - [ ] 快速连点“立即应用”无死锁、无重复并发 apply（去重 + 单一流编排）
+- [ ] 关于与支持显示作者 TengJoe、版本、许可证及项目链接；微信与支付宝收款码
+      在中英文宽窄窗口下可扫描，关闭弹窗/父窗口后无残留。
 
 ## 5. 发布产物
 
@@ -100,7 +102,7 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
    校验后恢复 libexec/units/config 与触发器状态。
 
 
-## Release 1.1 / backend 3.1 additional gates
+## Release 1.1.1 / backend 3.1 additional gates
 
 ```sh
 python3 -m unittest discover -s tests/backend -v

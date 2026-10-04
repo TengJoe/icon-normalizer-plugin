@@ -2,6 +2,10 @@
 
 [English guide](README.en.md)
 
+[下载 v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) ·
+[问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues) ·
+[支持开发](docs/SUPPORT.md)
+
 面向 Linux / GNOME 桌面的应用图标归一化插件与用户级后台维护服务。
 解决第三方应用图标“忽大忽小、留白杂乱、形状不一”的痛点，提供类似 macOS
 的视觉一致性。系统素材保持只读，改动落在用户目录并保留恢复记录。
@@ -27,6 +31,22 @@
 | 测试 | `tests/` | 后端/事务恢复、安装故障、前端逻辑、真实 GJS/GTK4 回归，全部使用独立 fixture |
 
 ## 构建与安装
+
+首次安装请从 [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1)
+下载完整安装包 `icon-normalizer-plugin-1.1.1.tar.gz` 与 `SHA256SUMS`。
+在 GNOME Shell 51 环境准备好下方运行依赖后，以普通用户执行：
+
+```bash
+sha256sum --ignore-missing -c SHA256SUMS
+tar -xzf icon-normalizer-plugin-1.1.1.tar.gz
+cd icon-normalizer-plugin
+python3 tools/install.py
+```
+
+Release 中的扩展 ZIP 用于已有配套后台的前端安装/升级，也作为 GNOME Extensions
+的提交包。ZIP 不包含 Python 后台，首次完整安装请使用上面的 tar.gz。
+
+从源码开发或构建时，在项目根目录执行：
 
 ```bash
 # 构建（严格 schema 编译 → 扩展 ZIP + 发行 tarball + DIST_MANIFEST）
@@ -99,7 +119,9 @@ python3 tests/frontend/test_runtime.py
 
 本版前端 **1.1.1**、后端 **3.1.0**，上架候选只声明实测 **GNOME 51**。
 发布准备和配套服务审核说明见 [SUBMISSION.md](docs/SUBMISSION.md)。
-源码许可证为 GPL-3.0-or-later，全文见 [LICENSE](LICENSE)。项目源码与问题反馈见 [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin)；提交 GNOME Extensions 前仓库须公开。
+源码许可证为 GPL-3.0-or-later，全文见 [LICENSE](LICENSE)。
+公开源码与问题反馈见 [GitHub 项目](https://github.com/TengJoe/icon-normalizer-plugin)，
+发行包见 [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1)。
 
 ## 作者与支持
 
