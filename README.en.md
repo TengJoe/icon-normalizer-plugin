@@ -7,7 +7,7 @@ that gives third-party application icons a consistent visual size and shape.
 It reads original artwork without modifying system files and keeps recovery
 records for its changes in your home directory.
 
-The current frontend is **1.1.0**, with backend **3.1.0**. This release supports GNOME 51, verified by runtime acceptance tests.
+The current frontend is **1.1.1**, with backend **3.1.0**. This release supports GNOME 51, verified by runtime acceptance tests.
 Earlier GNOME versions require separate testing before being declared supported.
 
 ## Install or upgrade
@@ -127,3 +127,11 @@ selected source theme. Failed migrations roll back icons, policy and restore dat
 See [submission notes](docs/SUBMISSION.md) for the separate companion service and
 review boundaries. Source and issues are at [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin). The repository must be public before an EGO submission. Source is licensed under
 GPL-3.0-or-later; see [LICENSE](LICENSE).
+
+## Author and support
+
+Author: **[TengJoe](https://github.com/TengJoe)**.
+Maintenance → About and support provides the project homepage, issue tracker,
+version, license, and payment QR codes for WeChat Pay and Alipay.
+All features are available for free; supporting development is voluntary.
+See the bilingual [support page](docs/SUPPORT.md).

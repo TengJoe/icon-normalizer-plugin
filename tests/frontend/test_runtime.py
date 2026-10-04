@@ -62,8 +62,12 @@ class PreferencesRuntime(unittest.TestCase):
             self.assertNotIn('Adwaita-WARNING',result.stderr)
             self.assertNotIn('icon-normalizer:',result.stderr)
             records=[json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
-            scan=json.loads((box.state/'last-scan.json').read_text())
-            self.assertEqual(scan['groups'][0]['names'],['Fixture UI'])
+            if script == 'support-smoke.mjs':
+                self.assertFalse((box.state/'last-scan.json').exists(),
+                                 'Support UI must not scan or invoke the backend')
+            else:
+                scan=json.loads((box.state/'last-scan.json').read_text())
+                self.assertEqual(scan['groups'][0]['names'],['Fixture UI'])
             return records
 
     def test_gnome_loader_constructs_three_pages(self):
@@ -112,6 +116,13 @@ class PreferencesRuntime(unittest.TestCase):
         self.assertTrue(result['revision_preserved'])
         self.assertTrue(result['config_unchanged'])
         self.assertTrue(result['close_disconnect'])
+
+    def test_support_dialogs_languages_and_responsive_layout(self):
+        result=next(r for r in self.run_fixture('support-smoke.mjs') if r.get('ok'))
+        self.assertEqual(result['payment_methods'],['wechat','alipay'])
+        self.assertEqual(len(result['dimensions']),8)
+        self.assertTrue(result['open_dialog_language_switch'])
+        self.assertTrue(result['close_cleanup'])
 
 
 if __name__=='__main__':

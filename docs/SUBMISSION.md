@@ -1,12 +1,13 @@
 # GNOME Extensions submission preparation
 
-Candidate: frontend 1.1.0, companion backend 3.1.0. Runtime support in this
+Candidate: frontend 1.1.1, companion backend 3.1.0. Runtime support in this
 candidate is GNOME Shell 51 only. Earlier versions need their own acceptance run.
 
 ## Review boundary and installation
 
 The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, GPLv3
-license and GSettings schemas. It contains no Python code, executables, shared
+license, GSettings schemas, and two maintainer-authorized payment-code images.
+It contains no Python code, executables, shared
 libraries, package installers, downloads, telemetry or clipboard integration.
 
 The extension controls a **separately installed user-level companion backend**.
