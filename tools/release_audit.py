@@ -12,6 +12,8 @@ import re
 from urllib.parse import urlparse
 import zipfile
 
+from layout import PACKAGE_EXCLUDE
+
 PROJECT = Path(__file__).resolve().parent.parent
 EXTENSION = PROJECT / 'extension'
 TESTED_SHELL = {'51'}
@@ -79,8 +81,9 @@ def inspect_source(submission: bool = False) -> dict:
 
 def inspect_archive(path: Path) -> dict:
     with zipfile.ZipFile(path) as archive:
-        expected = {str(p.relative_to(EXTENSION)): p.read_bytes()
-                    for p in EXTENSION.rglob('*') if p.is_file()}
+        expected = {p.relative_to(EXTENSION).as_posix(): p.read_bytes()
+                    for p in EXTENSION.rglob('*') if p.is_file()
+                    and p.relative_to(EXTENSION).as_posix() not in PACKAGE_EXCLUDE}
         members = archive.namelist()
         exact = set(members) == set(expected) and len(members) == len(set(members))
         matching = exact and all(archive.read(name) == data for name, data in expected.items())

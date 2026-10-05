@@ -50,6 +50,14 @@ python3 tools/install.py
 
 发行页中的 `icon-normalizer@joeydeng.local.zip` 仅包含扩展前端，适合已有配套后台时更新前端。自定义方案与主题跟随需要后台 3.1.0 或更新版本；旧后台会显示升级提示。
 
+按 GNOME 审核规则（EGO-P-006），该 ZIP **不包含编译好的 `schemas/gschemas.compiled`**：商店会在上传时自行编译。如果你用 `gnome-extensions install` 手动安装这个 ZIP，请补一条命令，否则设置项无法读取：
+
+```bash
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
+```
+
+用 `python3 tools/install.py` 从源码或完整发行包安装时不需要这一步，安装器会自行编译。
+
 ### 从源码安装
 
 在项目根目录执行：

@@ -50,6 +50,14 @@ Confirm that the checksum output is `OK` before installing. The complete release
 
 The separate `icon-normalizer@joeydeng.local.zip` contains only the extension frontend. Use it to update the frontend when the companion is already installed. Custom profiles and theme following require backend 3.1.0 or newer; older backends display an upgrade hint.
 
+Per the GNOME review rule EGO-P-006 this ZIP **omits the compiled `schemas/gschemas.compiled`**; the extensions website compiles it during upload. If you install the ZIP manually with `gnome-extensions install`, run one extra command or the settings schema will not resolve:
+
+```bash
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
+```
+
+Installing with `python3 tools/install.py` from source or from the complete release does not need this step; the installer compiles the schema itself.
+
 ### Install from source
 
 Run from the project root:

@@ -6,7 +6,7 @@ Candidate: extension **1.1.1**, companion backend **3.1.0**, verified **GNOME Sh
 
 ## Package boundary
 
-The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, the GPLv3 license, GSettings schemas, and two maintainer-authorized payment-code images. It contains no Python code, executables, shared libraries, package installers, downloads, telemetry, or clipboard integration.
+The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, the GPLv3 license, GSettings schema XML, and two maintainer-authorized payment-code images. It intentionally omits the compiled `schemas/gschemas.compiled` (review rule EGO-P-006); the extensions website compiles the schema during upload, and `tools/install.py` compiles it for local source installs. It contains no Python code, executables, shared libraries, package installers, downloads, telemetry, or clipboard integration.
 
 The extension controls a **separately installed user-level companion backend**. The complete release tarball contains the backend source and installer. A ZIP-only installation shows a missing-backend message until the companion is installed manually.
 

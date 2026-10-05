@@ -14,7 +14,7 @@ import sys
 import zipfile
 from pathlib import Path
 from typing import Any
-from layout import backend_version
+from layout import PACKAGE_EXCLUDE, backend_version
 from release_audit import inspect_source
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -49,7 +49,10 @@ def build_zip(target: Path) -> None:
         for path in sorted((PROJECT / "extension").rglob("*")):
             if not path.is_file() or "__pycache__" in path.parts:
                 continue
-            archive.write(path, path.relative_to(PROJECT / "extension"))
+            name = path.relative_to(PROJECT / "extension").as_posix()
+            if name in PACKAGE_EXCLUDE:
+                continue
+            archive.write(path, name)
 
 
 def build_tarball(target: Path, ver: str) -> None:
