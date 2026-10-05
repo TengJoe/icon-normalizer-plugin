@@ -191,6 +191,24 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+#: Installation snapshots kept after a successful run. A snapshot exists to roll
+#: back the run that created it, so older copies are dead weight in the state
+#: directory; failures keep their snapshot and uninstall snapshots stay until
+#: the user removes them.
+SNAPSHOT_KEEP = 5
+
+
+def prune_install_snapshots(layout: Any, keep: int = SNAPSHOT_KEEP) -> list[str]:
+    """Remove the oldest installation snapshots; return the names removed."""
+    roots = sorted((p for p in layout.backups.glob("install-snapshot-*") if p.is_dir()),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    removed = []
+    for stale in roots[keep:]:
+        shutil.rmtree(stale, ignore_errors=True)
+        removed.append(stale.name)
+    return removed
+
+
 def restore_snapshot(snap_dir: Path, layout: Any) -> None:
     manifest = json.loads((snap_dir / "snapshot.json").read_text())
     for rel, digest in manifest["sha256"].items():
@@ -436,8 +454,10 @@ def install(assume_yes: bool) -> int:
                 except Exception as recovery:
                     return _failure(exc, recovery)
                 return _failure(exc)
+        pruned = prune_install_snapshots(layout)
         print(json.dumps({"ok": True, "stage": "done", "upgraded": is_upgrade,
                           "backend_version": BACKEND_VERSION, "snapshot": str(snap),
+                          "snapshots_pruned": pruned,
                           "trigger_states_before": before, "extension": str(layout.extension)}))
         return 0
     except Exception as exc:

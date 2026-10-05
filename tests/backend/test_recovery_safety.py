@@ -2,6 +2,7 @@
 import base64
 import fcntl
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -222,6 +223,16 @@ class RecoverySafety(unittest.TestCase):
              patch.object(control,'_build_engine',return_value=engine):
             self.assertEqual(control._run_scheduled(self.paths),0)
         self.assertEqual(engine.sync.call_count,2)
+
+    def test_worker_skip_exits_busy_with_a_diagnostic_line(self):
+        # A timer/path trigger that loses the lock race to the UI or another
+        # worker is a normal skip: report EXIT_BUSY and say why, so the journal
+        # explains the run instead of showing a bare non-zero exit.
+        captured=io.StringIO()
+        with patch.object(control,'_acquire',return_value=None),\
+             patch.object(sys,'stderr',captured):
+            self.assertEqual(control._run_scheduled(self.paths),control.EXIT_BUSY)
+        self.assertIn('sync.lock',captured.getvalue())
 
     def test_busy_response_does_not_pollute_persistent_health(self):
         control._record_error(self.paths,ProtocolError('BUSY','expected contention'))

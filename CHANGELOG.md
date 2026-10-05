@@ -4,6 +4,16 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 
 ## 未发布 / Unreleased
 
+### 修复
+
+- **定时触发跳过被误记为服务失败**：锁被设置界面或另一个 worker 占用时，计划任务按设计以
+  `EXIT_BUSY`(3) 退出，但 systemd 把非零退出码一律记为单元失败。现在 `icon-normalizer.service`
+  声明 `SuccessExitStatus=3`，worker 同时向 stderr 输出跳过原因
+  （"another instance holds sync.lock"）便于从日志判断；真实错误仍是非零退出并保留快照。
+- **安装快照不再无限累积**：此前每次安装/升级都永久保留一份完整快照（本机实测堆积 12 份 / 7.2 MB）。
+  现在成功安装后只保留最近 5 个 `install-snapshot-*`；安装失败仍保留当次快照用于回滚，
+  卸载快照保持不动（它是用户手动恢复的凭据）。
+
 ### 元数据与上架准备
 
 - 打包不再包含 `schemas/gschemas.compiled`：GNOME 审核规则 EGO-P-006 要求 45+ 扩展不要附带编译好的 schema，
