@@ -1,40 +1,43 @@
-# Icon Normalizer Plugin
+# Icon Normalizer
 
-[English guide](README.en.md)
+[English](README.en.md) · [下载 v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [支持开发](docs/SUPPORT.md)
 
-[下载 v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) ·
-[问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues) ·
-[支持开发](docs/SUPPORT.md)
+Icon Normalizer 为 GNOME 桌面的应用图标统一视觉大小与底板样式，由 GNOME Shell 扩展和用户级 Python 后台组成。原始系统图标保持只读，生成的图标与恢复记录保存在用户目录。
 
-面向 Linux / GNOME 桌面的应用图标归一化插件与用户级后台维护服务。
-解决第三方应用图标“忽大忽小、留白杂乱、形状不一”的痛点，提供类似 macOS
-的视觉一致性。系统素材保持只读，改动落在用户目录并保留恢复记录。
+| 项目 | 当前公开版本 |
+| --- | --- |
+| 扩展 | 1.1.1 |
+| 配套后台 | 3.1.0 |
+| 实测支持 | GNOME Shell 51 |
+| 作者 | [TengJoe](https://github.com/TengJoe) |
+| 许可证 | [GPL-3.0-or-later](LICENSE) |
 
-- 目标占比 **88%**（Ubuntu/Yaru 原生图标统计中位数）、死区 **±2%**（死区内不重采样）、
-  裸 Logo 内层 **72%**（0.88 × 0.72 ≈ 63.4%）、九档固定尺寸梯队
-  `16/24/32/48/64/96/128/256/512`。
-- 只写入 `~/.local/share/icons/DockNormalized/`（`Inherits=<原生主题>,hicolor`）
-  与必要时的用户级启动器覆盖层，并维护用户级状态、预览缓存和服务单元。
-  未被外部编辑的托管启动器按原始字节还原；冲突时保留外部编辑并报告失败。
-- 后端（Gtk3/GdkPixbuf）与前端（Gtk4/Libadwaita）**绝对进程隔离**，仅以
-  单行 JSON CLI 协议通信（见 `PROTOCOL.md`）。
+## 功能
 
-## 组件
+- **图标归一化**：调整视觉占比，为适合的图标补充底板，生成 16–512 px 的九档图标。
+- **规则与自定义方案**：调整目标占比、容差和 Logo 内层占比；保存、使用、重命名或删除最多 50 套命名方案。
+- **应用图标管理**：搜索、筛选、比较原始与归一化图标，并为单个图标设置跳过规则。
+- **自动维护与主题跟随**：检测应用入口变化；切换图标主题时保留视觉参数与逐图标规则。
+- **自适应中英文界面**：窄窗口下按钮纵排、筛选换行、预览单栏；语言切换保留页面、搜索条件与未保存参数。
+- **恢复原样**：还原托管启动器与图标主题；遇到外部编辑时保留修改并报告冲突。
 
-| 组件 | 位置 | 说明 |
-|---|---|---|
-| 后端包 | `backend/icon_normalizer/` | 归一化引擎（engine/analyzer/renderer/transaction）、协议控制器、预览缓存、systemd 适配 |
-| 扩展 | `extension/` | GNOME 51（本版实测范围）；面板指示器（默认关）+ 三页设置窗口 |
-| 契约 | `contracts/` | 协议 v1 JSON Schema（冻结） |
-| 工具 | `tools/` | 构建 / 安装 / 卸载（布局唯一事实源 `layout.py`） |
-| 单元 | `packaging/systemd/` | `service`（oneshot+沙箱）、`timer`（每分钟兜底）、`path`（入口目录秒级触发） |
-| 测试 | `tests/` | 后端/事务恢复、安装故障、前端逻辑、真实 GJS/GTK4 回归，全部使用独立 fixture |
+## 安装与升级
 
-## 构建与安装
+### 环境要求
 
-首次安装请从 [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1)
-下载完整安装包 `icon-normalizer-plugin-1.1.1.tar.gz` 与 `SHA256SUMS`。
-在 GNOME Shell 51 环境准备好下方运行依赖后，以普通用户执行：
+本版仅声明经过运行时验收的 **GNOME Shell 51**。其他版本需要单独验证。
+
+| 用途 | 依赖 |
+| --- | --- |
+| 设置窗口 | GJS、GTK 4、Libadwaita 及对应的 GI 类型库 |
+| 图标处理后台 | Python 3.10 或更新版本、Python GI、GTK 3、GdkPixbuf、Pillow、NumPy |
+| 安装与自动维护 | systemd 用户会话、`gtk-update-icon-cache`、`glib-compile-schemas` |
+
+后台使用 GTK 3，设置窗口使用 GTK 4，两者在独立进程中运行。安装器会检查后台与安装工具的依赖；缺失的软件包需按发行版说明另行安装。
+
+### 使用完整发行包
+
+从 [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) 下载 `icon-normalizer-plugin-1.1.1.tar.gz` 和 `SHA256SUMS`，在同一目录以普通用户执行：
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
@@ -43,89 +46,102 @@ cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-Release 中的扩展 ZIP 用于已有配套后台的前端安装/升级，也作为 GNOME Extensions
-的提交包。ZIP 不包含 Python 后台，首次完整安装请使用上面的 tar.gz。
+确认校验输出为 `OK` 后再安装。完整发行包包含扩展、后台与安装工具，适合首次安装或整体升级。安装器会创建快照、暂存并验证文件、替换代码和检查后台；升级失败时恢复快照。
 
-从源码开发或构建时，在项目根目录执行：
+发行页中的 `icon-normalizer@joeydeng.local.zip` 仅包含扩展前端，适合已有配套后台时更新前端。自定义方案与主题跟随需要后台 3.1.0 或更新版本；旧后台会显示升级提示。
+
+### 从源码安装
+
+在项目根目录执行：
 
 ```bash
-# 构建（严格 schema 编译 → 扩展 ZIP + 发行 tarball + DIST_MANIFEST）
 python3 tools/build.py
-
-# 安装 / 升级（快照 → 原子换装 → 探活；失败自动回滚）
 python3 tools/install.py
-
-# 卸载（先经后端 revert 字节级还原桌面；--keep-backend 仅移除面板）
-python3 tools/uninstall.py
-python3 tools/uninstall.py --keep-backend
 ```
 
-运行依赖（precheck 自动诊断）：`python3 (≥3.10)`、`python3-gi + gir1.2-gtk-3.0`、
-`python3-pil`、`python3-numpy`、`gtk-update-icon-cache`。
+构建结果位于 `dist/`，包含扩展 ZIP、完整发行包和 `DIST_MANIFEST.json`。开发检查与测试命令见[贡献指南](CONTRIBUTING.md)。
+
+升级后，关闭并重新打开设置窗口即可加载新的设置界面。顶栏代码受 GNOME Shell 模块缓存影响，需要保存工作后注销、重新登录；安装器不会自动结束会话。
 
 ## 使用
 
-- 设置入口：扩展管理器 → **图标统一** → 设置（规则 / 应用图标 / 维护 三页）。
-- 顶栏指示器默认关闭；在“维护”页打开开关即时生效。
-- 顶栏使用单色图标；菜单按运行摘要、主题/最近应用与操作分组显示。
-- “维护 → 界面语言”提供跟随系统、简体中文、English 三种选择；切换即时生效，
-  保留当前页面、搜索条件及未保存参数。顶栏与设置共用语言偏好。
-- 后台维护完全独立：`systemctl --user` 驱动的 `icon-normalizer.timer`
-  （每分钟兜底）与 `icon-normalizer.path`（监听用户/系统/Flatpak 入口目录，
-  新装应用秒级归一化）。锁屏或关闭设置窗口不影响后台。
-- “维护”页提供 **立即检查 / 立即应用 / 应用并激活主题 / 完全还原** 通道；
-  还原前有确认对话框。
+从扩展管理器打开 **Icon Normalizer → 设置**。
 
-## 开发
+| 页面 | 常用操作 |
+| --- | --- |
+| 规则 | 调整视觉参数，选择预设或自定义方案，点击“仅保存”或“保存并应用” |
+| 应用图标 | 搜索与筛选图标，打开对比预览，设置逐图标跳过规则 |
+| 维护 | 查看状态，执行“立即检查”“立即应用”“应用并激活”，设置自动维护、主题跟随与界面语言 |
+
+“标准”预设为 **88%** 目标占比、**±2 个百分点**容差和 **72%** Logo 内层占比。九档输出尺寸为 `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`。
+
+### 自定义方案与主题跟随
+
+“保存为自定义方案”保存当前参数；“使用方案”只填入参数草稿。点击“仅保存”或“保存并应用”后，参数才成为生效配置。方案不绑定图标主题。
+
+“维护 → 跟随图标主题”默认开启。自动维护也开启时，切换到另一个已安装的图标主题会重新生成 `DockNormalized`，保留视觉参数和逐图标规则。最近选择的素材主题成为还原目标；迁移失败时恢复原有图标、配置与还原记录。
+
+切换 GTK 或 GNOME Shell 外观主题不改变视觉参数。重新选择当前的素材主题不会强制激活归一化主题；需要重新启用效果时，点击“应用并激活”。
+
+### 自动维护、语言与顶栏
+
+自动维护通过用户级 `icon-normalizer.path` 检测应用入口变化，并由 `icon-normalizer.timer` 每分钟检查兜底。处理完成时间取决于事件检测和图标数量；关闭设置窗口或锁屏不会停止后台维护。
+
+在“维护 → 界面语言”选择“跟随系统”“简体中文”或“English”。顶栏与设置共用语言偏好，切换后即时更新。
+
+顶栏按钮默认关闭。在“维护 → 显示顶栏按钮”开启后，可通过单色图标查看状态、检查或应用图标，以及打开设置。
+
+## 恢复与卸载
+
+在“维护 → 还原桌面图标”点击“还原”，确认后恢复托管修改与最近选择的素材主题。未被外部编辑的托管启动器按原始字节还原；冲突会保留外部编辑并报告失败。
+
+在完整发行包或源码目录中执行：
 
 ```bash
-# 后端：类型门 + 全量单测
-~/.local/bin/mypy                                        # strict，22 文件
-python3 -m unittest discover -s tests/backend -p 'test_*.py'
+# 先恢复托管修改，再卸载扩展与后台。
+python3 tools/uninstall.py
 
-# 前端：语法门 + 纯逻辑单测
-node tests/frontend/syntax-check.mjs
-node tests/frontend/stateModel.test.mjs
-
-# 安装回归（私有文件树与假 systemd 管理器）
-python3 -m unittest discover -s tests/installation -p 'test_*.py'
-
-# 真实 GNOME 51 设置加载与预览（需要图形会话，后端仍为独立 fixture）
-python3 tests/frontend/test_runtime.py
+# 仅移除扩展，保留后台与自动维护服务。
+python3 tools/uninstall.py --keep-backend
 ```
 
-架构基准见 `ARCHITECTURE.md`；协议细节见 `PROTOCOL.md`；
-决策记录见 `docs/adr/`；发布验收清单见 `docs/CHECKLIST.md`。
+备份保留在 `~/.local/state/icon-normalizer/backups/`。恢复失败时先保留状态文件与托管目录，再按[验收与恢复说明](docs/CHECKLIST.md)处理。
 
-## 已知边界
+## 支持范围
 
-- 托盘/AppIndicator 图标（Vitals、剪贴板指示器等）由运行中的应用自行绘制，
-  绕过图标主题，无法归一化（协议标记 `unsupported`）。
-- 以 `set_icon_from_file()` 设置窗口图标的少量应用同样绕过主题——覆盖率“高”而非 100%。
-- 非默认 `XDG_DATA_HOME` 会被 precheck 拒绝（v1 明确不支持）。
-- 尚未提交 extensions.gnome.org；配套后台单独安装，外部进程边界需向审核者说明，详见 SUBMISSION.md。
-- metadata 只声明实测 GNOME 51；更早版本需完成各自运行时验收后再扩展声明。
-- 升级后新设置窗口进程会加载新代码；已运行的 Shell 缓存扩展模块，面板代码更新
-  需要保存工作后注销并重新登录。安装器不会自动结束图形会话。
+- 托盘与 AppIndicator 图标，以及由应用直接绘制或从文件加载的窗口图标，可能绕过图标主题，无法归一化。
+- 非默认 `XDG_DATA_HOME` 暂不支持，安装检查会拒绝该环境。
+- 本版提供 GitHub 下载与本地安装，尚未提交 GNOME Extensions 商店。发布到 GitHub 不代表通过 GNOME 审核。
 
-## 自定义方案与更换图标主题
+## 文档与贡献
 
-规则页可将当前视觉参数另存为命名方案、使用、重命名或删除，最多 50 套。
-“使用方案”只填入参数，点击“仅保存”或“保存并应用”后才生效；方案可用于不同图标主题。
-维护页的“跟随图标主题”默认开启：自动维护开启时，更换已安装的图标主题会保留
-视觉参数并重新生成 DockNormalized。关闭设置窗口后仍由 timer 每分钟兜底。
-更换 GTK/Shell 外观主题不修改视觉参数；重新选择原素材主题不会强制激活覆盖层。
-“完全还原”恢复最近选择的素材主题。迁移失败会保留原有配置、图标与还原记录。
+[文档索引](docs/README.md)按使用、开发和发布场景列出参考资料。欢迎通过 [Issues](https://github.com/TengJoe/icon-normalizer-plugin/issues) 报告问题或提出建议。
 
-本版前端 **1.1.1**、后端 **3.1.0**，上架候选只声明实测 **GNOME 51**。
-发布准备和配套服务审核说明见 [SUBMISSION.md](docs/SUBMISSION.md)。
-源码许可证为 GPL-3.0-or-later，全文见 [LICENSE](LICENSE)。
-公开源码与问题反馈见 [GitHub 项目](https://github.com/TengJoe/icon-normalizer-plugin)，
-发行包见 [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1)。
+| 文档 | 内容 |
+| --- | --- |
+| [贡献指南](CONTRIBUTING.md) | 开发检查、问题反馈与中英文写作规范 |
+| [架构说明](ARCHITECTURE.md) | 模块职责、进程隔离、事务与数据流 |
+| [协议规范](PROTOCOL.md) | JSON 请求、错误码、并发控制与等待预算 |
+| [发布验收](docs/CHECKLIST.md) | 自动检查、手动验收与恢复步骤 |
+| [发布记录](CHANGELOG.md) | 版本变更；[v1.1.1 说明](docs/RELEASE-1.1.1.md)介绍首个公开版本 |
 
 ## 作者与支持
 
-作者：**[TengJoe](https://github.com/TengJoe)**。
-设置窗口的「维护 → 关于与支持」提供项目主页、反馈入口、版本与许可证，
-以及微信和支付宝收款码。所有功能均可免费使用，支持开发完全自愿。
-详见 [支持说明 / Support](docs/SUPPORT.md)。
+作者：**[TengJoe](https://github.com/TengJoe)**。所有功能均可免费使用，支持开发完全自愿，没有金额要求。
+
+仓库的 **Sponsor** 入口、[支持页面](docs/SUPPORT.md)和“维护 → 关于与支持”均可查看微信与支付宝收款码。
+
+<details>
+<summary>查看微信与支付宝收款码</summary>
+
+### 微信支付
+
+<img src="extension/assets/support/wechat.png" alt="微信支付收款码" width="280">
+
+### 支付宝
+
+<img src="extension/assets/support/alipay.jpg" alt="支付宝收款码" width="280">
+
+请使用对应支付应用扫描，并在应用内核对收款人和金额。支付由微信或支付宝完成，插件不读取或验证交易。
+
+</details>

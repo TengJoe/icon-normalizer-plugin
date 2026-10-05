@@ -1,7 +1,15 @@
-# Changelog
+# 版本记录 / Changelog
 
-v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。
-See [first public release notes](docs/RELEASE-1.1.1.md) for downloads and installation.
+v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
+
+## 未发布 / Unreleased
+
+### 文档与仓库维护
+
+- 统一中英文 README 的结构、安装要求、界面术语与支持范围。
+- 增加双语贡献指南、写作规范和文档索引，修正架构与协议说明中的历史范围和示例。
+- 首页增加微信、支付宝收款码折叠区；GitHub 支持按钮链接至公开支持页面。
+- 此处记录发布后的文档维护；v1.1.1 标签与安装包保持原发布内容。
 
 ## 前端 1.1.1 — 作者署名与中英文支持入口（后端保持 3.1.0）
 
@@ -22,7 +30,6 @@ See [first public release notes](docs/RELEASE-1.1.1.md) for downloads and instal
 - 原子写与事务删除同步父目录，补齐断电场景的目录项持久化。
 - ZIP 单独升级遇到旧后台时明确提示安装完整发行包，主题监听跳过不支持的操作。
 - GPLv3 许可证进入工程/扩展包；兼容声明收敛至实测 GNOME 51；新增提交前审计门。
-
 
 ## 前端 1.0.6 — 顶栏图标与完整中英文界面（后端保持 3.0.2）
 

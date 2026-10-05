@@ -1,17 +1,19 @@
-# 发布验收 Checklist（前端 1.1.1 / 后端 3.1.0）
+# 发布验收清单
 
-> 一键命令全部可在仓库根目录直接执行；标注 [手动] 的项目需要真实桌面会话。
+适用版本：扩展 **1.1.1**、后台 **3.1.0**。自动检查的数量记录 v1.1.1 发布基线，后续程序变更应重新运行并记录结果。
+
+命令从仓库根目录执行；标注“手动”的项目需要真实桌面会话。勾选项表示已有自动回归覆盖，不代表当前用户桌面的手动观察结果。
 
 ## 1. 质量门（自动）
 
 | # | 项目 | 命令 | 通过标准 |
-|---|---|---|---|
-| Q1 | 后端类型严格检查 | `~/.local/bin/mypy` | `Success: no issues found in 22 source files` |
+| --- | --- | --- | --- |
+| Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 22 source files` |
 | Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 147 tests OK |
-| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 JS files ok，依赖存在 |
+| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 个 JavaScript 文件通过，依赖存在 |
 | Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 11/11 passed |
 | Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 17 tests OK，独立假 manager |
-| Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；dist/ 三件套生成 |
+| Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
 | Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 9 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
 | Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 12/12，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
@@ -25,7 +27,7 @@ Q8 需要图形会话，但使用独立后端 fixture，不修改真实图标或
 需要保存当前系统的真实 GTK 渲染截图时，执行
 `gjs -m tests/frontend/responsive-smoke.mjs "$PWD/extension" /tmp/icon-normalizer-ui readonly zh`。
 将最后一个参数改为 `en` 可验证英文；只覆盖该测试窗口的语言读取，不写真实语言偏好。
-该模式仅调用 status/scan/preview/profiles.list，保存与冲突测试只在 Q8 的隔离 fixture 中执行。
+该模式仅调用 status/`scan`、`preview`、`profiles.list`，保存与冲突测试只在 Q8 的隔离 fixture 中执行。
 Q10 使用独立 headless Wayland Shell、HOME、keyfile GSettings、会话总线和假
 systemctl，接受可选输出目录参数保存证据；不替换正在使用的桌面 Shell。
 Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和顶栏模块；
@@ -52,14 +54,14 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 
 ## 3. 安装与生命周期 [手动 + Q5]
 
-- [ ] `python3 tools/install.py` 在真实桌面通过（status 探活 ok=true）
+- [ ] `python3 tools/install.py` 在真实桌面通过（`status` 探活 `ok=true`）
 - [ ] 升级路径：前端 1.0.6 / 后端 3.0.2 安装态被 1.1.1 / 3.1.0 接管（manifest 兼容），
       保留视觉参数、用户规则与自动维护状态；必要重建后 `status.stale == false`
 - [ ] `systemctl --user status icon-normalizer.{timer,path}` 均 enabled+active；
-      `touch ~/.local/share/applications/*.desktop` 后 ≤60s 内 `last-run.json` 更新
+      在验收账户中新增测试启动器，观察 `path` 触发与 `timer` 兜底，记录实际完成时间
 - [ ] 新装一个应用（或复制 .desktop 到 ~/.local/share/applications），
       path 触发在数秒内完成归一化
-- [ ] 维护页“完全还原”确认对话框 → 桌面图标主题回到原主题、
+- [ ] 维护页“还原桌面图标 → 还原”确认对话框 → 桌面图标主题回到原主题、
       `~/.local/share/icons/DockNormalized` 无残留 PNG、
       被覆盖的 .desktop 与原始字节一致（`sha256sum` 对照）
 - [ ] `python3 tools/uninstall.py` 后 libexec/扩展/单元全部移除，
@@ -78,7 +80,7 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
       窄窗口操作按钮纵排、筛选换行、列表随高度缩放；预览双栏切换为单栏
 - [ ] 维护页仪表盘数字与 `status` 一致；自动维护开关程序性刷新不触发
       `automation.set`（信号守卫）；顶栏开关即时生效
-- [ ] 顶栏指示器（开启后）：状态摘要、立即检查/应用、自动维护开关、设置入口；
+- [ ] 顶栏指示器（开启后）：状态摘要、立即检查/立即应用、自动维护开关、设置入口；
       锁屏/解锁不残留 UI、不触碰后台
 - [ ] 快速连点“立即应用”无死锁、无重复并发 apply（去重 + 单一流编排）
 - [ ] 关于与支持显示作者 TengJoe、版本、许可证及项目链接；微信与支付宝收款码
@@ -93,32 +95,24 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 
 ## 6. 回滚预案
 
-1. 设置窗口 → 维护 → 完全还原（推荐，含确认）。
+1. 设置窗口 → 维护 → 还原桌面图标 → 还原（含确认）。
 2. `python3 tools/uninstall.py`（先 revert 再移除）。
-3. 后台无法启动时，先恢复匹配版本的完整发行包，再使用“完全还原”或卸载器。
+3. 后台无法启动时，先恢复匹配版本的完整发行包，再使用“还原桌面图标”或卸载器。
    保留状态文件与托管目录，恢复操作需要日志和原始字节；直接删除主题目录
    会让使用绝对图标路径的用户启动器失去图标，不能作为完整回滚步骤。
 4. 升级失败自动回滚：快照 `install-snapshot-*` 经 `snapshot.json` 的 SHA-256
    校验后恢复 libexec/units/config 与触发器状态。
 
+## 7. 发布前检查
 
-## Release 1.1.1 / backend 3.1 additional gates
+以下审计应与质量门一起执行；源码变更后重新构建，审计对应的新 ZIP。
 
-```sh
-python3 -m unittest discover -s tests/backend -v
-python3 -m unittest discover -s tests/installation -v
-python3 -m unittest discover -s tests/frontend -p 'test_runtime.py' -v
-python3 -m mypy backend/icon_normalizer
-node tests/frontend/syntax-check.mjs
-node tests/frontend/stateModel.test.mjs
-node tests/frontend/i18n.test.mjs
-node --experimental-vm-modules tests/frontend/indicator.test.mjs
-node --experimental-vm-modules tests/frontend/backendClient.test.mjs
-python3 tools/build.py
+```bash
+python3 tools/privacy_audit.py
 python3 tools/release_audit.py --archive dist/icon-normalizer@joeydeng.local.zip
+python3 tools/release_audit.py --submission --archive dist/icon-normalizer@joeydeng.local.zip
 ```
 
-Submission additionally requires the actual public project URL and
-`release_audit.py --submission`. See SUBMISSION.md for reviewer notes and final
-manual checks. Testing dependencies include mypy and jsonschema; runtime
-dependencies are listed in README.en.md.
+提交检查还需要真实可访问的公开项目 URL。URL 格式检查不等于仓库可访问性验证；审核边界与最终手动项目见 [SUBMISSION.md](SUBMISSION.md)。
+
+测试依赖包括 `mypy` 和 `jsonschema`，运行依赖见 [README](../README.md)。仅修改文档时，核对链接、Markdown、命令与版本；写作规范见[贡献指南](../CONTRIBUTING.md)。

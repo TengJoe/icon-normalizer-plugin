@@ -1,172 +1,152 @@
-# Icon Normalizer — Architecture Specification (v3.0)
+# Icon Normalizer 架构说明
 
-> 面向 Linux / GNOME 桌面的应用图标归一化插件与后台维护服务。
-> 本文档是 3.0 全局重构后的工程基准；历史演进记录见 `docs/adr/`，协议线格式见 `PROTOCOL.md`。
+本文说明扩展 **1.1.1**、后台 **3.1.0** 的工程结构。架构沿用 3.0 重构的进程隔离与事务设计，并加入自定义方案、主题跟随和中英文支持入口。
+
+[使用说明](README.md) · [协议规范](PROTOCOL.md) · [架构决策记录](docs/README.md#架构决策记录--architecture-decision-records)
 
 ## 1. 系统总览
 
-```
-┌────────────────────────────── GNOME Shell (GJS, Gtk4/Adwaita) ──────────────────────────────┐
-│  extension.js (面板指示器，可选)          prefs.js → preferences.js (规则/应用/维护 三页)      │
-│        └────────────── lib/backendClient.js ── Gio.Subprocess ──┐                            │
-└─────────────────────────────────────────────────────────────────┼────────────────────────────┘
-                                                                  │ 单行 JSON 请求/响应 (stdin/stdout)
-┌───────────────────────── 后端进程 (Python 3.10+, Gtk3/GdkPixbuf) ─┴──────────────────────────┐
-│  control.py (--json / --scheduled)   ← sync.lock 先锁后读 → ConfigStore → revision(OCC)       │
-│      ├── protocol.py        v1 线协议：严格解析 / 校验 / 信封 / 退出码                          │
-│      ├── policy.py          策略模型、校验、revision 计算                                      │
-│      ├── preview.py         高清对比预览（独立 LRU 缓存，绝不触碰生产状态）                     │
-│      ├── service_control.py systemd 用户单元适配器（timer/path）                               │
-│      └── core/              归一化引擎                                                        │
-│           ├── engine.py       并发扫描 + 增量对比 + 计划/应用/回滚编排                          │
-│           ├── analyzer.py     Alpha 多阈值几何分类器（底板/圆形/裸Logo/插画）                   │
-│           ├── renderer.py     超椭圆磨砂底板、对比色自适应、阴影衰减                            │
-│           ├── transaction.py  原子写入 + pending.json 前置日志 + 崩溃自愈                       │
-│           └── resolver.py     Gtk3 图标解析（强制 Gtk3-only 卫哨）                             │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
-        │ 事务提交                                                    ▲ 每 1 分钟 / 入口目录变化
-        ▼                                                             │
-  ~/.local/share/icons/DockNormalized (Inherits=<原生主题>,hicolor)    systemd --user
-  ~/.local/share/applications/ (仅绝对路径图标的字节级可还原覆盖层)      icon-normalizer.{service,timer,path}
+Shell 扩展、设置窗口和 Python 后台分别运行。Shell 使用 GJS 与 St，设置窗口使用 GJS、GTK 4 与 Libadwaita，后台使用 Python、GTK 3 与 GdkPixbuf。
+
+```text
+GNOME Shell                         设置窗口（独立 GJS 进程）
+extension.js → indicator.js          prefs.js → preferences.js
+GJS / St                            GTK 4 / Libadwaita
+         │                                      │
+         └────── lib/backendClient.js ──────────┘
+                            │ Gio.Subprocess：固定 argv + JSON stdin
+                            ▼
+Python 后台：control.py --json       systemd：control.py --scheduled
+                            │                    │
+                            └────── control.handle() / worker ──────┐
+                                                                   │
+         协议校验 → sync.lock → 配置与 revision → 引擎/方案/主题操作 ◄┘
+                            │
+                            ▼
+               TransactionStore：前置日志、原子写、恢复
+                            │
+                            ▼
+  用户图标主题 / 用户启动器覆盖 / 私有状态 / 预览缓存
 ```
 
-## 2. 工程目录树
+交互请求通过一次性子进程和单行 JSON 通信。自动维护由用户级 systemd 单元触发，不依赖设置窗口或顶栏按钮。
 
-```
-icon-normalizer-plugin/
-├── ARCHITECTURE.md            # 本文档
-├── PROTOCOL.md                # 协议 v1 冻结规范（等待预算、错误码、锁序、信封）
-├── README.md
-├── CHANGELOG.md
-├── pyproject.toml             # mypy 严格模式等工具配置（非发布包）
-├── contracts/                 # 协议 JSON Schema（冻结，前端/后端共同契约）
-│   ├── request.schema.json
-│   ├── response.schema.json
-│   ├── policy.schema.json
-│   ├── status-result.schema.json
-│   ├── requests.example.json
-│   └── responses.example.json
-├── backend/
-│   ├── control.py             # 已安装入口 shim：转发到 icon_normalizer.control
-│   └── icon_normalizer/       # 现代化后端包（唯一实现）
-│       ├── __init__.py
-│       ├── __main__.py        # python3 -m icon_normalizer --json|--scheduled
-│       ├── version.py         # 唯一版本源（BACKEND_VERSION / API_VERSION / CORE_VERSION）
-│       ├── errors.py          # 错误码表 + ProtocolError + 退出码映射
-│       ├── xdg.py             # 运行时路径推导（XDG + 环境覆盖；禁止导入期捕获）
-│       ├── policy.py          # Policy 模型 / 校验 / revision（规范化 SHA-256）
-│       ├── config_store.py    # config.json + user-rules.json 持久化（调用方持锁）
-│       ├── protocol.py        # v1 请求解析、参数校验、响应信封
-│       ├── control.py         # 命令分发路由器（9 操作）
-│       ├── preview.py         # 预览渲染与缓存
-│       ├── service_control.py # systemd 触发器查询/启停（带回滚）
-│       ├── gsettings.py       # GSettings 读写隔离层（fixture 可注入 None）
-│       ├── desktop.py         # .desktop 扫描、可见性判定、外科手术式 Icon= 改写
-│       ├── theme.py           # 覆盖主题 index.theme、所有权标记、图标缓存重建
-│       └── core/
-│           ├── __init__.py
-│           ├── engine.py      # 归一化编排引擎（并发扫描、增量对比、事务编排）
-│           ├── analyzer.py    # 几何分类器（analyze/classify/plan，含死区）
-│           ├── renderer.py    # 渲染管线（superellipse/对比底板/阴影/测量校正）
-│           ├── transaction.py # 原子写入器 + 事务日志 + 自愈恢复
-│           └── resolver.py    # Gtk3 图标解析与素材装载（Gtk3-only 卫哨）
-├── extension/                 # GNOME Shell 扩展（GJS ESM，Gtk4/Libadwaita）
-│   ├── extension.js           # Extension 子类（GNOME 45+ ESM）
-│   ├── prefs.js               # ExtensionPreferences 子类 + fillPreferencesWindow
-│   ├── metadata.json          # shell-version 45..51
-│   ├── stylesheet.css
-│   ├── schemas/org.gnome.shell.extensions.icon-normalizer.gschema.xml
-│   ├── lib/
-│   │   ├── backendClient.js   # Gio.Subprocess 异步客户端（写操作永不超时击杀）
-│   │   ├── stateModel.js      # 状态→文案纯映射（无副作用）
-│   │   ├── applyFlow.js       # status→apply→status 编排（扩展面板与维护页共用）
-│   │   └── uiCommon.js        # 信号守卫、胶囊组、纹理缓存、对话框呈现兼容层
-│   └── ui/
-│       ├── preferences.js     # 三页组装与刷新调度
-│       ├── appsPage.js        # 应用图标页：ListView 虚拟化 + 搜索 + 筛选胶囊
-│       ├── previewDialog.js   # Adw.Dialog 实时对比（多尺寸/深浅底）
-│       ├── rulesPage.js       # 规则页：Adw.SpinRow + 预设
-│       ├── maintenancePage.js # 维护页：卡片式仪表盘 + 立即应用/完全还原
-│       └── indicator.js       # 顶栏指示器（状态目录监听 + 防抖）
-├── packaging/systemd/
-│   ├── icon-normalizer.service
-│   ├── icon-normalizer.timer
-│   └── icon-normalizer.path
-├── tools/
-│   ├── layout.py              # 安装布局唯一事实源（install/uninstall 共用）
-│   ├── install.py             # 快照→停触发→暂存验证→原子换装→恢复触发
-│   ├── uninstall.py           # 100% 无残留卸载（含后端 revert）
-│   └── build.py               # 扩展 ZIP + 完整发行包 + 严格 schema 编译
-└── tests/
-    ├── backend/               # unittest 沙箱化全套（协议/OCC/事务/生命周期/预览/E2E）
-    ├── frontend/              # node --check 语法门 + 纯逻辑单测
-    └── installation/          # 真实安装/卸载回归（临时 HOME）
-```
+## 2. 工程布局
 
-## 3. 模块职责边界
+下表列出主要模块；协议字段与等待预算以 [PROTOCOL.md](PROTOCOL.md) 为准。
 
-| 模块 | 职责 | 明确不负责 |
-|---|---|---|
-| `protocol.py` | 线格式解析、参数校验、信封构造、退出码 | 任何业务逻辑、磁盘写 |
-| `control.py` | 锁序编排（先锁→后读→建引擎）、操作分发、错误记录 | 图像算法、GSettings 之外的写盘 |
-| `policy.py` | 策略数据模型、范围/交叉校验、revision | 文件 IO |
-| `config_store.py` | 策略/规则持久化与迁移（schema v1→v2） | 加锁（调用方持有 sync.lock） |
-| `core/engine.py` | 扫描→分类→决策→渲染→事务编排；增量复用；回滚 | 协议格式、systemd |
-| `core/analyzer.py` | 纯函数几何分析/分类/决策计划（含死区） | IO、渲染 |
-| `core/renderer.py` | 纯函数渲染管线（输入 PIL 图像与指标） | 磁盘、分类 |
-| `core/transaction.py` | symlink 拒写、原子写、日志前置、自愈恢复 | 决策"写什么" |
-| `desktop.py` | 入口扫描、可见性、Icon= 外科手术改写 | 主题文件 |
-| `preview.py` | 只读预览 + LRU 缓存（独立目录） | 生产状态任何写 |
-| `extension/lib/*` | 子进程通信、状态文案、UI 编排复用 | 策略计算（后端是唯一写者） |
+| 目录或文件 | 职责 |
+| --- | --- |
+| `backend/control.py` | 已安装后台入口，转发至 `icon_normalizer.control` |
+| `backend/icon_normalizer/control.py` | 14 项操作的路由、锁序、恢复与调度 |
+| `backend/icon_normalizer/protocol.py` | 请求解析、参数校验、响应信封 |
+| `backend/icon_normalizer/version.py` | 后台、协议与渲染版本常量 |
+| `backend/icon_normalizer/policy.py`、`config_store.py` | 策略校验、规范化 revision、配置与规则持久化 |
+| `backend/icon_normalizer/profiles.py` | 命名方案目录、独立 revision 与名称校验 |
+| `backend/icon_normalizer/theme_follow.py` | 跟随偏好、素材主题迁移与还原目标 |
+| `backend/icon_normalizer/desktop.py`、`theme.py` | 启动器扫描与 `Icon=` 改写、主题索引与图标缓存 |
+| `backend/icon_normalizer/preview.py` | 独立预览渲染与缓存 |
+| `backend/icon_normalizer/service_control.py` | systemd 用户单元的查询、启停与失败恢复 |
+| `backend/icon_normalizer/core/` | 分析、渲染、图标解析、归一化编排与文件事务 |
+| `extension/extension.js`、`prefs.js` | Shell 扩展与设置窗口入口 |
+| `extension/lib/` | 后台客户端、状态映射、应用编排、界面原语、翻译与项目信息 |
+| `extension/ui/` | 三页设置、命名方案、图标预览、顶栏菜单与支持弹窗 |
+| `extension/assets/` | 单色 SVG 与维护者授权的微信、支付宝收款码 |
+| `extension/schemas/` | GSettings schema |
+| `contracts/` | 协议 v1 JSON Schema 与示例 |
+| `packaging/systemd/` | `service`、`timer`、`path` 模板 |
+| `tools/` | 安装布局、构建、安装、卸载与发布审计 |
+| `tests/` | 后台、安装故障、前端逻辑与隔离运行时验收 |
+| `docs/` | 发布验收、提交说明、支持入口与 ADR |
+| `.github/FUNDING.yml` | GitHub 支持按钮指向公开支持页面 |
 
-## 4. 设计铁律 → 落点映射
+## 3. 模块边界
 
-| 铁律 | 落点 |
-|---|---|
-| 零 root / 系统只读 | `xdg.py` 全路径位于 `$HOME`；`transaction.py` 白名单根（theme/state/user-applications）之外的写直接抛 `UnmanagedOutputPath`；systemd 单元 `ProtectSystem=strict + ReadWritePaths` 收口 |
-| Gtk3/Gtk4 进程隔离 | 后端仅在 `core/resolver.py` 与 `gsettings.py` 触及 gi；`require_gtk3_only()` 卫哨拒绝混装；前端仅 `gi://Gtk`(4)/Adw；两界只经 JSON CLI |
-| 先锁后读 / OCC | `control.handle()`：`_acquire(budget)` → `ConfigStore` → `revision` → 引擎；写操作携带 `expected_revision`，冲突返回 `REVISION_CONFLICT`；读操作预算 ≤100ms |
-| 事务自愈 | `transaction.py`：`pending.json`（0600）先于首个变更落盘；`recover()` 校验现盘 SHA ∈ {before, after} 后逆序回放；manifest 最后提交 |
-| 生命周期三开关 | 前端仅 UI（`disable()` 只拆除指示器）；自动化独立于 `timer/path` 单元；`revert` 是显式破坏性操作且不校验 revision |
-| 无硬编码用户路径 | overrides.json 仅保留可移植条目；用户专属条目迁移到 `~/.local/state/icon-normalizer/overrides.json`（若存在则合并）；`gtk-update-icon-cache` 用 `shutil.which` 探测；默认主题回退 `hicolor` |
+| 模块 | 负责 | 边界 |
+| --- | --- | --- |
+| `protocol.py` | 线格式、参数校验、信封与错误码 | 不执行图像处理或文件事务 |
+| `control.py` | 先锁后读、revision 校验、操作分发与恢复 | 算法由核心模块实现 |
+| `policy.py` | 策略模型、范围与交叉校验、revision | 不写文件 |
+| `config_store.py` | 配置与用户规则持久化 | 调用方持有 `sync.lock` |
+| `profiles.py` | 方案存储、名称与数量限制、目录 revision | 保存或重命名方案不改变生效策略 |
+| `theme_follow.py` | 跟随偏好、迁移策略与 baseline | 图标迁移通过引擎和事务提交 |
+| `core/engine.py` | 扫描、分析、渲染、增量复用与还原编排 | 不定义协议线格式 |
+| `core/analyzer.py` | 几何分析、分类与死区决策 | 不访问文件或渲染 |
+| `core/renderer.py` | 底板、阴影与测量校正 | 不访问文件或决定分类 |
+| `core/resolver.py` | GTK 3 图标解析与素材装载 | 拒绝在后台进程加载 GTK 4 |
+| `core/transaction.py` | 路径检查、原子写、日志与恢复 | 不决定业务上需要写什么 |
+| `preview.py` | 预览与独立缓存 | 不修改生效配置和托管图标 |
+| `extension/lib/`、`extension/ui/` | 展示、用户交互与请求编排 | 不计算图标策略或直接写后台状态 |
+
+## 4. 设计约束
+
+### 用户级安装与系统只读
+
+原始图标和系统启动器只读。主要写入位置为：
+
+- `~/.local/share/icons/DockNormalized/`：生成图标、主题索引与缓存。
+- `~/.local/share/applications/`：必要的用户级启动器覆盖。
+- `~/.local/state/icon-normalizer/`：配置、规则、方案、日志与恢复记录。
+- `~/.cache/icon-normalizer/`：预览与缓存。
+
+安装代码、扩展与服务单元由 `tools/layout.py` 定义用户级布局。文件事务拒绝白名单之外的路径与不受信任的符号链接；systemd 单元通过 `ProtectSystem=strict`、`ProtectHome=read-only` 和限定的 `ReadWritePaths` 约束后台写入。
+
+### GTK 进程隔离
+
+后台的 `require_gtk3_only()` 检查 GTK 版本。Shell 与设置窗口仅通过 JSON CLI 请求后台，不在同一进程混用 GTK 3 和 GTK 4。
+
+### 先锁后读与并发控制
+
+持锁操作遵循 `sync.lock → ConfigStore → revision → 引擎/操作` 的顺序。策略写入校验 `expected_revision`，方案写入校验独立的 `expected_profiles_revision`。冲突返回 `REVISION_CONFLICT`，不覆盖较新的配置。
+
+状态读取与诊断免锁；其他读操作等待最多 100 ms，交互写操作不等待，调度 worker 等待最多 750 ms。具体例外与元数据操作见协议表。
+
+### 日志前置与事务恢复
+
+`pending.json` 以 0600 权限在首个文件变更之前落盘。恢复时校验现有内容是否仍为事务记录的前后版本，再逆序回放；外部修改会阻止自动覆盖。主题激活另有 `settings-pending.json`，写入后设置并读回确认，成功才删除日志。
+
+### 生命周期与支持入口
+
+关闭设置或停用顶栏只结束对应界面与监听。后台自动维护由 `timer` 和 `path` 管理；还原通过显式操作执行。
+
+支持入口只显示维护者授权的原始收款码，或打开项目与反馈链接。付款在微信或支付宝中完成，扩展不读取、追踪或验证交易。
 
 ## 5. 关键数据流
 
-### 5.1 扫描（scan，只读）
-1. UI → `scan`（读预算 100ms）→ 锁 → 读策略/规则 → revision。
-2. `engine.inspect(apply=False)`：
-   - 主线程：桌面入口扫描 → 逐图标解析绝对路径 → 读字节 + SHA → 查 `analysis_cache`（键 = path+digest+analysis_policy）。
-   - 工作线程池（默认 4）：仅缓存未命中的图标执行 装载→分析→分类→复核（overrides/user rules）；主线程在派发前完成所有 `Gtk.IconTheme` 查询（GTK 非线程安全，GdkPixbuf 装载线程安全）。
-   - 主线程：死区决策（纯函数）→ 汇总 rows/groups。
-3. 写 `last-scan.json`（0600，原子），返回信封。
+### 扫描与预览
 
-### 5.2 应用（apply，排他写）
-`expected_revision` 校验 → 事务恢复（若存在日志）→ `inspect()` 产出 changes/manifest →
-`baseline.json` 首次落盘 → `transaction.commit()`（日志前置 → 逐文件原子写 → 图标缓存重建 → 日志移除）→
-可选主题激活（`settings-pending.json` 前置日志 → `gsettings set` → 回读确认 → 日志移除）→ `last-run.json`。
+1. 前端发送 `scan`，后台获取锁后读取策略与规则。
+2. 主线程完成启动器扫描和所有 `Gtk.IconTheme` 查询。
+3. 工作线程执行 GdkPixbuf 装载及 Pillow、NumPy 分析；结果按键排序。
+4. 主线程生成死区决策与分组，更新扫描记录并返回响应。
+5. `preview` 使用独立缓存显示对比，不改变生效配置或托管图标。
 
-### 5.3 增量对比
-`input_key = sha(path+digest+class+policy)` 命中即整组复用磁盘上未变更的既有 PNG；
-未变更文件不进入事务（`before==data` 跳过）；失效源素材保留上一代产物（`retain_previous`）。
+### 应用与增量复用
 
-## 6. 兼容性承诺（v3.0）
+`apply` 校验 revision 并恢复未完成事务，再生成变更计划。未变化的输入与策略复用已有 PNG，未变化的文件不进入事务；暂时缺失的源素材可以保留上一代产物并报告警告。
 
-- 协议 v1 线格式、九档尺寸梯队、错误码表、退出码、contracts/*.schema.json **逐字节冻结**。
-- `manifest.json` / `baseline.json` / `pending.json` / `config.json`(v2) / `user-rules.json` 磁盘格式不变，旧版本安装状态可直接被新后端接管。
-- `policy_sha256` 计算基准随包结构演进（analyzer/renderer 源字节），升级后首轮 apply 全量重渲染一次属预期行为。
-- systemd 单元名与占位符（`@HOME@`/`@CONTROL@`）不变；`icon-index-guard.service` 为外部配套单元，缺失时 systemd 静默容忍。
+文件事务提交后，按请求决定是否激活 `DockNormalized`。激活需要日志前置与读回确认，结果写入运行记录。
 
-## 7. 已修复的历史缺陷（对照 v2 后端）
+标准参数为 88% 目标占比、±2 个百分点容差和 72% Logo 内层占比。输出尺寸固定为 `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`。
 
-1. `control._write_json_file` 忽略 mode → 状态文件以 0600 原子落盘。
-2. `_rows_to_groups` 中 `desktop_ids` 恒空 / `auto_class` 永不生效 → 引擎 rows 现携带两字段。
-3. 预览 PNG 超限误报 `INTERNAL_ERROR` → 正确返回 `IO_ERROR`。
-4. `icon-audit.gallery()` 引用缺失模板 → 审计 CLI 与损坏的 HTML 画廊整体退役（预览协议覆盖其职责）。
-5. `version.py` 死文件与常量三处漂移 → `version.py` 唯一事实源。
-6. 核心 CLI 无界阻塞锁与 `--check` 空操作 → 核心 CLI 退役，统一走 control 锁预算。
-7. overrides.json 用户专属绝对路径 → 迁移至状态目录可选文件。
-8. 默认主题硬编码 `Yaru-blue-dark` → gsettings 动态推导，回退 `hicolor`。
-9. GSettings 死键（`preview-size`/`preview-background`/`list-filter`）→ 全部接线生效。
-10. 手写信号防抖散落两处 → `uiCommon` 统一守卫原语。
-11. apply 编排重复实现（面板/维护页）→ `lib/applyFlow.js` 单一实现。
-12. 安装/卸载逻辑双份漂移 → `tools/layout.py` 唯一事实源。
+### 自定义方案与主题迁移
+
+命名方案仅保存三项视觉参数，最多 50 项。使用方案填入前端草稿，显式保存后才改变生效策略。
+
+跟随与自动维护开启时，新选择的已安装图标主题成为素材主题。图标、配置、baseline 与 manifest 在同一文件事务内迁移，保留视觉参数与逐图标规则。激活守卫检查当前主题，避免迟到的迁移覆盖用户的新选择。
+
+### 自动维护与恢复
+
+`path` 监听用户、系统与系统级 Flatpak 启动器目录；`timer` 每分钟提供兜底检查。后台通过安装时配置的用户级单元运行，不依赖图形界面打开。
+
+还原恢复托管启动器与最近选择的素材主题。未被外部编辑的托管字节可原样恢复；冲突保留外部编辑并报告失败。卸载先请求后台还原，再移除代码与单元，保留备份。
+
+## 6. 兼容与发布
+
+协议保留 `api_version=1`，原九项操作与 17 个错误码保持兼容；后台 3.1 增加五项操作和可选字段。既有必需字段或语义的破坏性变更需要升级协议版本。
+
+manifest 与核心恢复记录延续兼容格式，方案与主题跟随使用新增的私有状态文件。`policy_sha256` 随算法源字节演进；算法基准变化后的首次应用可能重新渲染图标。
+
+扩展版本由 `extension/metadata.json` 提供，后台版本由 `backend/icon_normalizer/version.py` 提供。本版兼容声明为 GNOME Shell 51；ADR 中的 45–51 范围记录早期设计，不代表当前验收结论。
+
+构建、安装、失败恢复与提交检查分别见[贡献指南](CONTRIBUTING.md)、[验收清单](docs/CHECKLIST.md)和[GNOME Extensions 提交说明](docs/SUBMISSION.md)。历史修复见 [CHANGELOG.md](CHANGELOG.md)。

@@ -1,79 +1,58 @@
-# GNOME Extensions submission preparation
+# GNOME Extensions submission notes
 
-Candidate: frontend 1.1.1, companion backend 3.1.0. Runtime support in this
-candidate is GNOME Shell 51 only. Earlier versions need their own acceptance run.
+Candidate: extension **1.1.1**, companion backend **3.1.0**, verified **GNOME Shell 51**. This project has not been submitted to GNOME Extensions. These notes describe the review boundary and preparation steps; they do not claim approval.
 
-## Review boundary and installation
+[Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
 
-The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, GPLv3
-license, GSettings schemas, and two maintainer-authorized payment-code images.
-It contains no Python code, executables, shared
-libraries, package installers, downloads, telemetry or clipboard integration.
+## Package boundary
 
-The extension controls a **separately installed user-level companion backend**.
-The complete release tarball includes backend source and installer. A ZIP-only
-installation displays the missing-backend message until the companion is
-installed manually. On a supported system, install the full release with:
+The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, the GPLv3 license, GSettings schemas, and two maintainer-authorized payment-code images. It contains no Python code, executables, shared libraries, package installers, downloads, telemetry, or clipboard integration.
 
-```sh
+The extension controls a **separately installed user-level companion backend**. The complete release tarball contains the backend source and installer. A ZIP-only installation shows a missing-backend message until the companion is installed manually.
+
+For the published release, follow the [installation guide](../README.en.md). When preparing a candidate from source, run from the project root:
+
+```bash
 python3 tools/build.py
 python3 tools/install.py
 ```
 
-Python 3.10+, Python GI/GTK 3/GdkPixbuf, Pillow, numpy, systemd user services,
-gtk-update-icon-cache and glib-compile-schemas are needed. GTK 4 and Libadwaita
-belong only to preferences. Runtime/backend installation uses the current user;
-installing missing distribution packages is a separate administrator action.
-The extension never invokes sudo or installs dependencies itself.
+The Python backend requires Python 3.10 or newer, Python GI, GTK 3, GdkPixbuf, Pillow, NumPy, systemd user services, `gtk-update-icon-cache`, and `glib-compile-schemas`. Preferences use GTK 4 and Libadwaita in a separate GJS process. Installation runs as the current user; missing distribution packages are installed separately. The extension does not invoke `sudo` or install dependencies.
 
-External processes are necessary to isolate GTK 3/Python image rendering from
-GTK 4 preferences and the Shell. Commands use fixed argv and JSON stdin. Read
-requests can be cancelled; interrupted writes are allowed to finish safely and
-are reaped, while extension timers and UI callbacks are detached on disable.
-Background timer/path units were explicitly installed and remain independent of
-panel enable/disable. Their state and controls are visible in Maintenance.
+## Processes and lifecycle
 
-This companion architecture must be explained to the reviewer. It is **not a
-guarantee of approval**: external processes are discouraged by the published
-review rules and exceptions are considered by reviewers.
+External processes isolate GTK 3/Python image processing from the Shell and GTK 4 preferences. Commands use fixed argument arrays and JSON on standard input. Read requests can be cancelled. Interrupted writes finish safely and are reaped; disabling the extension removes its timers, listeners, and UI callbacks.
 
-## Submission gates
+The companion's timer and path units are explicitly installed and operate independently of the panel. Their state and controls are shown in Maintenance. Preferences and the top bar button can be closed without stopping automatic maintenance.
 
-```sh
+Explain this companion architecture to the reviewer. The [official review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html) discourage external processes; reviewers assess whether an exception is appropriate.
+
+## Submission checks
+
+Build the candidate, complete the relevant [acceptance checks](CHECKLIST.md), then run:
+
+```bash
+python3 tools/privacy_audit.py
 python3 tools/release_audit.py --archive dist/icon-normalizer@joeydeng.local.zip
 python3 tools/release_audit.py --submission --archive dist/icon-normalizer@joeydeng.local.zip
 ```
 
-Local gates cover entry-point toolkit isolation, source-only ZIP contents,
-source/archive equality, SPDX-compatible license, version, schemas and the tested
-Shell declaration. The builder runs local source gates before making artifacts.
+Local checks cover entry-point toolkit isolation, source-only ZIP contents, source/archive equality, license, versions, schemas, and the tested Shell declaration. The builder runs local source checks before creating artifacts. The public URL must also be verified separately: a URL-format check does not prove accessibility.
 
-Source and issue tracker: [https://github.com/TengJoe/icon-normalizer-plugin](https://github.com/TengJoe/icon-normalizer-plugin).
-`metadata.json` contains this project URL. The public source and companion release
-are available at [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
-Rebuild, rerun acceptance and the submission gate after changes. The local URL
-gate checks syntax; repository accessibility needs separate verification.
-Do not upload the full tarball as the GNOME extension ZIP.
-No GNOME Extensions store submission has been made.
+Source and issues are available at the [GitHub repository](https://github.com/TengJoe/icon-normalizer-plugin). The complete companion package is available in [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1). Submit the extension ZIP to GNOME Extensions; the full tarball is a separate companion distribution.
 
-The EGO service assigns its own numeric extension version. Preserve version-name
-as the release's human-readable version, and keep the current UUID for upgrades.
-Shell caches ESM modules: user-session top bar updates still need logout/login;
-preferences can be closed and reopened. No installer ends the user's session.
+GNOME Extensions assigns its own numeric extension version. Keep `version-name` as the human-readable release version and preserve the UUID for upgrades. GNOME Shell caches ESM modules, so panel updates require a new login session; Preferences can be closed and reopened. The installer does not end the session.
 
-## Final manual checks
+## Manual acceptance
 
-- Fresh GNOME 51 session: panel icon, menu, disable/enable, lock/unlock.
-- Install ZIP without companion: readable missing-backend state.
-- Both languages, narrow and wide windows, profile save/use/rename/delete.
-- With follow and automatic maintenance on, switch an installed icon theme;
-  confirm retained parameters and the latest source in Maintenance.
-- Turn automatic maintenance or theme follow off; confirm no background migration.
-- Restore in a disposable acceptance account and confirm the latest source theme.
+- Check the panel icon, menu, disable/enable, and lock/unlock in a fresh GNOME Shell 51 session.
+- Install the ZIP without the companion and verify the missing-backend message.
+- Check both languages, narrow and wide windows, and profile save/use/rename/delete.
+- With theme following and automatic maintenance enabled, select another installed icon theme and verify retained settings and the new source theme.
+- Disable automatic maintenance or theme following and verify that background theme migration stops.
+- Restore in a disposable acceptance account and verify the latest selected source theme.
+- Check author attribution, project and issue links, and both payment-code dialogs.
 
-Local test reports distinguish isolated real Shell/GTK checks from observations
-in the user's existing session. Lock/unlock and an EGO reviewer decision must not
-be marked passed based on mocks or compilation alone.
+Record isolated Shell/GTK checks separately from observations in the user's desktop. Compilation and mocks cannot establish lock/unlock behavior or a reviewer decision.
 
-References: [official review guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)
-and [metadata/extension anatomy](https://gjs.guide/extensions/overview/anatomy.html).
+See the official [extension anatomy](https://gjs.guide/extensions/overview/anatomy.html) for metadata details.
