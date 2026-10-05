@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / 'tests'))
@@ -64,6 +65,10 @@ class Installation(unittest.TestCase):
         self.assertTrue((ext / "metadata.json").exists())
         self.assertTrue((ext / "schemas" / "gschemas.compiled").exists())
         self.assertTrue((units / "icon-normalizer.service").exists())
+        # A scheduled run that skips on lock contention exits with EXIT_BUSY (3);
+        # systemd must treat it as success, not as a unit failure.
+        self.assertIn("SuccessExitStatus=3",
+                      (units / "icon-normalizer.service").read_text())
         self.assertTrue((units / "icon-normalizer.timer").exists())
         self.assertTrue((units / "icon-normalizer.path").exists())
         self.assertEqual((self.home/'.local/share/icons/DockNormalized/.icon-normalizer-owned').read_text(),
@@ -117,6 +122,43 @@ class Installation(unittest.TestCase):
         self.assertFalse(result["installed"])
         # the shim's package import works from the installed layout
         self.assertNotIn("Traceback", proc.stderr.decode())
+
+
+class SnapshotRetentionTests(unittest.TestCase):
+    """A successful install must not let snapshots grow without bound."""
+
+    def _make(self, backups: Path, prefix: str, count: int) -> list[str]:
+        names = [f"{prefix}{index:02d}" for index in range(count)]
+        for index, name in enumerate(names):
+            directory = backups / name
+            directory.mkdir()
+            stamp = 1000 + index
+            os.utime(directory, (stamp, stamp))
+        return names
+
+    def test_old_install_snapshots_are_pruned(self):
+        from install import SNAPSHOT_KEEP, prune_install_snapshots
+        with tempfile.TemporaryDirectory() as tmp:
+            backups = Path(tmp) / "backups"
+            backups.mkdir()
+            names = self._make(backups, "install-snapshot-", SNAPSHOT_KEEP + 3)
+            removed = prune_install_snapshots(SimpleNamespace(backups=backups))
+            remaining = sorted(p.name for p in backups.iterdir())
+            self.assertEqual(sorted(removed), names[:3])
+            self.assertEqual(remaining, names[3:])
+
+    def test_uninstall_snapshots_survive_install(self):
+        # Uninstall snapshots are the user-visible way back after a removal,
+        # so an ordinary install must leave them alone.
+        from install import prune_install_snapshots
+        with tempfile.TemporaryDirectory() as tmp:
+            backups = Path(tmp) / "backups"
+            backups.mkdir()
+            self._make(backups, "install-snapshot-", 9)
+            kept = self._make(backups, "uninstall-snapshot-", 3)
+            prune_install_snapshots(SimpleNamespace(backups=backups))
+            for name in kept:
+                self.assertTrue((backups / name).is_dir())
 
 
 if __name__ == "__main__":

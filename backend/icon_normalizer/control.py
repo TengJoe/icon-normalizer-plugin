@@ -688,6 +688,10 @@ def handle(raw: bytes, scheduled: bool, paths: RuntimePaths | None = None) -> in
 def _run_scheduled(paths: RuntimePaths) -> int:
     lock = _acquire(paths, LOCK_TIMEOUT_WORKER)
     if lock is None:
+        # EXIT_BUSY is a normal skip, not a failure; make the reason visible in
+        # the journal instead of leaving a bare non-zero exit.
+        print("icon-normalizer: skipped, another instance holds sync.lock",
+              file=sys.stderr)
         return EXIT_BUSY
     with lock:
         try:

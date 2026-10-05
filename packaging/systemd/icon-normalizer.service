@@ -8,6 +8,10 @@ After=icon-index-guard.service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 @CONTROL@ --scheduled
+# A run skipped because the UI or another worker held sync.lock exits with
+# EXIT_BUSY (3). That is a normal outcome for a timer/path trigger — the next
+# trigger retries — so systemd must not record it as a unit failure.
+SuccessExitStatus=3
 TimeoutStartSec=120s
 UMask=0077
 NoNewPrivileges=yes
