@@ -6,6 +6,10 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 
 ### 元数据与上架准备
 
+- 打包不再包含 `schemas/gschemas.compiled`：GNOME 审核规则 EGO-P-006 要求 45+ 扩展不要附带编译好的 schema，
+  商店会在上传时自行编译。`tools/build.py` 与 `tools/release_audit.py` 共用 `tools/layout.py` 的
+  `PACKAGE_EXCLUDE`，归档一致性检查随之同步；`tools/install.py` 仍为本地安装重新编译 schema。
+  手动安装 ZIP 的用户需执行一次 `glib-compile-schemas`（已写入中英文 README）。
 - `donations.custom` 改为单个 URL 字符串：GNOME 公告说明该字段可接受字符串或最多三个字符串的数组，
   字符串写法与商店现有扩展一致，避免不同解析器对数组的兼容差异。
   已发布的 v1.1.1 标签与安装包保持原发布内容，含此修复的构建用于上架候选。

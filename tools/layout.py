@@ -12,6 +12,13 @@ from pathlib import Path
 
 EXTENSION_UUID = "icon-normalizer@joeydeng.local"
 THEME_NAME = "DockNormalized"
+
+# GNOME Extensions compiles `schemas/gschemas.compiled` itself for GNOME 45+
+# packages (review rule EGO-P-006: unnecessary build artifacts must not ship),
+# so the packaged ZIP omits it while `tools/install.py` recompiles it for
+# local source installs. `build.py` and `release_audit.py` share this set so
+# the archive comparison cannot drift from the packaging rule.
+PACKAGE_EXCLUDE = frozenset({"schemas/gschemas.compiled"})
 UNITS = ("icon-normalizer.service", "icon-normalizer.timer", "icon-normalizer.path")
 TRIGGER_UNITS = ("icon-normalizer.timer", "icon-normalizer.path")
 
