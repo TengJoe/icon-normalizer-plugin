@@ -1,25 +1,43 @@
-# Icon Normalizer Plugin
+# Icon Normalizer
 
-[简体中文](README.md)
+[简体中文](README.md) · [Download v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
 
-[Download v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) ·
-[Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) ·
-[Support development](docs/SUPPORT.md)
+Icon Normalizer gives GNOME application icons a consistent visual size and tile style. It combines a GNOME Shell extension with a user-level Python backend. Original system artwork stays read-only; generated icons and recovery records are stored in your home directory.
 
-Icon Normalizer is a GNOME Shell extension and a user-level background service
-that gives third-party application icons a consistent visual size and shape.
-It reads original artwork without modifying system files and keeps recovery
-records for its changes in your home directory.
+| Component | Current public release |
+| --- | --- |
+| Extension | 1.1.1 |
+| Companion backend | 3.1.0 |
+| Verified support | GNOME Shell 51 |
+| Author | [TengJoe](https://github.com/TengJoe) |
+| License | [GPL-3.0-or-later](LICENSE) |
 
-The current frontend is **1.1.1**, with backend **3.1.0**. This release supports GNOME 51, verified by runtime acceptance tests.
-Earlier GNOME versions require separate testing before being declared supported.
+## Features
 
-## Install or upgrade
+- **Icon normalization**: adjust visual coverage, add tiles where appropriate, and generate nine icon sizes from 16 to 512 px.
+- **Rules and custom profiles**: adjust target coverage, tolerance, and inner logo coverage; save, use, rename, or delete up to 50 named profiles.
+- **Application icon management**: search and filter icons, compare original and normalized artwork, and skip individual icons.
+- **Automatic maintenance and theme following**: detect application-launcher changes and retain visual parameters and per-icon rules when changing icon themes.
+- **Adaptive Chinese and English interface**: stack action buttons, wrap filters, and show previews in one column in narrow windows; preserve the page, search text, and unsaved settings when switching languages.
+- **Recovery**: restore managed launchers and the icon theme; preserve external edits and report conflicts.
 
-For a first installation, download `icon-normalizer-plugin-1.1.1.tar.gz` and
-`SHA256SUMS` from [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
-Prepare the runtime dependencies listed below on GNOME Shell 51, then run as
-your normal user:
+## Installation and upgrades
+
+### Requirements
+
+This release declares support for **GNOME Shell 51**, verified by runtime acceptance tests. Other versions need separate validation.
+
+| Purpose | Dependencies |
+| --- | --- |
+| Preferences | GJS, GTK 4, Libadwaita, and their GI typelibs |
+| Image-processing backend | Python 3.10 or newer, Python GI, GTK 3, GdkPixbuf, Pillow, NumPy |
+| Installation and maintenance | A systemd user session, `gtk-update-icon-cache`, `glib-compile-schemas` |
+
+The GTK 3 backend and GTK 4 preferences run in separate processes. The installer checks backend and installation-tool dependencies. Install any missing distribution packages separately, following your distribution's instructions.
+
+### Install the complete release
+
+Download `icon-normalizer-plugin-1.1.1.tar.gz` and `SHA256SUMS` from [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1). Put both files in the same directory and run as your normal user:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
@@ -28,131 +46,104 @@ cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-The extension ZIP is for frontend installation or upgrades with an existing
-companion backend, and for GNOME Extensions submission. It does not include
-the Python backend. Use the full tarball for a complete first installation.
+Confirm that the checksum output is `OK` before installing. The complete release contains the extension, backend, and installer for a first installation or a full upgrade. The installer takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot.
 
-For source development or rebuilding, run from the project directory:
+The separate `icon-normalizer@joeydeng.local.zip` contains only the extension frontend. Use it to update the frontend when the companion is already installed. Custom profiles and theme following require backend 3.1.0 or newer; older backends display an upgrade hint.
+
+### Install from source
+
+Run from the project root:
 
 ```bash
 python3 tools/build.py
 python3 tools/install.py
 ```
 
-The builder validates GSettings schemas and creates an extension ZIP, a full
-release tarball, and a SHA-256 manifest in `dist/`. The installer takes a
-snapshot, validates staged files, upgrades the code, probes the backend, and
-restores the previous automatic-maintenance state. Failed upgrades roll back.
+The builder creates an extension ZIP, a complete release tarball, and `DIST_MANIFEST.json` in `dist/`. See the [contribution guide](CONTRIBUTING.md) for development checks and tests.
 
-Profiles and theme following require companion backend 3.1.0 or newer. A ZIP-only
-upgrade with an older companion shows an upgrade hint and leaves these features disabled.
+After upgrading, close and reopen Preferences to load the updated settings interface. GNOME Shell caches imported modules, so top bar code upgrades require saving your work and logging out and back in. The installer does not end your session.
 
-Runtime dependencies are Python 3.10 or newer, Python GI with GTK 3,
-Pillow, numpy, systemd, `gtk-update-icon-cache`, and `glib-compile-schemas`.
-The installer reports missing dependencies before changing the installation.
-The GTK 3 backend and GTK 4 preferences run in separate processes.
+## Usage
 
-After upgrading, close and reopen Preferences to use the new settings UI.
-GNOME Shell caches imported extension modules, so top bar code upgrades need a
-logout and login after saving your work. The installer does not end your session.
+Open **Icon Normalizer → Preferences** from your extensions manager.
 
-## Use the extension
+| Page | Common actions |
+| --- | --- |
+| Rules | Adjust visual settings, choose a preset or custom profile, then select **Save only** or **Save and apply** |
+| App Icons | Search and filter icons, open comparison previews, and set per-icon skip rules |
+| Maintenance | View status; use **Check now**, **Apply now**, or **Apply and activate**; configure automatic maintenance, theme following, and interface language |
 
-Open **Icon Normalizer → Preferences** from the extensions manager.
+The **Standard** preset uses **88%** target coverage, **±2 percentage points** of tolerance, and **72%** inner logo coverage. The nine output sizes are `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`.
 
-- **Rules**: adjust coverage, tolerance and inner logo coverage; choose a preset;
-  save settings alone or save and apply them. Saved settings load automatically.
-- **App Icons**: search applications, filter actions, and compare original and
-  normalized icons at 32, 48, 64, 128 or 256 pixels. Rules can skip individual icons.
-- **Maintenance**: view the backend, theme, managed icon count and automatic
-  maintenance; check, apply, activate the theme, or restore original icons.
+### Custom profiles and theme following
 
-In **Maintenance → Interface language**, choose **Follow system**, **简体中文**, or
-**English**. Both the top bar and preferences use the same choice. Switching
-languages updates the interface immediately and preserves the selected page,
-search text, and unsaved visual settings. Protocol operation names and JSON
-fields remain stable technical identifiers.
+**Save as custom profile** stores the current parameters. **Use profile** only fills the draft; **Save only** or **Save and apply** makes those parameters active. Profiles are independent of the icon theme.
 
-Enable **Show top bar icon** to use the symbolic icon in the panel. Its menu
-shows icon health, automatic maintenance, the theme and last application time,
-followed by check/apply actions and a Preferences shortcut.
+**Maintenance → Follow icon theme** is enabled by default. With automatic maintenance also enabled, selecting another installed icon theme regenerates `DockNormalized` while preserving visual parameters and per-icon rules. The latest selected source theme becomes the restore target. Failed migrations restore the previous icons, configuration, and recovery records.
 
-The minimum window is 380×420 in Chinese and 420×420 in English, allowing room
-for longer labels. In narrow windows, filters wrap, action buttons
-stack vertically, navigation moves to the bottom, and previews become a single
-column. Use vertical scrolling to reach content below the available height.
+Changing the GTK or GNOME Shell appearance theme keeps your visual parameters. Selecting the current source theme does not force overlay activation; choose **Apply and activate** to enable the normalized theme again.
 
-## Automatic maintenance and recovery
+### Automatic maintenance, language, and the top bar
 
-Maintenance runs independently of the extension window through the user's
-`icon-normalizer.path` and `icon-normalizer.timer` units. The path unit notices
-new or updated application launchers; the timer provides a periodic fallback.
-Closing Preferences or locking the screen does not stop maintenance.
+The user-level `icon-normalizer.path` unit detects application-launcher changes, while `icon-normalizer.timer` checks every minute as a fallback. Completion time depends on event detection and the number of icons. Closing Preferences or locking the screen does not stop background maintenance.
 
-The Standard preset uses 88% target coverage, ±2 percentage-point tolerance,
-and 72% inner coverage, with nine sizes from 16 to 512 pixels. Custom settings
-are preserved by frontend upgrades.
+In **Maintenance → Interface language**, choose **Follow system**, **简体中文**, or **English**. The top bar and Preferences share this setting and update immediately.
 
-Choose **Restore originals** in Maintenance to restore managed launchers and
-the previous icon theme. A confirmation is required. External edits are
-preserved and reported as conflicts instead of being overwritten.
+The top bar button is disabled by default. Enable **Maintenance → Show top bar icon** to view status, check or apply icons, and open Preferences through the symbolic panel icon.
+
+## Recovery and removal
+
+In **Maintenance → Restore desktop icons**, select **Restore** and confirm to restore managed changes and the latest selected source theme. Managed launchers without external edits are restored byte for byte. Conflicts preserve external edits and report a failure.
+
+Run from the complete release or source directory:
 
 ```bash
-# Restore managed changes and remove the installation:
+# Restore managed changes, then remove the extension and backend.
 python3 tools/uninstall.py
 
-# Remove only the extension, leaving the background service installed:
+# Remove only the extension, retaining the backend and maintenance services.
 python3 tools/uninstall.py --keep-backend
 ```
 
-Backups remain in `~/.local/state/icon-normalizer/backups/`.
+Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, keep the state files and managed directories, then follow the [acceptance and recovery guide](docs/CHECKLIST.md).
 
-## Validation and limits
+## Supported scope
 
-```bash
-node tests/frontend/syntax-check.mjs
-node tests/frontend/stateModel.test.mjs
-node tests/frontend/i18n.test.mjs
-node --experimental-vm-modules tests/frontend/indicator.test.mjs
-python3 tests/frontend/test_runtime.py
-python3 tests/frontend/headless_shell.py
-python3 -m unittest discover -s tests/installation -p 'test_*.py'
-```
+- Tray and AppIndicator icons, and window icons drawn directly by applications or loaded from files, may bypass icon themes and cannot be normalized.
+- Non-default `XDG_DATA_HOME` is currently unsupported and is rejected during installation checks.
+- This release is available on GitHub for local installation and has not been submitted to GNOME Extensions. A GitHub release does not imply GNOME review approval.
 
-Runtime tests use private backend fixtures. The headless Shell acceptance test
-uses a separate HOME, session bus, settings store and fake service manager, and
-captures both language menus without replacing the live desktop.
+## Documentation and contributions
 
-Tray/AppIndicator icons and applications that draw icons directly bypass the
-icon theme. Non-default `XDG_DATA_HOME` is unsupported. This release is for
-local installation and is not published on extensions.gnome.org.
+The [documentation index](docs/README.md) organizes references by usage, development, and release tasks. Use [Issues](https://github.com/TengJoe/icon-normalizer-plugin/issues) to report problems or suggest improvements.
 
-See `docs/CHECKLIST.md` for the full acceptance commands and recovery procedures,
-`ARCHITECTURE.md` for module boundaries, and `PROTOCOL.md` for the frozen v1 wire
-contract. Those technical reference documents currently use Chinese.
+| Document | Contents |
+| --- | --- |
+| [Contribution guide](CONTRIBUTING.md) | Development checks, issue reports, and Chinese/English writing conventions |
+| [Architecture](ARCHITECTURE.md) | Module responsibilities, process isolation, transactions, and data flow |
+| [Protocol](PROTOCOL.md) | JSON requests, error codes, concurrency control, and wait budgets |
+| [Release checklist](docs/CHECKLIST.md) | Automated checks, manual acceptance, and recovery procedures |
+| [Changelog](CHANGELOG.md) | Version history; [v1.1.1 notes](docs/RELEASE-1.1.1.md) describe the first public release |
 
-## Custom profiles and icon themes
-
-Save the current visual parameters as a named profile in Rules. Use, rename or
-delete up to 50 profiles. Use fills the draft; Save or Save and apply controls when
-it becomes active. Profiles work across icon themes.
-
-Follow icon theme is enabled by default in Maintenance. With automatic maintenance
-on, choosing another installed icon theme retains visual settings and generates a
-new DockNormalized overlay. The timer checks every minute even with preferences
-closed. Changing GTK/Shell appearance keeps visual settings. Selecting the restore
-source itself does not force overlay reactivation. Restore returns to the latest
-selected source theme. Failed migrations roll back icons, policy and restore data.
-
-See [submission notes](docs/SUBMISSION.md) for the separate companion service and
-review boundaries. Public source and issues are at the [GitHub project](https://github.com/TengJoe/icon-normalizer-plugin),
-with installable packages in [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1).
-Source is licensed under GPL-3.0-or-later; see [LICENSE](LICENSE).
+Technical references currently use Chinese; installation and usage guides are available in both languages.
 
 ## Author and support
 
-Author: **[TengJoe](https://github.com/TengJoe)**.
-Maintenance → About and support provides the project homepage, issue tracker,
-version, license, and payment QR codes for WeChat Pay and Alipay.
-All features are available for free; supporting development is voluntary.
-See the bilingual [support page](docs/SUPPORT.md).
+Author: **[TengJoe](https://github.com/TengJoe)**. All features are available for free. Supporting development is voluntary, with no required amount.
+
+Find the WeChat Pay and Alipay codes through the repository's **Sponsor** entry, the [support page](docs/SUPPORT.md), or **Maintenance → About and support**.
+
+<details>
+<summary>View WeChat Pay and Alipay payment codes</summary>
+
+### WeChat Pay
+
+<img src="extension/assets/support/wechat.png" alt="WeChat Pay payment QR code" width="280">
+
+### Alipay
+
+<img src="extension/assets/support/alipay.jpg" alt="Alipay payment QR code" width="280">
+
+Scan with the corresponding payment app and verify the recipient and amount there. Payments are handled by WeChat Pay or Alipay; the extension does not read or verify transactions.
+
+</details>

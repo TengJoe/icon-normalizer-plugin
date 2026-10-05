@@ -1,6 +1,8 @@
-# ADR 0003 — 前端 GNOME 45~51 ESM / Libadwaita 重写
+# ADR-0003 — 前端 ESM 与 Libadwaita 重写
 
 状态：已采纳　日期：2026-10-02
+
+> 本文记录早期 45–51 兼容范围的设计决策。当前公开版本仅声明实测 GNOME Shell 51，见 [README](../../README.md)；以下历史背景与决策保留。
 
 ## 背景
 

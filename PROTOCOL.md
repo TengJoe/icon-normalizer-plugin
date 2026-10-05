@@ -1,27 +1,29 @@
-# PROTOCOL.md — Icon Normalizer CLI 协议 v1（冻结）
+# Icon Normalizer CLI 协议 v1
 
-后端与前端之间的唯一通信方式：**一次性子进程 + 单行 JSON**。
+后台与前端之间的唯一通信方式：**一次性子进程 + 单行 JSON**。
 请求经 stdin 整体读入，响应为 stdout 上的单行 JSON；诊断只能走 stderr。
-本文件与 `contracts/*.schema.json` 共同构成契约；既有操作的必需字段、语义或错误码变更必须升 `api_version`；新增操作与可选响应字段可向后兼容追加。
-后端 3.1 追加五个操作，旧九个操作及 17 个错误码保持兼容。
+本文件与 [JSON Schema 契约](contracts/)共同定义协议。既有操作的必需字段、语义或错误码发生破坏性变更时，必须升级 `api_version`；新增操作与可选响应字段可以向后兼容追加。
+后台 3.1 追加五个操作，旧九个操作及 17 个错误码保持兼容。
 
 ## 1. 进程模型与隔离
 
-| 界 | 进程 | 依赖 |
-|---|---|---|
-| 前端（GNOME Shell 扩展 / 偏好设置） | GJS, Gtk4 + Libadwaita | `Gio.Subprocess` 派生 |
-| 后端 | CPython ≥3.10, **Gtk-3.0 / GdkPixbuf-2.0** / Pillow / numpy | 严禁加载 Gtk-4.0 |
+| 组件 | 进程与依赖 | 通信或约束 |
+| --- | --- | --- |
+| Shell 扩展 | GJS、St | `Gio.Subprocess` 派生后台 |
+| 设置窗口 | 独立 GJS、GTK 4、Libadwaita | `Gio.Subprocess` 派生后台 |
+| 后台 | CPython ≥3.10、GTK 3、GdkPixbuf、Pillow、NumPy | 不加载 GTK 4 |
 
-两界只经本协议通信；后端进程内出现 Gtk4 即为违例（`resolver.require_gtk3_only()` 卫哨拒绝）。
+前端与后台只通过本协议通信；后台进程内出现 GTK 4 即为违例（`resolver.require_gtk3_only()` 卫哨拒绝）。
 
 启动方式：
+
 - 交互请求：`/usr/bin/python3 <libexec>/control.py --json`（等价 `python3 -m icon_normalizer --json`）
 - systemd worker：`control.py --scheduled`（无 stdin，直接执行一次 apply）
 
 ## 2. 请求
 
 ```json
-{"api_version": 1, "request_id": "ui-…", "operation": "scan", "arguments": {}}
+{"api_version":1,"request_id":"ui-1","operation":"scan","arguments":{}}
 ```
 
 - 上限 64 KiB；UTF-8；严格 JSON（NaN/Infinity 常量拒绝）。
@@ -31,7 +33,7 @@
 ## 3. 操作与参数
 
 | operation | arguments | 类别 | 锁等待预算 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `status` | `{}` | 读（免锁） | — |
 | `doctor` | `{}` | 读（免锁） | — |
 | `scan` | `{}` | 读 | 100 ms |
@@ -59,7 +61,7 @@
    构建引擎 的顺序执行；初始化全程被错误信封覆盖。
 2. `revision` = 规范化 JSON（target/deadband/inner/sizes/base_theme + user_rules）的 SHA-256。
 3. 写操作携带 `expected_revision`；不匹配 → `REVISION_CONFLICT`（retryable，`details.current_revision`），
-   拒绝覆盖。`revert` 例外：显式破坏性操作，不校验 revision。
+   拒绝覆盖。此处指 `configure`、`rules.set` 和 `apply` 的策略写入；`profiles.save`/`profiles.delete` 使用独立的 `expected_profiles_revision`。`automation.set`、`theme.follow`、`theme.sync` 与显式 `revert` 不要求策略 revision。
 4. 读预算内未获锁 → `BUSY`（retryable，exit 3）；UI 写操作预算 0（即立即失败，不阻塞界面）。
 5. worker（`--scheduled`）预算 750 ms，失败静默退出（exit 3），由下一轮 timer/path 重试。
 
@@ -69,15 +71,21 @@
   `{path, before(b64), before_sha, after_sha, before_mode}`；manifest 最后提交；
   完成后移除日志；中途失败 → `recover()` 逆序回放（校验现盘 SHA ∈ {before, after}，外部改动则拒绝）。
 - 主题激活：`settings-pending.json`（stage=files_committed）先于 `gsettings set` 落盘，
-  回读确认后移除；任一后续写操作入口补齐未竟激活。
-- `scan` 拒绝在存在未恢复日志时运行（`RECOVERY_REQUIRED`）；写操作入口自动恢复。
+  回读确认后移除；后续核心写操作入口补齐未完成的激活。
+- `scan` 拒绝在存在未恢复日志时运行（`RECOVERY_REQUIRED`）；核心写操作入口自动恢复；方案与跟随偏好的元数据操作不回放图标事务。
 
 ## 6. 响应信封
 
+成功响应示例（方案目录为空；revision 仅作格式示意）：
+
 ```json
-{"api_version":1,"request_id":"…","operation":"scan","ok":true,"result":{…},"warnings":[]}
-{"api_version":1,"request_id":"…","operation":"apply","ok":false,
- "error":{"code":"REVISION_CONFLICT","message":"…","retryable":true,"details":{…}}}
+{"api_version":1,"request_id":"ui-1","operation":"profiles.list","ok":true,"result":{"profiles_revision":"0000000000000000000000000000000000000000000000000000000000000000","profiles":[]},"warnings":[]}
+```
+
+冲突响应示例（实际 revision 由后台计算）：
+
+```json
+{"api_version":1,"request_id":"ui-2","operation":"apply","ok":false,"error":{"code":"REVISION_CONFLICT","message":"Configuration changed","retryable":true,"details":{"current_revision":"0000000000000000000000000000000000000000000000000000000000000000"}}}
 ```
 
 - stdout 上限 8 MiB，超限替换为 `IO_ERROR` 错误信封；stdout 永远只有一行 JSON。
@@ -85,7 +93,7 @@
 ## 7. 错误码与退出码
 
 | code | retryable | exit |
-|---|---|---|
+| --- | --- | --- |
 | BUSY / REVISION_CONFLICT / STALE_SOURCE / TIMEOUT | ✔ | 3 / 3 / 5 / 1 |
 | INVALID_REQUEST / UNSUPPORTED_VERSION / INVALID_CONFIG | ✘ | 2 |
 | NOT_INSTALLED / DEPENDENCY_MISSING / UNSUPPORTED_ENVIRONMENT | ✘ | 4 |
@@ -98,10 +106,22 @@
 ## 8. 前端等待纪律
 
 - 读操作超时即击杀子进程；**写操作超时永不击杀**（结果未确认，UI 提示"结果尚未确认"）。
-- 每操作读超时：status/doctor 5s，preview 15s，scan 120s，写 125–130s，automation 30s。
+- 等待超时由 `extension/lib/backendClient.js` 定义，见下表。超时与锁等待预算是不同概念。
+- 关闭请求作用域时取消读取；写操作继续执行并回收子进程，界面停止接收其结果。
+
+| 操作 | 前端等待超时 |
+| --- | --- |
+| `status`、`doctor`、`profiles.list` | 5 s |
+| `preview` | 15 s |
+| `scan` | 120 s |
+| `configure`、`rules.set`、`apply`、`theme.sync` | 125 s |
+| `revert` | 130 s |
+| `automation.set` | 30 s |
+| `profiles.save`、`profiles.delete`、`theme.follow` | 10 s |
+
 - 响应 `request_id`/`operation`/`api_version` 不匹配按 `INTERNAL_ERROR` 处理。
 
-## 9. 后端 3.1 追加操作
+## 9. 后台 3.1 追加操作
 
 - 自定义方案仅存 target/deadband/inner；参数范围和交叉约束与 configure 一致。
   方案 id 为 32 位小写 hex，名称 NFC 规范化、去除首尾空白、1–64 个可显示字符，
@@ -117,6 +137,6 @@
   config/baseline/图标/manifest 同一前置日志事务提交；失败一并回滚。
   新的素材主题成为还原目标，激活日志记录 only_if_current_theme，尊重渲染期间
   用户后续选择。重新选择原素材主题不会强制激活；显式 Apply & activate 可以恢复。
-- 后端 scheduled 模式也执行主题跟随，前端关闭时由 timer 兜底；Shell 监听只作加速。
+- 后台 scheduled 模式也执行主题跟随，前端关闭时由 timer 兜底；Shell 监听只作加速。
   关闭自动维护时 theme.sync 不迁移，显式 apply 仍可以执行用户请求。
 - metadata 操作不会回放尚未恢复的图标事务；核心写操作先恢复并重新读取 policy/revision。
