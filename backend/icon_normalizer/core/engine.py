@@ -778,11 +778,22 @@ class Engine:
         payload["file_operations"] = opcount
         payload["summary"]["cache_valid"] = self.cache_valid()
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
+        record = {key: value for key, value in payload.items() if key != "apps"}
+        record["checked_at_unix"] = time.time()
         atomic_write(
             self.state_dir / "last-run.json",
-            json.dumps({**payload, "checked_at_unix": time.time()}, ensure_ascii=False, indent=2).encode(),
+            json.dumps(record, ensure_ascii=False, indent=2).encode(),
             0o600,
         )
+        # The per-app rows run to tens of kilobytes while the record above
+        # stays under one: the heartbeat is rewritten every run, the detail
+        # only when it actually changes, so an unchanged desktop writes
+        # nothing beyond the small record. Callers still receive the full
+        # payload; only the on-disk copy is split.
+        apps_path = self.state_dir / "last-run-apps.json"
+        apps_blob = json.dumps(payload.get("apps", []), ensure_ascii=False, indent=2).encode()
+        if not apps_path.exists() or apps_path.read_bytes() != apps_blob:
+            atomic_write(apps_path, apps_blob, 0o600)
         return payload
 
     # ------------------------------------------------------------------ revert

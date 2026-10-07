@@ -20,7 +20,7 @@ v1 线协议（9 操作、17 错误码、信封、退出码）已被前端与契
 4. 主题激活二阶段事务转正：`apply(activate=true)` 先写 `settings-pending.json`
    (stage=files_committed, activate_theme)，再 `gsettings set` + 回读确认，确认后移除日志；
    任何写操作入口的 `_recover_transactions` 据此补齐激活 —— 控制流自 v2 的死代码变为真实自愈路径。
-5. 全部状态 JSON（config/rules/last-run/last-scan/last-error/pending）经统一原子写器以 0600 落盘。
+5. 全部状态 JSON（config/rules/last-run/last-run-apps/last-scan/last-error/pending）经统一原子写器以 0600 落盘。
 6. 错误码纠偏：preview PNG 超 2MiB 信封上限 → `IO_ERROR`（不再 `INTERNAL_ERROR`）。
 
 ## 后果

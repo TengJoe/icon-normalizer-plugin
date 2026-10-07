@@ -315,6 +315,34 @@ class UserRuleLifecycle(unittest.TestCase):
         self.assertNotEqual(rows["fixture-glyph"]["class"], "glyph")
         self.assertNotEqual(rows["fixture-glyph"]["classification_confidence"], "user")
 
+    def test_run_record_stays_small_and_keeps_the_detail_apart(self) -> None:
+        # The every-minute heartbeat must not carry the per-app rows: the
+        # record stays small while the bulky detail is persisted separately.
+        engine = self.box.build_engine()
+        payload = engine.sync(True)
+        state = engine.state_dir
+        record = json.loads((state / "last-run.json").read_text())
+        self.assertNotIn("apps", record)
+        self.assertIn("checked_at_unix", record)
+        self.assertLess((state / "last-run.json").stat().st_size, 2048)
+        # callers still receive the full payload
+        self.assertTrue(payload["apps"])
+        detail = json.loads((state / "last-run-apps.json").read_text())
+        self.assertEqual(len(detail), len(payload["apps"]))
+
+    def test_unchanged_detail_is_not_rewritten(self) -> None:
+        # A desktop that did not change must not rewrite the detail file,
+        # otherwise the split would not save any disk traffic.
+        engine = self.box.build_engine()
+        engine.sync(True)
+        detail = engine.state_dir / "last-run-apps.json"
+        heartbeat = engine.state_dir / "last-run.json"
+        before_detail = detail.stat().st_mtime_ns
+        before_heartbeat = heartbeat.stat().st_mtime_ns
+        self.box.build_engine().sync(True)
+        self.assertEqual(detail.stat().st_mtime_ns, before_detail)
+        self.assertGreaterEqual(heartbeat.stat().st_mtime_ns, before_heartbeat)
+
 
 if __name__ == "__main__":
     unittest.main()
