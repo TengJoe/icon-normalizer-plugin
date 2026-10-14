@@ -30,9 +30,10 @@ from ..desktop import (
     rewrite_icon_line,
 )
 from ..gsettings import ThemeSettings
-from ..policy import Policy, canonical_json, sha_hex
+from ..policy import Policy, canonical_json, compute_revision, sha_hex
 from ..theme import MARKER, MANIFEST_VERSION, MARKER_FILE, ThemeDirectory, theme_index
-from .analyzer import IconMetrics, Plan, analyze, classify, plan
+from .analyzer import IconMetrics, Plan, analyze, plan
+from .classification import classify_source, lookup_rule, resolve_rule
 from .renderer import normalize
 from .resolver import IconResolver, load_image, resolve_source
 from .transaction import ProtectedRoot, TransactionStore
@@ -154,6 +155,7 @@ class Engine:
                 self.policy_sha
                 + canonical_json(config.overrides)
                 + canonical_json(config.user_rules)
+                + sha_hex(Path(__file__).with_name("classification.py").read_bytes())
             ).encode()
         )
 
@@ -191,27 +193,13 @@ class Engine:
     # ------------------------------------------------------------------ inputs
     def user_rule(self, icon: str, digest: str | None) -> dict[str, Any] | None:
         """Validated user rule for an icon, or None. Manual classes bind to the SHA."""
-        rule = self.config.user_rules.get(icon)
-        if not rule:
-            return None
-        if rule.get("reset"):
-            return None
-        cls = rule.get("classification")
-        if rule.get("skip"):
-            return {"skip": True, "class": None}
-        if cls == "auto":
-            return {"skip": False, "class": None, "drop_manual": True}
-        if cls not in ("plate-rect", "plate-circle", "artwork", "glyph"):
-            return None
-        if rule.get("source_sha256"):
-            if digest is None:
-                try:
-                    digest = sha_hex(resolve_source(icon, self.resolver).read_bytes())
-                except Exception:
-                    digest = None
-            if digest != rule["source_sha256"]:
-                return None
-        return {"skip": False, "class": cls}
+        rule = lookup_rule(self.config.user_rules, icon)
+        if rule and rule.get("source_sha256") and digest is None:
+            try:
+                digest = sha_hex(resolve_source(icon, self.resolver).read_bytes())
+            except Exception:
+                digest = None
+        return resolve_rule(rule, digest)
 
     def collect(
         self, old: dict[str, Any]
@@ -360,7 +348,7 @@ class Engine:
                 "source_ratio": metrics.source_ratio,
                 **decision.as_dict(),
             }
-            raw_rule = self.config.user_rules.get(icon)
+            raw_rule = lookup_rule(self.config.user_rules, icon)
             if raw_rule and raw_rule.get("skip"):
                 row["action"] = "skipped"
                 row["reason"] = "user_skip"
@@ -475,26 +463,15 @@ class Engine:
     def _analyze_one(self, icon: str, path: Path, digest: str) -> dict[str, Any]:
         img, _meta = load_image(path)
         metrics = analyze(img)
-        auto = classify(metrics)
-        cls, reason, confidence = auto.cls, auto.reason, auto.confidence
-        override = self.config.overrides.get(icon)
-        if override and digest == override.get("source_sha256"):
-            cls = str(override["class"])
-            reason = str(override.get("reason", "reviewed_override"))
-            confidence = "reviewed"
-        urule = self.user_rule(icon, digest)
-        if urule:
-            if urule.get("drop_manual"):
-                auto2 = classify(metrics)
-                cls, reason, confidence = auto2.cls, "automatic_classification", "automatic"
-            elif urule.get("class"):
-                cls, reason, confidence = str(urule["class"]), "user_classification", "user"
+        classification, auto_class = classify_source(
+            icon, digest, metrics, self.config.overrides, self.config.user_rules)
+        cls, reason, confidence = classification.cls, classification.reason, classification.confidence
         return {
             "metrics": metrics,
             "class": cls,
             "reason": reason,
             "confidence": confidence,
-            "auto_class": auto.cls if cls != auto.cls else None,
+            "auto_class": auto_class if cls != auto_class else None,
             "cache_entry": {
                 "key": sha_hex((str(path) + digest + self.analysis_policy).encode()),
                 "metrics": metrics.as_dict(),
@@ -780,6 +757,8 @@ class Engine:
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
         record = {key: value for key, value in payload.items() if key != "apps"}
         record["checked_at_unix"] = time.time()
+        record["policy_sha256"] = self.policy_sha
+        record["revision"] = compute_revision(self.config.policy, self.config.user_rules)
         atomic_write(
             self.state_dir / "last-run.json",
             json.dumps(record, ensure_ascii=False, indent=2).encode(),

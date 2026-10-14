@@ -1,6 +1,6 @@
 # 发布验收清单
 
-适用版本：扩展 **1.1.1**、后台 **3.1.0**。自动检查的数量记录 v1.1.1 发布基线，后续程序变更应重新运行并记录结果。
+适用版本：扩展 **1.1.1**、后台 **3.1.0**，含 `Unreleased` 中的规则、预览与状态修复。Q1/Q2/Q5 的数量记录 2026-10-14 修复部署前的验证结果，其余项目保留既有验收基线。修复已在维护者本机部署，并在已安装后台上通过 11 项隔离行为回归；真实系统的 32/48/128px 预览和一次正常维护均通过。既有 v1.1.1 发行附件不包含本次未发布修复；本轮未重新执行 Q8/Q10 的完整图形会话验收。后续程序变更应重新运行并记录结果。
 
 命令从仓库根目录执行；标注“手动”的项目需要真实桌面会话。勾选项表示已有自动回归覆盖，不代表当前用户桌面的手动观察结果。
 
@@ -8,11 +8,11 @@
 
 | # | 项目 | 命令 | 通过标准 |
 | --- | --- | --- | --- |
-| Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 22 source files` |
-| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 147 tests OK |
+| Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 23 source files` |
+| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 160 tests OK |
 | Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 个 JavaScript 文件通过，依赖存在 |
 | Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 11/11 passed |
-| Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 17 tests OK，独立假 manager |
+| Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 19 tests OK，独立假 manager |
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
 | Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 9 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
