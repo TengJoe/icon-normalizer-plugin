@@ -1,8 +1,8 @@
 # GNOME Extensions submission notes
 
-Candidate: extension **1.1.1**, companion backend **3.1.0**, verified **GNOME Shell 51**. This project has not been submitted to GNOME Extensions. These notes describe the review boundary and preparation steps; they do not claim approval.
+Current distribution: extension **1.1.2**, companion backend **3.1.1**, verified **GNOME Shell 51**. These notes describe the review boundary and preparation steps. GitHub publication does not determine the status of an existing GNOME Extensions submission or claim approval.
 
-[Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
+[Release v1.1.2](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.2) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
 
 ## Package boundary
 
@@ -39,7 +39,7 @@ python3 tools/release_audit.py --submission --archive dist/icon-normalizer@joeyd
 
 Local checks cover entry-point toolkit isolation, source-only ZIP contents, source/archive equality, license, versions, schemas, and the tested Shell declaration. The builder runs local source checks before creating artifacts. The public URL must also be verified separately: a URL-format check does not prove accessibility.
 
-Source and issues are available at the [GitHub repository](https://github.com/TengJoe/icon-normalizer-plugin). The complete companion package is available in [Release v1.1.1](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1). Submit the extension ZIP to GNOME Extensions; the full tarball is a separate companion distribution.
+Source and issues are available at the [GitHub repository](https://github.com/TengJoe/icon-normalizer-plugin). The complete companion package is available in [Release v1.1.2](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.2). Submit the extension ZIP to GNOME Extensions; the full tarball is a separate companion distribution.
 
 GNOME Extensions assigns its own numeric extension version. Keep `version-name` as the human-readable release version and preserve the UUID for upgrades. GNOME Shell caches ESM modules, so panel updates require a new login session; Preferences can be closed and reopened. The installer does not end the session.
 
