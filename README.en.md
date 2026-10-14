@@ -8,12 +8,12 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.1.1](https://img.shields.io/badge/release-1.1.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.1)
+[![Release 1.1.2](https://img.shields.io/badge/release-1.1.2-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.2)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-2ec27e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.1/icon-normalizer-plugin-1.1.1.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
+[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.2/icon-normalizer-plugin-1.1.2.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
 
 </div>
 
@@ -60,20 +60,20 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 **Use the complete package for a first installation.** The separate extension ZIP does not include the Python backend.
 
 1. Confirm that you use **GNOME Shell 51**, and prepare the [runtime dependencies](#compatibility-and-dependencies) listed below.
-2. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.1/icon-normalizer-plugin-1.1.1.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.1/SHA256SUMS) into the same directory.
+2. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.2/icon-normalizer-plugin-1.1.2.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.2/SHA256SUMS) into the same directory.
 3. Run as your normal user. Confirm that verification reports `OK` before extracting and installing.
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
 # Confirm that verification above reports OK, then continue:
-tar -xzf icon-normalizer-plugin-1.1.1.tar.gz
+tar -xzf icon-normalizer-plugin-1.1.2.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
 The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
 
-> Current public release: extension **1.1.1**, backend **3.1.0**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
+> Current public release: extension **1.1.2**, backend **3.1.1**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
 
 <details>
 <summary>Install from source</summary>
@@ -183,7 +183,7 @@ Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, 
 | [Architecture](ARCHITECTURE.md) | Modules, process isolation, transactions, and data flow |
 | [Protocol](PROTOCOL.md) | JSON requests, error codes, and concurrency control |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance, and recovery procedures |
-| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.1.1 notes](docs/RELEASE-1.1.1.md) |
+| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.1.2 notes](docs/RELEASE-1.1.2.md) |
 
 See the [documentation index](docs/README.md) for more references. When reporting a problem, include system and component versions and reproduction steps, and remove private information from logs and screenshots first. Technical references currently use Chinese; installation and usage guides are available in both languages.
 
