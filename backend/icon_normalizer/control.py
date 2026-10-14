@@ -167,12 +167,14 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
 
     policy = None
     revision = None
+    rules: dict[str, Any] = {}
     if config_exists:
         try:
             store = _store_for(paths)
             try:
                 policy = store.load_policy()
-                revision = store.revision(policy)
+                rules = store.load_rules()
+                revision = store.revision(policy, rules)
             except ValueError as exc:
                 reject("INVALID_CONFIG", str(exc))
         except Exception as exc:
@@ -202,6 +204,13 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         stale = summary_policy is None or (
             policy is not None and summary_policy != policy_fingerprint(policy)
         )
+        applied_revision = last_run.get("revision")
+        if applied_revision is not None:
+            stale = stale or applied_revision != revision
+        elif rules.get("icons"):
+            # Legacy records cannot prove that current rules were applied.
+            # One successful apply writes the full policy+rules revision.
+            stale = True
     error = None if not last_error else {
         "code": last_error.get("code", "INTERNAL_ERROR"),
         "message": last_error.get("message", ""),
@@ -358,6 +367,7 @@ def op_preview(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, 
         store=ctx.store,
         policy=ctx.policy,
         revision=ctx.revision,
+        search_path=_env_path_list("ICON_NORMALIZER_ICON_SEARCH_PATH"),
     )
 
 
@@ -582,7 +592,7 @@ def _recover_transactions(ctx: OperationContext) -> None:
 
 
 def _record_error(paths: RuntimePaths, exc: ProtocolError) -> None:
-    if exc.code in ("BUSY", "REVISION_CONFLICT", "INVALID_REQUEST", "INVALID_CONFIG", "NOT_FOUND") or \
+    if exc.code in ("BUSY", "REVISION_CONFLICT", "INVALID_REQUEST", "INVALID_CONFIG", "NOT_FOUND", "STALE_SOURCE") or \
             exc.operation in ("profiles.list", "profiles.save", "profiles.delete", "theme.follow"):
         # Expected contention belongs to this response, not persistent health.
         return

@@ -76,7 +76,7 @@ def inspect_source(submission: bool = False) -> dict:
     elif not real_url: warnings.append('Public project URL is pending; --submission will fail until it is supplied.')
     return {'ok': all(c['passed'] for c in checks), 'submission_mode': submission,
             'checks': checks, 'warnings': warnings,
-            'review': 'GNOME Extensions reviewer approval has not been requested.'}
+            'review': 'This mechanical gate does not determine GNOME Extensions review status or approval.'}
 
 
 def inspect_archive(path: Path) -> dict:

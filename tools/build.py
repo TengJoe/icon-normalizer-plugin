@@ -71,7 +71,7 @@ def build_tarball(target: Path, ver: str) -> None:
 
     members = ["backend", "extension", "tools", "contracts", "docs", "packaging",
                "tests", "README.md", "README.en.md", "CHANGELOG.md", "ARCHITECTURE.md", "PROTOCOL.md",
-               "pyproject.toml", "LICENSE", ".gitignore"]
+               "pyproject.toml", "LICENSE", ".gitignore", "CONTRIBUTING.md"]
     with tarfile.open(target, "w:gz") as tar:
         for name in members:
             path = PROJECT / name

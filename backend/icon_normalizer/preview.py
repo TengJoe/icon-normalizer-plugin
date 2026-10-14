@@ -15,12 +15,13 @@ from typing import Any
 
 from PIL import Image
 
-from .config_store import ConfigStore
+from .config_store import ConfigStore, load_overrides
 from .errors import ProtocolError, reject
 from .policy import Policy, validate_policy_values
 from .version import CORE_VERSION
 from .xdg import RuntimePaths
-from .core.analyzer import analyze
+from .core.analyzer import analyze, plan
+from .core.classification import classify_source, lookup_rule
 from .core.renderer import fit_original, normalize
 from .core.resolver import load_image, lookup_size_specific
 
@@ -146,49 +147,58 @@ def preview(
         reject("STALE_SOURCE", "源素材已更新；请刷新扫描",
                details={"current_source_sha256": group.get("source_sha256")})
 
-    rules = store.load_rules().get("icons", {})
-    rule = rules.get(args["icon_id"]) or {}
-    skipped = bool(rule.get("skip"))
-    cls = group.get("classification")
+    source_theme = ((scan or {}).get("summary") or {}).get("source_theme")
+    if source_theme is not None and source_theme != policy.base_theme:
+        reject("STALE_SOURCE", "来源主题已更新；请刷新扫描",
+               details={"source_theme": policy.base_theme})
     source_path = group.get("source_path")
+    try:
+        current_sha = hashlib.sha256(Path(str(source_path)).read_bytes()).hexdigest()
+    except OSError:
+        current_sha = None
+    if current_sha is None or current_sha != args["source_sha256"]:
+        reject("STALE_SOURCE", "源素材已更新或删除；请刷新扫描",
+               details={"current_source_sha256": current_sha})
 
-    action = group.get("action") or "keep"
-    metrics: dict[str, Any] = {"source_ratio": group.get("source_ratio")}
-    original_img: Image.Image
+    img, _ = load_image(str(source_path))
+    st = analyze(img)
+    rules = store.load_rules().get("icons", {})
+    icon_name = str(group["icon_name"])
+    rule = lookup_rule(rules, icon_name) or {}
+    skipped = bool(rule.get("skip"))
+    classification, _auto_class = classify_source(
+        icon_name, current_sha, st, load_overrides(paths.libexec, paths.state_dir), rules)
+    cls = classification.cls
+    decision = plan(st, cls, effective_target, effective_deadband, effective_inner)
+    action = "skipped" if skipped else decision.action
+    classification_stale = bool(rule.get("classification") not in (None, "auto") and
+                                rule.get("source_sha256") and rule["source_sha256"] != current_sha)
+    original_group = {**group, "base_theme": policy.base_theme}
+    original_img = slot_original(original_group, args["size"], source_path, paths, search_path)
     proposed_img: Image.Image
-    key = cache_key(
-        args["source_sha256"], effective, args["size"], cls, skipped
-    )
+    metrics: dict[str, Any] = {"source_ratio": st.source_ratio}
+    key = cache_key(current_sha, effective, args["size"], cls, skipped)
     cache_file = paths.preview_root / (key + ".png")
-    paths.preview_root.mkdir(parents=True, exist_ok=True)
-    if skipped or action in ("keep", "excluded", "unresolved", "retain_previous", "skipped"):
-        # keep/skipped: show the real size-specific original artwork, not a rescaled master.
-        original_img = slot_original(group, args["size"], source_path, paths, search_path)
+    if skipped or action == "keep":
         proposed_img = original_img.copy()
-        action = "skipped" if skipped else action
         metrics["note"] = (
             "skipped: vendor artwork at this size"
-            if skipped
-            else "within deadband or excluded: no candidate"
+            if skipped else "within deadband or excluded: no candidate"
         )
     else:
+        paths.preview_root.mkdir(parents=True, exist_ok=True)
         if cache_file.exists():
             proposed_img = load_png(cache_file)
         else:
-            img, _ = load_image(str(source_path))
-            st = analyze(img)
-            assert cls is not None
             proposed_img, _ = normalize(
-                img, st, cls, args["size"], effective_target, effective_inner
-            )
+                img, st, cls, args["size"], effective_target, effective_inner)
             tmp = paths.preview_root / ("." + key + ".tmp")
             proposed_img.save(tmp, format="PNG")
             os.replace(tmp, cache_file)
             lru_trim(paths.preview_root)
-        original_img = slot_original(group, args["size"], source_path, paths, search_path)
         measured = analyze(proposed_img).source_ratio
         metrics = {
-            "source_ratio": group.get("source_ratio"),
+            "source_ratio": st.source_ratio,
             "target_ratio": effective_target,
             "size": args["size"],
             "measured_after_ratio": round(measured, 4),
@@ -206,8 +216,9 @@ def preview(
         "action": action,
         "skipped": skipped,
         "classification": cls,
-        "classification_origin": group.get("classification_origin"),
-        "classification_stale": group.get("classification_stale", False),
+        "classification_origin": ("user" if classification.confidence == "user" else
+                                  "reviewed" if classification.confidence == "reviewed" else "automatic"),
+        "classification_stale": classification_stale,
         "size": args["size"],
         "metrics": metrics,
         "original_png_base64": png_base64(original_img),
