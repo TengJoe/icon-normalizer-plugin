@@ -36,9 +36,34 @@ let code = 1;
 // Wayland can throttle background windows to one frame per second, including
 // fixture windows. Leave enough time for the complete matrix and screenshots.
 // This does not change UI/CLI request timeouts.
-const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60000, () => {
+const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 90000, () => {
     printerr('Responsive GTK validation timed out'); loop.quit(); return GLib.SOURCE_REMOVE;
 });
+
+function settleAllocation() {
+    // Fixed millisecond delays can sample an old allocation when Wayland
+    // throttles background windows. Observe completed paints instead, without
+    // weakening the geometry assertions or invoking the page's resize code.
+    return new Promise((resolve, reject) => {
+        const clock = window.get_frame_clock();
+        let paints = 0;
+        const tick = window.add_tick_callback(() => GLib.SOURCE_CONTINUE);
+        const finish = error => {
+            clock.disconnect(painted);
+            window.remove_tick_callback(tick);
+            GLib.source_remove(timer);
+            if (error) reject(error); else resolve();
+        };
+        const painted = clock.connect('after-paint', () => {
+            if (++paints === 2) finish();
+        });
+        const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
+            finish(new Error('GTK did not complete the requested allocation'));
+            return GLib.SOURCE_REMOVE;
+        });
+        window.queue_draw();
+    });
+}
 
 async function capture(name) {
     if (!output) return;
@@ -95,7 +120,7 @@ async function run() {
         await delay(250);
         for (const [name, controller] of Object.entries({rules: pages.rules, apps: pages.apps, maintenance: pages.maint})) {
             window.set_visible_page(controller.page);
-            await delay(200);
+            await settleAllocation();
             const minimum = language === 'en' ? 420 : 380;
             check(window.get_width() <= Math.max(width, minimum) + 2,
                 `${name} cannot shrink to ${Math.max(width, minimum)}: ${window.get_width()}`);

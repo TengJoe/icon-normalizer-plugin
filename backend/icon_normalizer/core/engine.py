@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import gsettings
-from ..config_store import atomic_write
+from ..config_store import atomic_write, read_json_file
 from ..desktop import (
     DesktopRef,
     collect_desktop_entries,
@@ -31,6 +31,8 @@ from ..desktop import (
 )
 from ..gsettings import ThemeSettings
 from ..policy import Policy, canonical_json, compute_revision, sha_hex
+from ..fingerprints import policy_fingerprint
+from ..ownership import conflict, reject_conflicts
 from ..theme import MARKER, MANIFEST_VERSION, MARKER_FILE, ThemeDirectory, theme_index
 from .analyzer import IconMetrics, Plan, analyze, plan
 from .classification import classify_source, lookup_rule, resolve_rule
@@ -100,29 +102,6 @@ def _png_bytes(image: Any) -> bytes:
     return buf.getvalue()
 
 
-def _analyzer_bytes() -> bytes:
-    from . import analyzer
-
-    return Path(analyzer.__file__).read_bytes()
-
-
-def _renderer_bytes() -> bytes:
-    from . import renderer
-
-    return Path(renderer.__file__).read_bytes()
-
-
-def policy_fingerprint(policy: Policy) -> str:
-    """Cache-invalidation hash: policy keys + analyzer/renderer source bytes."""
-    return sha_hex(
-        (
-            canonical_json(policy.strategy_dict())
-            + sha_hex(_analyzer_bytes())
-            + sha_hex(_renderer_bytes())
-        ).encode()
-    )
-
-
 class Engine:
     """Owns one overlay theme and its state directory. Caller holds sync.lock."""
 
@@ -189,6 +168,15 @@ class Engine:
 
     def recover(self) -> bool:
         return self.store.recover()
+
+    def _owned_icon_conflicts(self, old: dict[str, Any]) -> list[dict[str, Any]]:
+        conflicts = []
+        for icon, item in old.get("items", {}).items():
+            for name, expected in item.get("files", {}).items():
+                target = self.allowed(Path(name))
+                if target.exists() and sha_hex(target.read_bytes()) != expected:
+                    conflicts.append(conflict(target, expected, icon=icon))
+        return conflicts
 
     # ------------------------------------------------------------------ inputs
     def user_rule(self, icon: str, digest: str | None) -> dict[str, Any] | None:
@@ -259,6 +247,7 @@ class Engine:
         policy = self.config.policy
         sizes = list(policy.sizes)
 
+        conflicts = self._owned_icon_conflicts(old)
         # ---- phase A: exclusions, resolution, analysis-cache dispatch ----
         order: list[str] = []
         refs_by_icon: dict[str, list[DesktopRef]] = {}
@@ -367,7 +356,7 @@ class Engine:
             input_key = sha_hex((str(path) + digest + cls + self.policy_sha).encode())
             reusable = bool(prior and prior.get("input_key") == input_key)
             # Disk/ownership pass: verify every managed target before rendering.
-            missing_sizes = self._verify_targets(icon, output_name, sizes, prior, reusable)
+            missing_sizes = self._verify_targets(icon, output_name, sizes, prior, reusable, conflicts)
             plan_record = _IconPlan(
                 icon=icon, path=path, digest=digest, refs=refs, names=names,
                 desktop_ids=desktop_ids, metrics=metrics, cls=cls, confidence=confidence,
@@ -378,6 +367,8 @@ class Engine:
             if missing_sizes:
                 render_jobs.append((icon, path, metrics, cls, missing_sizes))
 
+        if conflicts:
+            reject_conflicts(conflicts)
         # ---- phase D: concurrent rendering --------------------------------
         render_outputs: dict[str, dict[int, tuple[bytes, dict[str, Any]]]] = {}
         if render_jobs:
@@ -406,7 +397,7 @@ class Engine:
                 target = Path(p)
                 if p not in wanted and target.exists():
                     if sha_hex(target.read_bytes()) != digest:
-                        raise RuntimeError(f"Manually modified stale icon: {target}")
+                        reject_conflicts([conflict(target, digest)])
                     changes[target] = None
         for p, record in old.get("desktop_overrides", {}).items():
             if p in used_overrides:
@@ -505,6 +496,7 @@ class Engine:
         sizes: list[int],
         prior: dict[str, Any] | None,
         reusable: bool,
+        conflicts: list[dict[str, Any]],
     ) -> list[int]:
         """Ownership checks for every managed target; returns sizes to render."""
         missing: list[int] = []
@@ -514,9 +506,9 @@ class Engine:
             prior_sha = prior_files.get(str(target))
             current = target.read_bytes() if target.is_file() else None
             if current is not None and prior_sha is None:
-                raise RuntimeError(f"Unowned icon collision: {target}")
-            if current is not None and prior_sha != sha_hex(current):
-                raise RuntimeError(f"Generated icon was manually changed: {target}")
+                conflicts.append(conflict(target, None, icon=icon, reason="unowned_collision"))
+            elif current is not None and prior_sha != sha_hex(current):
+                conflicts.append(conflict(target, prior_sha, icon=icon))
             if not (reusable and current is not None):
                 missing.append(n)
         return missing
@@ -577,9 +569,9 @@ class Engine:
         )
         known = prior_files.get(str(versioned))
         if versioned.exists() and known is None:
-            raise RuntimeError(f"Unowned absolute icon collision: {versioned}")
+            reject_conflicts([conflict(versioned, None, icon=icon, reason="unowned_collision")])
         if versioned.exists() and sha_hex(versioned.read_bytes()) != known:
-            raise RuntimeError(f"Absolute icon was manually changed: {versioned}")
+            reject_conflicts([conflict(versioned, known, icon=icon)])
         if not versioned.exists():
             changes[versioned] = rendered_candidate
         files[str(versioned)] = sha_hex(rendered_candidate) or ""
@@ -614,7 +606,7 @@ class Engine:
                 existed = source == target
                 origin = source
                 if target.exists() and not existed:
-                    raise RuntimeError(f"User desktop override collision: {target}")
+                    reject_conflicts([conflict(target, None, icon=icon, reason="unowned_collision")])
             edited = rewrite_icon_line(original, str(versioned))
             desired_desktops[str(target)] = {
                 "source_icon": icon,
@@ -756,7 +748,16 @@ class Engine:
         payload["summary"]["cache_valid"] = self.cache_valid()
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
         record = {key: value for key, value in payload.items() if key != "apps"}
+        previous = self.state_dir / "last-run.json"
+        previous_run = read_json_file(previous) or {}
+        if not isinstance(previous_run, dict):
+            previous_run = {}
         record["checked_at_unix"] = time.time()
+        output_changed = opcount > 0 and any(
+            path.is_relative_to(self.theme_dir) or path.is_relative_to(self.apps_dir)
+            for path in result.changes)
+        record["last_updated_at_unix"] = record["checked_at_unix"] if output_changed else previous_run.get(
+            "last_updated_at_unix")
         record["policy_sha256"] = self.policy_sha
         record["revision"] = compute_revision(self.config.policy, self.config.user_rules)
         atomic_write(
@@ -781,7 +782,7 @@ class Engine:
         old = self.manifest()
         self.themedir.owned()
         changes: dict[Path, bytes | None] = {}
-        conflicts: list[str] = []
+        conflicts: list[dict[str, Any]] = []
         for target_str, record in old.get("desktop_overrides", {}).items():
             target = Path(target_str)
             if not target.exists():
@@ -796,7 +797,7 @@ class Engine:
             elif read_desktop_section(current).get("Icon") == record["output_icon"]:
                 changes[target] = rewrite_icon_line(current, record["source_icon"])
             else:
-                conflicts.append(str(target))
+                conflicts.append(conflict(target, record["output_sha256"], icon=record["source_icon"]))
         for item in old.get("items", {}).values():
             for p, digest in item.get("files", {}).items():
                 target = Path(p)
@@ -805,12 +806,9 @@ class Engine:
                 if sha_hex(target.read_bytes()) == digest:
                     changes[target] = None
                 else:
-                    conflicts.append(p)
+                    conflicts.append(conflict(target, digest))
         if conflicts:
-            raise RuntimeError(
-                "Rollback preserves external edits; review conflicts first: "
-                + json.dumps(conflicts)
-            )
+            reject_conflicts(conflicts)
         previous = gsettings.current_icon_theme(self.config.settings)
         baseline_path = self.state_dir / "baseline.json"
         baseline = json.loads(baseline_path.read_text()) if baseline_path.exists() \

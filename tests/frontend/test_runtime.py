@@ -26,7 +26,7 @@ class PreferencesRuntime(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
         self.assertTrue(json.loads(result.stdout)['ok'])
 
-    def run_fixture(self,script,compact=False,language='zh'):
+    def run_fixture(self,script,compact=False,language='zh',proof_dir=None):
         if not shutil.which('gjs'):
             self.skipTest('gjs unavailable')
         with Sandbox() as box:
@@ -51,9 +51,11 @@ class PreferencesRuntime(unittest.TestCase):
             env['GI_TYPELIB_PATH']='/usr/lib/gnome-shell/girepository-1.0:'+env.get('GI_TYPELIB_PATH','')
             env['LD_LIBRARY_PATH']='/usr/lib/gnome-shell:'+env.get('LD_LIBRARY_PATH','')
             arguments=[str(REPO/'extension')]
+            if script=='health-smoke.mjs' and proof_dir: arguments.append(str(proof_dir))
             if script=='responsive-smoke.mjs': arguments+=['','fixture',language]
             result=subprocess.run(['gjs','-m',str(REPO/'tests/frontend'/script),
-                                   *arguments],env=env,capture_output=True,text=True,timeout=75)
+                                   *arguments],env=env,capture_output=True,text=True,
+                                  timeout=105 if script=='responsive-smoke.mjs' else 75)
             self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
             self.assertNotIn('JS ERROR',result.stderr)
             self.assertNotIn('Gjs-CRITICAL',result.stderr)
@@ -123,6 +125,12 @@ class PreferencesRuntime(unittest.TestCase):
         self.assertEqual(len(result['dimensions']),8)
         self.assertTrue(result['open_dialog_language_switch'])
         self.assertTrue(result['close_cleanup'])
+
+    def test_health_error_details_and_recovery_in_both_languages(self):
+        result=next(r for r in self.run_fixture('health-smoke.mjs') if r.get('ok'))
+        self.assertTrue(result['bilingual_health'])
+        self.assertTrue(result['conflict_details'])
+        self.assertTrue(result['recovery'])
 
 
 if __name__=='__main__':

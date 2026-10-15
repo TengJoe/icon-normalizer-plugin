@@ -158,6 +158,28 @@
             },
             "message": {
               "type": "string"
+            },
+            "operation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "details": {
+              "type": "object"
+            },
+            "at_unix": {
+              "type": "number"
+            },
+            "first_seen_unix": {
+              "type": "number"
+            },
+            "last_seen_unix": {
+              "type": "number"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
             }
           },
           "required": [
@@ -182,6 +204,13 @@
       "items": {
         "type": "string"
       }
+    },
+    "last_check_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
     }
   },
   "required": [

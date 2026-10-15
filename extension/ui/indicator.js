@@ -8,7 +8,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {t, formatAppliedTime} from '../lib/i18n.js';
-import {automaticLabel} from '../lib/stateModel.js';
+import {automaticLabel, maintenanceHealth} from '../lib/stateModel.js';
 
 const STATE_DIR_PARTS = ['.local', 'state', 'icon-normalizer'];
 
@@ -77,6 +77,7 @@ export class Indicator {
         };
         this._theme = addMetadata();
         this._applied = addMetadata();
+        this._checked = addMetadata();
         summary.add_child(body);
         this.menu.addMenuItem(summary);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -101,7 +102,8 @@ export class Indicator {
         this._indicator.accessible_name = t('图标统一');
         this._nameLabel.set_text(t('图标统一'));
         this._theme.key.set_text(t('主题'));
-        this._applied.key.set_text(t('最近应用'));
+        this._applied.key.set_text(t('最近更新'));
+        this._checked.key.set_text(t('最近检查成功'));
         this._checkItem.label.set_text(t('立即检查'));
         this._applyItem.label.set_text(t('立即应用'));
         this._autoItem.label.set_text(t('自动维护'));
@@ -119,6 +121,7 @@ export class Indicator {
         this._envelope = envelope;
         const busy = this._localBusy || status?.busy === true;
         const failed = envelope && !envelope.ok;
+        const health = maintenanceHealth(status);
         let state = t('后台状态读取中…');
         let detail = '';
         if (failed) {
@@ -126,7 +129,9 @@ export class Indicator {
             detail = this._actionLabelFn(envelope);
         } else if (status) {
             state = status.installed === false ? t('后台未安装')
-                : busy ? t('正在处理图标…') : status.recovery_pending ? t('有待恢复事务')
+                : busy ? t('正在处理图标…') : status.last_error ? health.label
+                : status.recovery_pending ? t('有待恢复事务')
+                : status.summary?.unresolved?.length ? health.label
                 : status.stale ? t('有待处理的图标') : status.overlay_in_use === false
                     ? t('未启用图标主题') : status.overlay_in_use === true
                         ? t('图标已统一') : t('后台状态未知');
@@ -134,14 +139,16 @@ export class Indicator {
                 count: status.summary?.managed_icons ?? '—', automatic: automaticLabel(status)});
             if (status.automatic === 'partial') detail = t('部分触发器未开启');
             if (status.automatic === 'unknown') detail = t('触发器状态未知');
+            if (health.detail) detail = health.detail;
         }
         this._stateLabel.set_text(state);
         this._stateLabel.set_style_class_name('normalizer-state' +
-            (failed || status?.installed === false || status?.recovery_pending || status?.stale
+            (failed || status?.installed === false || health.warning
                 ? ' normalizer-state-warning' : ''));
         this._detailLabel.set_text(detail);
         this._theme.value.set_text(status?.active_theme ?? '—');
-        this._applied.value.set_text(formatAppliedTime(status?.last_apply_at));
+        this._applied.value.set_text(status?.last_apply_at ? formatAppliedTime(status.last_apply_at) : t('暂无更新记录'));
+        this._checked.value.set_text(status?.last_check_at ? formatAppliedTime(status.last_check_at) : '—');
         this._syncingAutomatic = true;
         try { this._autoItem.setToggleState(status?.automatic === 'on'); }
         finally { this._syncingAutomatic = false; }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Maintenance page: dashboard of background health, one-tap apply/revert
 // channels and the automation/panel switches (signal-guarded).
-import {t, LANGUAGE_CHOICES} from '../lib/i18n.js';
+import {t, getLanguage, formatAppliedTime, LANGUAGE_CHOICES} from '../lib/i18n.js';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 
 import {call} from '../lib/backendClient.js';
 import {runApplyFlow} from '../lib/applyFlow.js';
-import {actionLabel, supportsProfilesAndThemes, automaticLabel} from '../lib/stateModel.js';
+import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth} from '../lib/stateModel.js';
 import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from '../lib/uiCommon.js';
 import {AboutSupport} from './aboutSupport.js';
 
@@ -40,6 +40,20 @@ export class MaintenancePage {
         dashboard.add(this._rowTheme);
         dashboard.add(this._rowManaged);
         dashboard.add(this._rowAuto);
+        this._rowHealth = this._dashboardRow(t('后台健康'), t('状态未知'), 'badge-keep', '_badgeHealth');
+        this._rowHealth._normalizerDataProperties = ['subtitle'];
+        this._healthDetails = actionButton(t('查看详情'), () => this._showHealthDetails());
+        dashboard.add(this._rowHealth);
+        this._rowHealthDetails = new Adw.ActionRow({title: t('故障详情'),
+            subtitle: t('查看冲突文件与首次发生时间')});
+        this._rowHealthDetails.add_suffix(this._healthDetails);
+        dashboard.add(this._rowHealthDetails);
+        this._rowChecked = new Adw.ActionRow({title: t('最近检查成功')});
+        this._rowUpdated = new Adw.ActionRow({title: t('最近更新')});
+        this._rowChecked._normalizerDataProperties = ['subtitle'];
+        this._rowUpdated._normalizerDataProperties = ['subtitle'];
+        dashboard.add(this._rowChecked);
+        dashboard.add(this._rowUpdated);
         dashboard.add(this._rowRev);
         this.page.add(dashboard);
 
@@ -134,6 +148,16 @@ export class MaintenancePage {
             return;
         }
         const s = envelope.result;
+        this._lastHealthError = s.last_error;
+        const health = maintenanceHealth(s);
+        this._badgeHealth.set_text(health.badge);
+        this._badgeHealth.set_tooltip_text(health.label);
+        this._badgeHealth.set_css_classes(['badge-pill', health.warning ? 'badge-warn' : 'badge-keep']);
+        this._rowHealth.set_subtitle(health.detail || '');
+        this._healthDetails.set_visible(Boolean(s.last_error));
+        this._rowHealthDetails.set_visible(Boolean(s.last_error));
+        this._rowChecked.set_subtitle(s.last_check_at ? formatAppliedTime(s.last_check_at) : '—');
+        this._rowUpdated.set_subtitle(s.last_apply_at ? formatAppliedTime(s.last_apply_at) : t('暂无更新记录'));
         // Badge widths stay uniform: short words only; details live in subtitles.
         this._rowTheme.set_subtitle(s.active_theme ?? t('未知主题'));
         this._rowTheme.set_tooltip_text(t('图标素材来源：{theme}', {theme: s.source_theme ?? t('未知主题')}));
@@ -165,6 +189,30 @@ export class MaintenancePage {
 
     _showOpBanner(text) {
         this._opNotice.show(text);
+    }
+
+    _showHealthDetails() {
+        if (!this._lastHealthError) return null;
+        const error = this._lastHealthError;
+        const lines = [actionLabel(error), `Code: ${error.code}`];
+        const format = seconds => new Intl.DateTimeFormat(getLanguage() === 'zh' ? 'zh-CN' : 'en', {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit',
+            minute: '2-digit', second: '2-digit', hour12: false}).format(new Date(seconds * 1000));
+        if (Number.isFinite(error.first_seen_unix)) lines.push(t('首次发现：{time}', {time: format(error.first_seen_unix)}));
+        if (Number.isFinite(error.last_seen_unix)) lines.push(t('最近发现：{time}', {time: format(error.last_seen_unix)}));
+        if (error.count) lines.push(t('连续失败 {count} 次', {count: error.count}));
+        if (error.details) lines.push(JSON.stringify(error.details, null, 2));
+        const text = new Gtk.TextView({editable: false, cursor_visible: false,
+            monospace: true, wrap_mode: Gtk.WrapMode.WORD_CHAR});
+        text.get_buffer().set_text(lines.join('\n\n'), -1);
+        const scroll = new Gtk.ScrolledWindow({min_content_height: 220, hexpand: true,
+            hscrollbar_policy: Gtk.PolicyType.NEVER, child: text});
+        const dialog = new Adw.MessageDialog({transient_for: this._win,
+            destroy_with_parent: true, heading: t('维护故障详情'), extra_child: scroll});
+        dialog.add_response('close', t('关闭'));
+        dialog.set_close_response('close');
+        dialog.present();
+        return dialog;
     }
 
     async _scan() {

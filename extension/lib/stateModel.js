@@ -123,10 +123,34 @@ export function headline(status) {
         return { main: t('后台未安装'), sub: t('请先运行 tools/install.py 安装后端') };
     }
     const bits = [t('自动维护：{status}', {status: automaticLabel(status)})];
+    if (status.last_error) bits.push(maintenanceHealth(status).label);
     if (status.revision) bits.push(t('策略 {revision}', {revision: String(status.revision).slice(0, 8)}));
     if (status.recovery_pending) bits.push(t('有待恢复事务'));
     if (status.stale && status.last_apply_at) bits.push(t('结果已过期'));
     return { main: bits.join(' · '), sub: subLine(status) };
+}
+
+export function maintenanceHealth(status) {
+    if (!status) return {label: t('状态未知'), badge: t('未知'), detail: '', warning: false};
+    if (status.last_error) {
+        const error = status.last_error;
+        const parts = [actionLabel(error)];
+        const count = error.details?.conflict_count;
+        if (Number.isInteger(count)) parts.push(t('{count} 个冲突文件', {count}));
+        const missing = error.details?.missing ?? (error.details?.module ? [error.details.module] : []);
+        if (missing.length) parts.push(t('缺少依赖：{modules}', {modules: missing.join(', ')}));
+        if (error.count > 1) parts.push(t('连续失败 {count} 次', {count: error.count}));
+        return {label: error.operation === 'automation.set' ? t('自动维护设置失败') : t('维护受阻'),
+            badge: error.operation === 'automation.set' ? t('操作失败') : t('受阻'),
+            detail: parts.join(' · '), warning: true};
+    }
+    if (status.recovery_pending) return {label: t('有待恢复事务'), badge: t('待处理'), detail: '', warning: true};
+    if (status.summary?.unresolved?.length)
+        return {label: t('部分图标待处理'), badge: t('待处理'), detail: t('源素材不可用；请重新检查'), warning: true};
+    if (status.stale) return {label: t('有待处理的图标'), badge: t('待处理'), detail: '', warning: true};
+    return {label: status.last_check_at || status.last_apply_at ? t('最近维护成功') : t('尚无维护记录'),
+        badge: status.last_check_at || status.last_apply_at ? t('成功') : t('未知'),
+        detail: '', warning: false};
 }
 
 function subLine(status) {
