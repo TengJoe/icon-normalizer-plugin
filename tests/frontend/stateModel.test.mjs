@@ -114,6 +114,31 @@ test('backend version gates profile and theme operations', () => {
 });
 
 let failed = 0;
+test('persisted health is independent of enabled automation and active theme', () => {
+    for (const code of ['OWNERSHIP_CONFLICT', 'DEPENDENCY_MISSING', 'INTERNAL_ERROR']) {
+        const status = {installed:true, automatic:'on', overlay_in_use:true, stale:false,
+            last_error:{code, count:3, details:{conflict_count:2}}};
+        const health = m.maintenanceHealth(status);
+        assert.equal(health.label, '维护受阻');
+        assert.equal(health.warning, true);
+        assert.match(health.detail, /连续失败 3 次/);
+        assert.match(m.headline(status).main, /维护受阻/);
+    }
+});
+test('maintenance distinguishes unknown, success, pending and unresolved sources', () => {
+    assert.equal(m.maintenanceHealth(null).label, '状态未知');
+    assert.equal(m.maintenanceHealth({}).label, '尚无维护记录');
+    assert.equal(m.maintenanceHealth({last_check_at:'2026-10-15T00:00:00Z'}).label, '最近维护成功');
+    assert.equal(m.maintenanceHealth({recovery_pending:true}).warning, true);
+    assert.equal(m.maintenanceHealth({summary:{unresolved:[{}]}}).label, '部分图标待处理');
+    assert.equal(m.maintenanceHealth({stale:true}).label, '有待处理的图标');
+});
+test('a failed automation change is not described as a failed maintenance run', () => {
+    const status={installed:true,last_error:{code:'AUTOMATION_FAILED',operation:'automation.set'}};
+    assert.equal(m.maintenanceHealth(status).label,'自动维护设置失败');
+    assert.match(m.headline(status).main,/自动维护设置失败/);
+    assert.doesNotMatch(m.headline(status).main,/维护受阻/);
+});
 for (const [name, fn] of tests) {
     try {
         fn();

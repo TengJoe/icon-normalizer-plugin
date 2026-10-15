@@ -1,24 +1,34 @@
 # 发布验收清单
 
-适用版本：扩展 **1.1.2**、后台 **3.1.1**。Q1/Q2/Q5 的数量记录 2026-10-14 发布验证结果，其余项目保留既有验收基线。规则、预览与状态修复此前已在维护者本机部署，并在已安装后台上通过 11 项隔离行为回归；真实系统的 32/48/128px 预览和正常维护均通过。本次发行验证版本与升级接管，未重新执行 Q8/Q10 的完整图形会话验收。后续程序变更应重新运行并记录结果。
+当前发行版：扩展 **1.1.3**、后台 **3.1.2**。可靠性设计与验证边界见 [ADR-0006](adr/0006-reliability-boundaries.md) 和 [1.1.3 发布说明](RELEASE-1.1.3.md)。本轮通过隔离后端、安装生命周期、真实 GTK 夹具和独立 GNOME Shell 51 验收；未将候选安装到维护者的日常会话，因此不声明新版真实锁屏/解锁或多日使用通过。
 
 命令从仓库根目录执行；标注“手动”的项目需要真实桌面会话。勾选项表示已有自动回归覆盖，不代表当前用户桌面的手动观察结果。
+
+## 1.1.3 / 3.1.2 可靠性验收（2026-10-15）
+
+- Python 严格类型检查 27 文件；后端 178 项（含 18 项新增可靠性回归）。
+- 安装/卸载/回滚 19 项；前端语法 17 文件；状态逻辑 14 项、顶栏 13 项、客户端 10 项、双语 5 项。
+- 真实 GTK 设置窗口 10 项：含中英文健康详情、冲突收据、恢复显示和原有自适应矩阵。
+- 自适应矩阵等待 GTK 完成绘制后再读取尺寸，保留大小窗列表高度和横向溢出断言，避免后台 Wayland 窗口节流导致读取旧分配。
+- 独立 GNOME Shell 51：图标、双语、检查/应用、开关守卫及 disable/re-enable；会话总线激活服务也使用私有 HOME。
+- 旧后端 3.1.1 生成的九档夹具升级后 stale=false、首次 apply 0 文件操作、PNG/manifest 字节不变。
+- 本轮未替换维护者真实安装，未向 GNOME 网站提交 1.1.3。真实锁屏/解锁与日常使用验收仍待安装新版后执行。
 
 ## 1. 质量门（自动）
 
 | # | 项目 | 命令 | 通过标准 |
 | --- | --- | --- | --- |
-| Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 23 source files` |
-| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 160 tests OK |
+| Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 27 source files` |
+| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 178 tests OK |
 | Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 个 JavaScript 文件通过，依赖存在 |
-| Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 11/11 passed |
+| Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 14/14 passed |
 | Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 19 tests OK，独立假 manager |
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
-| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 9 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
-| Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 12/12，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
+| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 10 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
+| Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 13/13，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
-| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部 225 条翻译、占位符、自动检测、17 错误码与回切 |
+| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部 247 条翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、

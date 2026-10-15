@@ -12,8 +12,16 @@ output_arg=sys.argv[2] if '--inner' in sys.argv else (sys.argv[1] if len(sys.arg
 OUT=Path(output_arg or tempfile.mkdtemp(prefix='icon-normalizer-shell-proof-')).resolve()
 OUT.mkdir(parents=True,exist_ok=True)
 if '--inner' not in sys.argv:
-    p=subprocess.run(['dbus-run-session','--','python3',__file__,'--inner',str(OUT)],
-                     capture_output=True,text=True,timeout=45)
+    # Activated services inherit the bus daemon's environment, not Shell's.
+    # Isolate the daemon too, before it can activate a calendar/keyring helper.
+    with tempfile.TemporaryDirectory(prefix='icon-normalizer-bus-') as bus_root:
+        bus_home=Path(bus_root)/'home';bus_home.mkdir()
+        bus_env=dict(os.environ)
+        bus_env.update({'HOME':str(bus_home),'XDG_CONFIG_HOME':str(bus_home/'.config'),
+                        'XDG_CACHE_HOME':str(bus_home/'.cache'),
+                        'XDG_DATA_HOME':str(bus_home/'.local/share')})
+        p=subprocess.run(['dbus-run-session','--','python3',__file__,'--inner',str(OUT)],
+                         capture_output=True,text=True,timeout=45,env=bus_env)
     (OUT/'headless-shell-launcher.log').write_text(p.stdout+'\n'+p.stderr)
     print(p.stdout,p.stderr[-2500:])
     sys.exit(p.returncode)

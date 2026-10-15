@@ -140,3 +140,13 @@
 - 后台 scheduled 模式也执行主题跟随，前端关闭时由 timer 兜底；Shell 监听只作加速。
   关闭自动维护时 theme.sync 不迁移，显式 apply 仍可以执行用户请求。
 - metadata 操作不会回放尚未恢复的图标事务；核心写操作先恢复并重新读取 policy/revision。
+
+## 3.1.2 可靠性扩展（API v1）
+
+- status 追加可选 last_check_at，表示最近完整维护成功；last_apply_at 表示实际输出更新时间，零改动维护不推进。旧记录缺少 last_updated_at_unix 时无法证明实际更新时间，返回 null。
+- last_error 追加可选 operation、details、at_unix、first_seen_unix、last_seen_unix、count；原 code/message 不变。
+- OWNERSHIP_CONFLICT/5 的 details 含 conflict_count、conflicts、truncated。清单提供 path、icon_name、expected_sha256、actual_sha256、reason，最多 100 条；不授权覆盖或采纳外部文件。
+- status 无图像依赖启动导入，缺失模块时仍返回状态。doctor 正常返回检查清单（ok_all 可为 false）；图像操作缺已知依赖返回 DEPENDENCY_MISSING/4。
+- 成功读取、保存配置、版本冲突、空主题同步或仅事务恢复均不解除维护故障。完整维护/还原成功才解除对应维护故障；开关成功只解除开关故障。活动故障保留首次时间及计数，事件历史最多 64 条。
+
+错误持久化和恢复语义见 [ADR-0006](docs/adr/0006-reliability-boundaries.md)。

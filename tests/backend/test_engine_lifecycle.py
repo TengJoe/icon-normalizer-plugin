@@ -224,9 +224,11 @@ class EngineLifecycle(unittest.TestCase):
         rogue = self.box.theme / "48x48" / "apps" / "fixture-new.png"
         atomic_write(rogue, b"user-content", 0o644)
         make_desktop(self.box.system_apps / "new.desktop", "New", "fixture-new")
-        with self.assertRaises(RuntimeError) as ctx:
+        from icon_normalizer.errors import ProtocolError
+        with self.assertRaises(ProtocolError) as ctx:
             self.sync(True)
-        self.assertIn("collision", str(ctx.exception))
+        self.assertEqual(ctx.exception.code, "OWNERSHIP_CONFLICT")
+        self.assertEqual(ctx.exception.details["conflicts"][0]["reason"], "unowned_collision")
         self.assertEqual(rogue.read_bytes(), b"user-content")
 
 

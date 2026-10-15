@@ -253,4 +253,21 @@ await extension._syncTheme();
 assert.equal(requests.filter(r => r.operation === 'theme.sync').length, 0);
 assert.equal(extension._pending.size, 0); extension.disable();
 console.log('ok   old companion skips unsupported theme operations after ZIP-only upgrade');
-console.log('12/12 passed');
+extension.enable(); await drain();
+for (const language of ['zh', 'en']) {
+settings.set_string('ui-language',language);
+for (const code of ['OWNERSHIP_CONFLICT', 'DEPENDENCY_MISSING', 'INTERNAL_ERROR']) {
+    extension._indicator.update({...status, last_error:{code}, stale:false,
+        last_check_at:'2026-10-15T00:00:00Z'}, {ok:true});
+    assert.equal(extension._indicator._stateLabel.text,language === 'zh' ? '维护受阻' : 'Maintenance blocked');
+    assert.match(extension._indicator._stateLabel.style_class,/warning/);
+    assert.equal(extension._indicator._theme.value.text,'—');
+}
+}
+extension._indicator.update({...status, last_error:null, stale:false,
+    active_theme:'DockNormalized', last_check_at:'2026-10-15T00:01:00Z'}, {ok:true});
+assert.equal(extension._indicator._stateLabel.text,'Icons normalized');
+assert.doesNotMatch(extension._indicator._stateLabel.style_class,/warning/);
+extension.disable();
+console.log('ok   persisted maintenance faults show warnings and successful recovery clears them');
+console.log('13/13 passed');

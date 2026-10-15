@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from . import protocol as P
 from . import service_control
@@ -26,13 +26,16 @@ from .config_store import (
     read_json_file,
     write_json_file,
 )
-from .core.engine import Engine, EngineConfig, policy_fingerprint
+from .fingerprints import hash_icon_name, policy_fingerprint
+from .dependencies import MODULES, missing_modules, require_image_runtime
+from . import health
+if TYPE_CHECKING:
+    from .core.engine import Engine
 from .errors import EXIT_BUSY, EXIT_OK, EXIT_OTHER, ProtocolError, reject
 from .gsettings import default_base_theme, load_interface_settings, finish_pending_theme
 from .core.transaction import atomic_write, durable_unlink
 from .desktop import application_roots
 from .policy import Policy, PolicyDefaults
-from .preview import hash_icon_name
 from .version import BACKEND_VERSION
 from .profiles import ProfilesStore
 from . import theme_follow
@@ -109,6 +112,9 @@ def _env_path_list(name: str) -> list[str] | None:
 def _build_engine(store: ConfigStore, policy: Policy, paths: RuntimePaths,
                   previous_source_theme: str | None = None) -> Engine:
     """Caller holds the lock; assemble the engine with every dependency."""
+    require_image_runtime()
+    from .core.engine import Engine, EngineConfig
+
     application_dirs = _env_path_list("ICON_NORMALIZER_APPLICATION_DIRS")
     icon_search_path = _env_path_list("ICON_NORMALIZER_ICON_SEARCH_PATH")
     config = EngineConfig(
@@ -144,6 +150,16 @@ def _store_for(paths: RuntimePaths, defaults: PolicyDefaults | None = None) -> C
     return ConfigStore(paths.state_dir, defaults or _defaults())
 
 
+def _last_update(last_run: Any) -> str | None:
+    if not isinstance(last_run, dict):
+        return None
+    if "last_updated_at_unix" in last_run:
+        return _iso(last_run, "last_updated_at_unix")
+    # Legacy counts include metadata writes; they cannot establish when output
+    # artwork last changed. Keep unknown history explicit, even after upgrade.
+    return None
+
+
 # ---------------------------------------------------------------- operations
 def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
     paths = from_environment()
@@ -153,7 +169,6 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
     baseline = read_json_file(paths.baseline_path)
     last_run = read_json_file(paths.last_run_path)
     last_scan = read_json_file(paths.last_scan_path)
-    last_error = read_json_file(paths.last_error_path)
     recovery_pending = any(p.exists() for p in (
         paths.pending_path, paths.settings_pending_path, paths.revert_pending_path))
     installed = bool(manifest or baseline)
@@ -185,7 +200,8 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
                 "busy": _busy_probe(paths), "recovery_pending": recovery_pending,
                 "active_theme": active_theme, "source_theme": source_theme,
                 "overlay_in_use": (active_theme == paths.theme_name) if active_theme else None,
-                "last_apply_at": _iso(last_run, "checked_at_unix"),
+                "last_apply_at": _last_update(last_run),
+                "last_check_at": _iso(last_run, "checked_at_unix"),
                 "last_scan_at": _iso(last_scan, "checked_at_unix"),
                 "summary": None, "stale": True,
                 "last_error": {"code": "INVALID_CONFIG", "message": str(exc)[:200]},
@@ -211,10 +227,18 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
             # Legacy records cannot prove that current rules were applied.
             # One successful apply writes the full policy+rules revision.
             stale = True
-    error = None if not last_error else {
-        "code": last_error.get("code", "INTERNAL_ERROR"),
-        "message": last_error.get("message", ""),
-    }
+    error = health.status_error(paths.state_dir)
+    missing = missing_modules()
+    if missing:
+        recorded_module = (error or {}).get("details", {}).get("module", "")
+        same_dependency = isinstance(recorded_module, str) and any(
+            recorded_module == MODULES[label] or recorded_module.startswith(MODULES[label] + ".")
+            for label in missing)
+        if error and error.get("code") == "DEPENDENCY_MISSING" and same_dependency:
+            error = {**error, "details": {**error.get("details", {}), "missing": missing}}
+        else:
+            error = {"code": "DEPENDENCY_MISSING", "message": "Missing dependencies: " + ", ".join(missing),
+                     "details": {"missing": missing}, "operation": "dependencies"}
     return {
         "installed": installed,
         "backend_version": BACKEND_VERSION,
@@ -226,7 +250,8 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         "active_theme": active_theme,
         "source_theme": source_theme,
         "overlay_in_use": (active_theme == paths.theme_name) if active_theme else None,
-        "last_apply_at": _iso(last_run, "checked_at_unix"),
+        "last_apply_at": _last_update(last_run),
+        "last_check_at": _iso(last_run, "checked_at_unix"),
         "last_scan_at": _iso(last_scan, "checked_at_unix"),
         "summary": summary,
         "stale": stale,
@@ -239,7 +264,7 @@ def op_doctor(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
     paths = from_environment()
     checks: dict[str, dict[str, Any]] = {}
     try:
-        import PIL  # noqa: F401
+        from PIL import Image  # noqa: F401
 
         checks["pillow"] = {"ok": True}
     except Exception as exc:
@@ -359,6 +384,7 @@ def op_scan(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any
 
 def op_preview(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
     assert ctx is not None  # write/read ops always run under the lock
+    require_image_runtime()
     from .preview import preview as run_preview
 
     return run_preview(
@@ -415,6 +441,7 @@ def op_apply(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, An
         reject("REVISION_CONFLICT", "策略已被其他上下文修改；请刷新后重试",
                details={"current_revision": ctx.revision})
     result = _apply_current(ctx, activate=args["activate"])
+    health.resolve(ctx.paths.state_dir)
     return {
         "revision": ctx.revision,
         "summary": result.get("summary"),
@@ -480,7 +507,10 @@ def op_theme_sync(args: dict[str, Any], ctx: OperationContext | None) -> dict[st
     assert ctx is not None
     if not theme_follow.enabled(ctx.paths.state_dir) or service_control.units_status()["automatic"] not in ("on", "partial"):
         return {"changed": False, "revision": ctx.revision, "source_theme": ctx.policy.base_theme}
-    return _apply_current(ctx, activate=False, automatic_follow=True, sync_only=True)
+    result = _apply_current(ctx, activate=False, automatic_follow=True, sync_only=True)
+    if result.get("applied"):
+        health.resolve(ctx.paths.state_dir)
+    return result
 
 
 def op_automation(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
@@ -488,6 +518,8 @@ def op_automation(args: dict[str, Any], ctx: OperationContext | None) -> dict[st
     if not result["ok"]:
         reject("AUTOMATION_FAILED", "systemd 触发器操作失败，已尝试恢复操作前状态",
                details={"units": result["units"]})
+    assert ctx is not None
+    health.resolve(ctx.paths.state_dir, "automation")
     return {"enabled": args["enabled"], "units": result["units"]}
 
 
@@ -521,6 +553,7 @@ def op_revert(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
                 durable_unlink(paths.revert_pending_path)
         raise
     durable_unlink(paths.revert_pending_path)
+    health.resolve(paths.state_dir)
     return {
         "restored_theme": result.get("restored_theme"),
         "removed_managed_files": result.get("removed_managed_files", 0),
@@ -586,24 +619,10 @@ def _recover_transactions(ctx: OperationContext) -> None:
         _finish_settings_commit(paths, data)
     if paths.revert_pending_path.exists():
         _finish_revert_commit(paths)
-    if not any(p.exists() for p in (
-            paths.pending_path, paths.settings_pending_path, paths.revert_pending_path)):
-        paths.last_error_path.unlink(missing_ok=True)
 
 
 def _record_error(paths: RuntimePaths, exc: ProtocolError) -> None:
-    if exc.code in ("BUSY", "REVISION_CONFLICT", "INVALID_REQUEST", "INVALID_CONFIG", "NOT_FOUND", "STALE_SOURCE") or \
-            exc.operation in ("profiles.list", "profiles.save", "profiles.delete", "theme.follow"):
-        # Expected contention belongs to this response, not persistent health.
-        return
-    try:
-        paths.state_dir.mkdir(parents=True, exist_ok=True)
-        write_json_file(
-            paths.last_error_path,
-            {"code": exc.code, "message": exc.message, "at_unix": time.time()},
-        )
-    except Exception:
-        pass
+    health.record_error(paths.state_dir, exc)
 
 
 # ---------------------------------------------------------------- dispatch
@@ -632,6 +651,7 @@ def handle(raw: bytes, scheduled: bool, paths: RuntimePaths | None = None) -> in
         exc.request_id, exc.operation = rid, op
         P.emit(P.response_err(exc))
         return exc.exit_code
+    recorded = False
     try:
         if op in ("status", "doctor"):
             try:
@@ -654,44 +674,54 @@ def handle(raw: bytes, scheduled: bool, paths: RuntimePaths | None = None) -> in
             reject("BUSY", "后台正在处理图标，请稍后重试", retryable=True,
                    request_id=rid, operation=op)
         with lock:
-            store = _store_for(effective_paths)
             try:
-                policy = store.load_policy()
-                revision = store.revision(policy)
-            except ValueError as exc:
-                reject("INVALID_CONFIG", str(exc))
-            ctx = OperationContext(
-                paths=effective_paths, store=store, policy=policy,
-                revision=revision, scheduled=scheduled, lock=lock,
-            )
-            if op in ("scan", "preview"):
-                # scan must never repair production files; only report.
-                if (
-                    effective_paths.pending_path.exists()
-                    or effective_paths.settings_pending_path.exists()
-                    or effective_paths.revert_pending_path.exists()
-                ):
-                    reject("RECOVERY_REQUIRED", "存在未完成正式事务；请执行 apply 恢复",
-                           request_id=rid, operation=op)
-            elif op in WRITE_OPS:
-                _recover_transactions(ctx)
-                # Migration recovery can roll config.json back as well as icons.
-                ctx.policy = store.load_policy()
-                ctx.revision = store.revision(ctx.policy)
-            result = OPERATIONS[op](args, ctx)
+                store = _store_for(effective_paths)
+                try:
+                    policy = store.load_policy()
+                    revision = store.revision(policy)
+                except ValueError as exc:
+                    reject("INVALID_CONFIG", str(exc))
+                ctx = OperationContext(
+                    paths=effective_paths, store=store, policy=policy,
+                    revision=revision, scheduled=scheduled, lock=lock,
+                )
+                if op in ("scan", "preview"):
+                    # scan must never repair production files; only report.
+                    if (
+                        effective_paths.pending_path.exists()
+                        or effective_paths.settings_pending_path.exists()
+                        or effective_paths.revert_pending_path.exists()
+                    ):
+                        reject("RECOVERY_REQUIRED", "存在未完成正式事务；请执行 apply 恢复",
+                               request_id=rid, operation=op)
+                elif op in WRITE_OPS:
+                    _recover_transactions(ctx)
+                    # Migration recovery can roll config.json back as well as icons.
+                    ctx.policy = store.load_policy()
+                    ctx.revision = store.revision(ctx.policy)
+                result = OPERATIONS[op](args, ctx)
+            except Exception as exc:
+                fault = exc if isinstance(exc, ProtocolError) else ProtocolError(
+                    "INTERNAL_ERROR", f"{type(exc).__name__}: {exc}")
+                fault.request_id, fault.operation = rid, op
+                _record_error(effective_paths, fault)
+                recorded = True
+                raise
         P.emit(P.response_ok(rid, op, result))
         return EXIT_OK
     except ProtocolError as exc:
         exc.request_id = exc.request_id or rid
         exc.operation = exc.operation or op
         P.emit(P.response_err(exc))
-        _record_error(effective_paths, exc)
+        if not recorded:
+            _record_error(effective_paths, exc)
         return exc.exit_code
     except Exception as exc:  # envelope must survive any backend failure
         err = ProtocolError("INTERNAL_ERROR", f"{type(exc).__name__}: {exc}",
                             request_id=rid, operation=op)
         P.emit(P.response_err(err))
-        _record_error(effective_paths, err)
+        if not recorded:
+            _record_error(effective_paths, err)
         return EXIT_OTHER
 
 
@@ -730,6 +760,7 @@ def _run_scheduled(paths: RuntimePaths) -> int:
                                  current != baseline.get("icon_theme") and theme_follow.enabled(paths.state_dir))
                 if _launcher_stamp(paths) == before and not changed_theme:
                     break
+            health.resolve(paths.state_dir)
             return EXIT_OK
         except ProtocolError as exc:
             _record_error(paths, exc)
