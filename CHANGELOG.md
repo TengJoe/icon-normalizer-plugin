@@ -6,6 +6,19 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 
 暂无后续变更。
 
+## 1.1.4 — 深浅色模式同族变体自动配对联动（后台 3.1.3）
+
+发布日期：2026-10-16。完整安装包与验证边界见 [v1.1.4 发布说明](docs/RELEASE-1.1.4.md)。
+
+- **启发式同族变体动态配对（Heuristic Variant Resolution）**：
+  在 `theme_follow` 中实现通用的深浅色同族变体自动解析。无需针对特定主题硬编码，广泛支持包括 Ubuntu Yaru、Papirus、Tela、Colloid、Breeze、WhiteSur、Humanity 等海量社区主流图标家族（根据 `-dark` / `-light` / `_dark` / `-Dark` 等命名约定与物理磁盘 `index.theme` 存在性动态判定）。
+- **深浅色偏好自动感知**：
+  后台支持检测 `org.gnome.desktop.interface color-scheme`，当桌面在深色（`prefer-dark`）与浅色之间切换时，自动将 `DockNormalized` 的底层回退主题（`Inherits`）平滑迁移到同族对应的深/浅对等变体。
+- **单体主题安全回退**：
+  对于无深浅分立的单体主题（如 Adwaita、HighContrast、Nordzy 等），自动探测不到变体时安全保持原样，绝无破坏性操作。
+- **事务与状态自洽**：
+  变体迁移完整接入现有事务日志、baseline、config 与 manifest 校验，保持 `DockNormalized` 持续激活，UI 丝滑无感。
+
 ## 1.1.3 — 可靠性与健康状态（后台 3.1.2）
 
 发布日期：2026-10-15。完整安装包与验证边界见 [v1.1.3 发布说明](docs/RELEASE-1.1.3.md)。
