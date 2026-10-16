@@ -84,6 +84,35 @@ def current_icon_theme(settings: ThemeSettings | None) -> str | None:
     return read_icon_theme_cli()
 
 
+def read_color_scheme_cli(timeout: float = 5.0) -> str:
+    """Read current color scheme via gsettings CLI ('default', 'prefer-dark', 'prefer-light')."""
+    try:
+        out = subprocess.run(
+            ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return "default"
+    if out.returncode != 0:
+        return "default"
+    value = out.stdout.strip()
+    if len(value) >= 2 and value[0] in "'\"" and value[-1] == value[0]:
+        return value[1:-1]
+    return value or "default"
+
+
+def current_color_scheme(settings: ThemeSettings | None) -> str:
+    if settings is not None:
+        try:
+            return settings.get_string("color-scheme")
+        except Exception:
+            return "default"
+    return read_color_scheme_cli()
+
+
 def finish_pending_theme(
     settings: ThemeSettings | None, pending_path: Path, manifest_path: Path,
 ) -> None:

@@ -462,6 +462,27 @@ def _apply_current(ctx: OperationContext, *, activate: bool,
                   selected != reference and paths.manifest_path.exists() and
                   paths.baseline_path.exists() and theme_follow.enabled(paths.state_dir))
     if not transition:
+        if (selected == paths.theme_name and theme_follow.enabled(paths.state_dir)
+                and paths.manifest_path.exists() and paths.baseline_path.exists()):
+            settings = load_interface_settings()
+            from .gsettings import current_color_scheme
+            prefer_dark = (current_color_scheme(settings) == "prefer-dark")
+            original = _build_engine(ctx.store, ctx.policy, paths)
+            variant = theme_follow.resolve_variant(ctx.policy.base_theme, prefer_dark, original.resolver.search_paths())
+            if variant != ctx.policy.base_theme:
+                updated = theme_follow.transition_policy(ctx.policy, variant, original.resolver.search_paths())
+                baseline_doc = theme_follow.baseline_document(paths.baseline_path, updated, variant)
+                engine = _build_engine(ctx.store, updated, paths, previous_source_theme=ctx.policy.base_theme)
+                changes = {
+                    paths.config_path: json.dumps(ctx.store.policy_document(updated), ensure_ascii=False, indent=2).encode(),
+                    paths.baseline_path: json.dumps(baseline_doc, ensure_ascii=False, indent=2).encode(),
+                }
+                result = engine.sync(apply=True, activate=activate or automatic_follow,
+                                     state_changes=changes, activate_if_theme=selected)
+                ctx.policy = updated
+                ctx.revision = ctx.store.revision(updated)
+                return {**result, "changed": True, "revision": ctx.revision, "source_theme": variant}
+
         if sync_only:
             return {"changed": False, "revision": ctx.revision, "source_theme": ctx.policy.base_theme}
         engine = _build_engine(ctx.store, ctx.policy, paths)

@@ -5,13 +5,89 @@ import json
 import re
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Sequence
 
 from .core.transaction import atomic_write, safe_path
 from .errors import reject
 from .policy import Policy
 
 _NAME = re.compile(r"[\w .+\-]+", re.UNICODE)
+_DARK_SUFFIX_PATTERN = re.compile(r"^(.*?)([-_])(dark|black)$", re.IGNORECASE)
+_LIGHT_SUFFIX_PATTERN = re.compile(r"^(.*?)([-_])(light|white)$", re.IGNORECASE)
+
+
+def parse_theme_variant(theme_name: str) -> tuple[str, str | None, str | None]:
+    """Parse a theme name into (stem, separator, variant_type).
+    variant_type is 'dark', 'light', or None.
+    """
+    m_dark = _DARK_SUFFIX_PATTERN.match(theme_name)
+    if m_dark:
+        return m_dark.group(1), m_dark.group(2), "dark"
+    m_light = _LIGHT_SUFFIX_PATTERN.match(theme_name)
+    if m_light:
+        return m_light.group(1), m_light.group(2), "light"
+    return theme_name, None, None
+
+
+def resolve_variant(
+    base_theme: str,
+    prefer_dark: bool,
+    search_paths: Sequence[Path | str],
+    is_installed_fn: Callable[[str], bool] | None = None,
+) -> str:
+    """Find the best matching sibling theme for the given color scheme preference.
+
+    If the theme does not have a matching sibling (e.g. single theme like Adwaita),
+    or if the candidate theme is not installed on disk, returns the original base_theme.
+    """
+    if not base_theme:
+        return base_theme
+
+    if is_installed_fn is None:
+        def is_installed_fn(name: str) -> bool:
+            return any((Path(root) / name / "index.theme").is_file() for root in search_paths)
+
+    stem, sep, variant = parse_theme_variant(base_theme)
+    sep = sep or "-"
+
+    if prefer_dark:
+        if variant == "dark":
+            return base_theme
+        candidates = [
+            f"{stem}{sep}dark",
+            f"{stem}{sep}Dark",
+            f"{stem}{sep}DARK",
+            f"{stem}_dark",
+            f"{stem}_Dark",
+            f"{stem}-dark",
+            f"{stem}-Dark",
+        ]
+    else:
+        if variant == "light":
+            return base_theme
+        candidates = [
+            stem,
+            f"{stem}{sep}light",
+            f"{stem}{sep}Light",
+            f"{stem}{sep}LIGHT",
+            f"{stem}_light",
+            f"{stem}_Light",
+            f"{stem}-light",
+            f"{stem}-Light",
+        ]
+
+    seen = set()
+    deduped = []
+    for c in candidates:
+        if c != base_theme and c not in seen:
+            seen.add(c)
+            deduped.append(c)
+
+    for candidate in deduped:
+        if is_installed_fn(candidate):
+            return candidate
+
+    return base_theme
 
 
 def enabled(state: Path) -> bool:
