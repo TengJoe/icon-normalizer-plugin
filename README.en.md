@@ -8,12 +8,12 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.1.4](https://img.shields.io/badge/release-1.1.4-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.4)
+[![Release 1.1.5](https://img.shields.io/badge/release-1.1.5-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.5)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-2ec27e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.4/icon-normalizer-plugin-1.1.4.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
+[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
 
 </div>
 
@@ -60,22 +60,20 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 **Use the complete package for a first installation.** The separate extension ZIP does not include the Python backend.
 
 1. Confirm that you use **GNOME Shell 51**, and prepare the [runtime dependencies](#compatibility-and-dependencies) listed below.
-2. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.4/icon-normalizer-plugin-1.1.4.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.4/SHA256SUMS) into the same directory.
+2. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/SHA256SUMS) into the same directory.
 3. Run as your normal user. Confirm that verification reports `OK` before extracting and installing.
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
 # Confirm that verification above reports OK, then continue:
-tar -xzf icon-normalizer-plugin-1.1.4.tar.gz
+tar -xzf icon-normalizer-plugin-1.1.5.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
 The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
 
-> Current public release: extension **1.1.4**, backend **3.1.3**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
-
-The local source candidate is extension **1.1.5** / backend **3.1.4**, with Yaru accent, GTK and explicit light-preference synchronization. It has not been published; see the [candidate notes](docs/RELEASE-1.1.5.md).
+> Current public release: extension **1.1.5**, backend **3.1.4**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
 
 <details>
 <summary>Install from source</summary>
@@ -96,7 +94,7 @@ Build outputs live in `dist/`: the extension ZIP, complete source package, and `
 
 The release asset `icon-normalizer@joeydeng.local.zip` contains only the frontend. Custom profiles and theme following require backend **3.1.0 or newer**; older backends display an upgrade hint.
 
-The complete dark/light variant pairing, dependency diagnostics, conflict receipts, and health records in 1.1.4 require backend **3.1.3**. Use the complete package to upgrade both components.
+Complete Yaru accent and dark/light synchronization in 1.1.5 requires backend **3.1.4**. Use the complete package to upgrade both components.
 
 ZIPs built from the current source omit `schemas/gschemas.compiled`. After manually installing a ZIP with `gnome-extensions install`, run:
 
@@ -131,6 +129,8 @@ After a top bar code upgrade, save your work and log out and back in to refresh 
 <summary>What happens when I change themes, install apps, or close Preferences?</summary>
 
 **Maintenance → Follow icon theme** is enabled by default. With automatic maintenance also enabled, selecting another installed source theme regenerates `DockNormalized` while keeping settings and per-icon rules. The latest source theme becomes the restore target. Failed migrations restore the previous icons, configuration, and recovery records.
+
+While the extension is enabled, standard Yaru GTK themes follow the system color scheme and accent; custom GTK themes keep the manual selection. Ubuntu’s `default` preference becomes explicit `prefer-light` so applications following system colors receive a light preference. When `DockNormalized`, theme following and automatic maintenance are active, standard Yaru icon sources also follow the accent and color scheme, using installed variants only.
 
 Changing the GTK or GNOME Shell appearance theme keeps your visual settings. Selecting the current source theme does not force overlay activation; choose **Apply and activate** to enable the normalized theme again.
 
@@ -187,7 +187,7 @@ Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, 
 | [Architecture](ARCHITECTURE.md) | Modules, process isolation, transactions, and data flow |
 | [Protocol](PROTOCOL.md) | JSON requests, error codes, and concurrency control |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance, and recovery procedures |
-| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.1.4 notes](docs/RELEASE-1.1.4.md) |
+| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.1.5 notes](docs/RELEASE-1.1.5.md) |
 
 See the [documentation index](docs/README.md) for more references. When reporting a problem, include system and component versions and reproduction steps, and remove private information from logs and screenshots first. Technical references currently use Chinese; installation and usage guides are available in both languages.
 
