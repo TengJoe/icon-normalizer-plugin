@@ -19,6 +19,11 @@ THEME_NAME = "DockNormalized"
 # local source installs. `build.py` and `release_audit.py` share this set so
 # the archive comparison cannot drift from the packaging rule.
 PACKAGE_EXCLUDE = frozenset({"schemas/gschemas.compiled"})
+PACKAGE_MEMBERS = (
+    "backend", "extension", "tools", "contracts", "docs", "packaging", "tests",
+    "README.md", "README.en.md", "CHANGELOG.md", "ARCHITECTURE.md", "PROTOCOL.md",
+    "pyproject.toml", "LICENSE", ".gitignore", "CONTRIBUTING.md",
+)
 UNITS = ("icon-normalizer.service", "icon-normalizer.timer", "icon-normalizer.path")
 TRIGGER_UNITS = ("icon-normalizer.timer", "icon-normalizer.path")
 

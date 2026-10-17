@@ -9,10 +9,11 @@ import argparse
 import json
 from pathlib import Path
 import re
+import tarfile
 from urllib.parse import urlparse
 import zipfile
 
-from layout import PACKAGE_EXCLUDE
+from layout import PACKAGE_EXCLUDE, PACKAGE_MEMBERS
 
 PROJECT = Path(__file__).resolve().parent.parent
 EXTENSION = PROJECT / 'extension'
@@ -90,13 +91,30 @@ def inspect_archive(path: Path) -> dict:
         return {'archive': str(path), 'members': len(members), 'matches_source': matching}
 
 
+def inspect_tarball(path: Path) -> dict:
+    expected = {}
+    for name in PACKAGE_MEMBERS:
+        root = PROJECT / name
+        for source in (root.rglob('*') if root.is_dir() else [root]):
+            if source.is_file() and '__pycache__' not in source.parts and source.suffix != '.pyc':
+                expected['icon-normalizer-plugin/' + source.relative_to(PROJECT).as_posix()] = source.read_bytes()
+    with tarfile.open(path) as archive:
+        members = [member for member in archive.getmembers() if not member.isdir()]
+        names = [member.name for member in members]
+        exact = set(names) == set(expected) and len(names) == len(set(names))
+        matching = exact and all(member.isfile() and
+            archive.extractfile(member).read() == expected[member.name] for member in members)
+    return {'archive': str(path), 'members': len(members), 'matches_source': matching}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--submission', action='store_true')
     parser.add_argument('--archive', type=Path)
     options = parser.parse_args(); result = inspect_source(options.submission)
     if options.archive:
-        result['archive'] = inspect_archive(options.archive)
+        result['archive'] = (inspect_archive(options.archive) if zipfile.is_zipfile(options.archive)
+                             else inspect_tarball(options.archive))
         result['ok'] = result['ok'] and result['archive']['matches_source']
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result['ok'] else 2

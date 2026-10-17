@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+import tempfile
 
 REPO=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(REPO/'tests/backend'))
@@ -17,6 +18,39 @@ SESSION_KEYS=('XDG_RUNTIME_DIR','WAYLAND_DISPLAY','DISPLAY','DBUS_SESSION_BUS_AD
 
 
 class PreferencesRuntime(unittest.TestCase):
+    def test_theme_sync_real_gjs(self):
+        if not shutil.which('gjs'):
+            self.skipTest('gjs unavailable')
+        result = subprocess.run(
+            ['gjs', '-m', str(REPO / 'tests/frontend/themeSync.test.mjs')],
+            capture_output=True, text=True, timeout=10
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + '\n' + result.stderr)
+        self.assertIn('passed all assertions', result.stderr + result.stdout)
+
+    def test_theme_sync_cross_process_dconf(self):
+        if not shutil.which('gjs') or not shutil.which('dbus-run-session'):
+            self.skipTest('gjs/dbus-run-session unavailable')
+        with tempfile.TemporaryDirectory(prefix='icon-theme-dconf-') as directory:
+            root = Path(directory)
+            for name in ('config', 'cache', 'runtime', 'data'):
+                (root / name).mkdir(mode=0o700)
+            for name in ('Yaru-blue', 'Yaru-purple', 'Yaru-purple-dark'):
+                css = root / 'data/themes' / name / 'gtk-3.0/gtk.css'
+                css.parent.mkdir(parents=True)
+                css.write_text('/* fixture */')
+            env = dict(os.environ)
+            env.pop('DBUS_SESSION_BUS_ADDRESS', None)
+            env.pop('DCONF_PROFILE', None)
+            env.update({'HOME': str(root), 'XDG_CONFIG_HOME': str(root / 'config'),
+                        'XDG_CACHE_HOME': str(root / 'cache'), 'XDG_RUNTIME_DIR': str(root / 'runtime'),
+                        'XDG_DATA_HOME': str(root / 'data'), 'GSETTINGS_BACKEND': 'dconf'})
+            result = subprocess.run(['dbus-run-session', '--', 'gjs', '-m',
+                str(REPO / 'tests/frontend/themeSync.dbus.mjs')], env=env,
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stdout + '\n' + result.stderr)
+            self.assertIn('3 light/dark/accent cycles', result.stdout + result.stderr)
+
     def test_shell_stylesheet_real_parser(self):
         env=dict(os.environ)
         env['GI_TYPELIB_PATH']='/usr/lib/gnome-shell:/usr/lib/x86_64-linux-gnu/mutter-51:'+env.get('GI_TYPELIB_PATH','')

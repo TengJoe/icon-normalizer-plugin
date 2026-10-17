@@ -14,6 +14,28 @@ from .policy import Policy
 _NAME = re.compile(r"[\w .+\-]+", re.UNICODE)
 _DARK_SUFFIX_PATTERN = re.compile(r"^(.*?)([-_])(dark|black)$", re.IGNORECASE)
 _LIGHT_SUFFIX_PATTERN = re.compile(r"^(.*?)([-_])(light|white)$", re.IGNORECASE)
+YARU_ACCENTS = {
+    "blue": "blue", "teal": "prussiangreen", "green": "olive", "yellow": "yellow",
+    "orange": "", "red": "red", "pink": "magenta", "purple": "purple",
+    "slate": "sage", "brown": "wartybrown",
+}
+
+
+def resolve_system_variant(base_theme: str, prefer_dark: bool, accent: str,
+                           search_paths: Sequence[Path | str]) -> str:
+    """Follow GNOME accents only within the installed, standard Yaru family.
+
+    Other icon families retain their chosen color and use sibling light/dark
+    resolution. A missing accent variant never switches to an unrelated theme.
+    """
+    stem, _, _ = parse_theme_variant(base_theme)
+    yaru_names = {"Yaru"} | {f"Yaru-{value}" for value in YARU_ACCENTS.values() if value}
+    if stem in yaru_names and accent in YARU_ACCENTS:
+        color = YARU_ACCENTS[accent]
+        target = f"Yaru{'-' + color if color else ''}{'-dark' if prefer_dark else ''}"
+        if any((Path(root) / target / "index.theme").is_file() for root in search_paths):
+            return target
+    return resolve_variant(base_theme, prefer_dark, search_paths)
 
 
 def parse_theme_variant(theme_name: str) -> tuple[str, str | None, str | None]:

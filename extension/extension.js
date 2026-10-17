@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// GNOME Shell entry (GNOME 45+ ESM). The extension is UI-only: enabling it
-// never touches the background maintenance, which lives in systemd user units.
+// GNOME Shell entry (GNOME 45+ ESM). Desktop theme notifications live here;
+// background icon maintenance runs separately in systemd user units.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -10,12 +10,18 @@ import {runApplyFlow} from './lib/applyFlow.js';
 import {headline, operationExitHint, supportsProfilesAndThemes} from './lib/stateModel.js';
 import {Indicator} from './ui/indicator.js';
 import {initLanguage} from './lib/i18n.js';
+import {syncGtkTheme} from './lib/themeSync.js';
 
 const CONTROL_PATH_PARTS = ['.local', 'libexec', 'icon-normalizer', 'control.py'];
 const PANEL_KEY = 'show-panel-indicator';
 
 export default class IconNormalizerExtension extends Extension {
     enable() {
+        try { this._enable(); }
+        catch (error) { this.disable(); throw error; }
+    }
+
+    _enable() {
         this._generation = (this._generation ?? 0) + 1;
         this._requests = new RequestScope();
         this._settings = this.getSettings();
@@ -33,25 +39,48 @@ export default class IconNormalizerExtension extends Extension {
         });
         this._themeSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._themeDirty = false;
-        this._themeHandler = this._themeSettings.connect('changed::icon-theme', () => {
-            if (this._themeSettings.get_string('icon-theme') === 'DockNormalized') return;
+
+        this._triggerThemeSync = () => {
             this._themeDirty = true;
             if (this._themeDebounce) GLib.source_remove(this._themeDebounce);
-            this._themeDebounce = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+            this._themeDebounce = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
                 this._themeDebounce = 0;
                 this._syncTheme();
                 return GLib.SOURCE_REMOVE;
             });
+        };
+
+        this._themeHandler = this._themeSettings.connect('changed::icon-theme', () => {
+            if (this._themeSettings.get_string('icon-theme') === 'DockNormalized') return;
+            this._triggerThemeSync();
         });
-        try { this._syncIndicator(); }
-        catch (error) { this.disable(); throw error; }
+
+        this._colorSchemeHandler = this._themeSettings.connect('changed::color-scheme', () => {
+            syncGtkTheme(this._themeSettings);
+            this._triggerThemeSync();
+        });
+
+        this._accentColorHandler = this._themeSettings.connect('changed::accent-color', () => {
+            syncGtkTheme(this._themeSettings);
+            this._triggerThemeSync();
+        });
+
+        // Read after connecting so GSettings delivers subsequent key changes.
+        for (const key of ['icon-theme', 'color-scheme', 'accent-color'])
+            this._themeSettings.get_string(key);
+        syncGtkTheme(this._themeSettings);
+        this._triggerThemeSync();
+        this._syncIndicator();
     }
 
     disable() {
         this._generation++;
         if (this._themeDebounce) { GLib.source_remove(this._themeDebounce); this._themeDebounce = 0; }
         if (this._themeHandler) { this._themeSettings.disconnect(this._themeHandler); this._themeHandler = 0; }
+        if (this._colorSchemeHandler) { this._themeSettings.disconnect(this._colorSchemeHandler); this._colorSchemeHandler = 0; }
+        if (this._accentColorHandler) { this._themeSettings.disconnect(this._accentColorHandler); this._accentColorHandler = 0; }
         this._themeSettings = null;
+        this._triggerThemeSync = null;
         this._requests?.close();
         this._requests = null;
         // Screen lock also calls disable(): only UI objects are torn down —

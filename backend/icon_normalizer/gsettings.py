@@ -113,6 +113,23 @@ def current_color_scheme(settings: ThemeSettings | None) -> str:
     return read_color_scheme_cli()
 
 
+def current_accent_color(settings: ThemeSettings | None) -> str:
+    """Unknown/missing accent support must preserve the current source color."""
+    if settings is not None:
+        try:
+            return settings.get_string("accent-color")
+        except Exception:
+            return ""
+    try:
+        result = subprocess.run(
+            ["gsettings", "get", "org.gnome.desktop.interface", "accent-color"],
+            capture_output=True, text=True, timeout=5.0, check=False,
+        )
+        return result.stdout.strip().strip("'\"") if result.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
 def finish_pending_theme(
     settings: ThemeSettings | None, pending_path: Path, manifest_path: Path,
 ) -> None:
