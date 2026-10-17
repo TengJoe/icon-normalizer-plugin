@@ -121,16 +121,43 @@ export default class Acceptance extends Extension {
         check(calls.filter(c=>c[0]==='scan').length===1,'scan routing failed');
         check(GLib.file_test(GLib.getenv('ICON_NORMALIZER_STATE')+'/manifest.json',GLib.FileTest.EXISTS),
               'apply did not commit fixture manifest');
+        const desktop=new Gio.Settings({schema_id:'org.gnome.desktop.interface'});
+        desktop.set_string('gtk-theme','Yaru-blue');
+        desktop.set_string('accent-color','blue');
+        desktop.set_string('color-scheme','prefer-light');
+        await wait(100);
+        for(let round=0;round<2;round++) {
+            desktop.set_string('accent-color','purple'); await wait(100);
+            check(desktop.get_string('gtk-theme')==='Yaru-purple','accent did not reach GTK');
+            desktop.set_string('color-scheme','prefer-dark'); await wait(100);
+            check(desktop.get_string('gtk-theme')==='Yaru-purple-dark','dark GTK mismatch');
+            desktop.set_string('color-scheme','default'); await wait(100);
+            check(desktop.get_string('color-scheme')==='prefer-light','light preference not explicit');
+            check(desktop.get_string('gtk-theme')==='Yaru-purple','light GTK mismatch');
+            desktop.set_string('accent-color','blue'); await wait(100);
+        }
+        desktop.set_string('gtk-theme','FixtureCustom-dark');
+        desktop.set_string('color-scheme','prefer-dark'); await wait(100);
+        check(desktop.get_string('gtk-theme')==='FixtureCustom-dark','manual GTK choice was overwritten');
+        desktop.set_string('gtk-theme','Yaru-blue');
+        desktop.set_string('color-scheme','prefer-light'); await wait(700);
+        await this.idle(extension);
         const oldButton=indicator._indicator;
         extension.disable();
         check(!Main.panel.statusArea['icon-normalizer'],'disable leaked panel role');
+        desktop.set_string('color-scheme','prefer-dark'); await wait(100);
+        check(desktop.get_string('gtk-theme')==='Yaru-blue','disable leaked theme listener');
         extension.enable();
+        check(desktop.get_string('gtk-theme')==='Yaru-blue-dark','enable did not reconcile GTK');
+        desktop.set_string('color-scheme','default'); await wait(700);
+        check(desktop.get_string('gtk-theme')==='Yaru-blue','reenabled listener missed light');
         await this.idle(extension);
         indicator=extension._indicator;
         check(indicator._indicator!==oldButton,'re-enable reused destroyed actor');
         check(indicator.menu._getMenuItems().length===7,'re-enabled menu missing');
         this.finish({ok:true,shell:'51.0',state:'ACTIVE',menu_items:7,symbolic_icon:true,
-            bilingual:true,automation_guard:true,scan:true,apply:true,disable_reenable:true});
+            bilingual:true,automation_guard:true,scan:true,apply:true,disable_reenable:true,
+            theme_cycles:2,custom_gtk_preserved:true,theme_disable_reenable:true});
     }
 }
 '''.replace('REPORT',json.dumps(str(report))).replace('OUTPUT',json.dumps(str(OUT)))

@@ -465,10 +465,12 @@ def _apply_current(ctx: OperationContext, *, activate: bool,
         if (selected == paths.theme_name and theme_follow.enabled(paths.state_dir)
                 and paths.manifest_path.exists() and paths.baseline_path.exists()):
             settings = load_interface_settings()
-            from .gsettings import current_color_scheme
+            from .gsettings import current_accent_color, current_color_scheme
             prefer_dark = (current_color_scheme(settings) == "prefer-dark")
             original = _build_engine(ctx.store, ctx.policy, paths)
-            variant = theme_follow.resolve_variant(ctx.policy.base_theme, prefer_dark, original.resolver.search_paths())
+            variant = theme_follow.resolve_system_variant(
+                ctx.policy.base_theme, prefer_dark, current_accent_color(settings),
+                original.resolver.search_paths())
             if variant != ctx.policy.base_theme:
                 updated = theme_follow.transition_policy(ctx.policy, variant, original.resolver.search_paths())
                 baseline_doc = theme_follow.baseline_document(paths.baseline_path, updated, variant)

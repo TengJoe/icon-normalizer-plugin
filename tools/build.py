@@ -11,11 +11,12 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 from typing import Any
-from layout import PACKAGE_EXCLUDE, backend_version
-from release_audit import inspect_source
+from layout import PACKAGE_EXCLUDE, PACKAGE_MEMBERS, backend_version
+from release_audit import inspect_source, inspect_archive, inspect_tarball
 
 PROJECT = Path(__file__).resolve().parent.parent
 DIST = PROJECT / "dist"
@@ -69,32 +70,26 @@ def build_tarball(target: Path, ver: str) -> None:
             item.pax_headers.pop(key, None)
         return item
 
-    members = ["backend", "extension", "tools", "contracts", "docs", "packaging",
-               "tests", "README.md", "README.en.md", "CHANGELOG.md", "ARCHITECTURE.md", "PROTOCOL.md",
-               "pyproject.toml", "LICENSE", ".gitignore", "CONTRIBUTING.md"]
     with tarfile.open(target, "w:gz") as tar:
-        for name in members:
+        for name in PACKAGE_MEMBERS:
             path = PROJECT / name
             if path.exists():
                 tar.add(path, arcname=f"icon-normalizer-plugin/{name}", filter=public_member)
 
 
-def main() -> int:
+def build(staging: Path) -> dict[str, Any]:
     ver = version()
-    DIST.mkdir(exist_ok=True)
-    for old in DIST.iterdir():
-        if old.is_file():
-            old.unlink()
-
     compile_schemas()
     audit = inspect_source()
     if not audit["ok"]:
         raise SystemExit(json.dumps(audit, ensure_ascii=False, indent=2))
 
-    zip_path = DIST / f"{UUID}.zip"
+    zip_path = staging / f"{UUID}.zip"
     build_zip(zip_path)
-    tar_path = DIST / f"icon-normalizer-plugin-{ver}.tar.gz"
+    tar_path = staging / f"icon-normalizer-plugin-{ver}.tar.gz"
     build_tarball(tar_path, ver)
+    if not (inspect_archive(zip_path)['matches_source'] and inspect_tarball(tar_path)['matches_source']):
+        raise SystemExit('Built archives differ from current source; existing dist retained')
 
     manifest: dict[str, Any] = {
         "version": ver,
@@ -107,7 +102,22 @@ def main() -> int:
         "shell_versions": json.loads(
             (PROJECT / "extension" / "metadata.json").read_text())["shell-version"],
     }
-    (DIST / "DIST_MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    (staging / "DIST_MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    return manifest
+
+
+def main() -> int:
+    # Preserve the previous artifacts until both new archives pass byte parity.
+    with tempfile.TemporaryDirectory(prefix='.icon-build-', dir=PROJECT) as temporary:
+        staging = Path(temporary)
+        manifest = build(staging)
+        DIST.mkdir(exist_ok=True)
+        names = {path.name for path in staging.iterdir()}
+        for path in staging.iterdir():
+            path.replace(DIST / path.name)
+        for old in DIST.iterdir():
+            if old.is_file() and old.name not in names:
+                old.unlink()
     print(json.dumps(manifest, indent=2))
     return 0
 

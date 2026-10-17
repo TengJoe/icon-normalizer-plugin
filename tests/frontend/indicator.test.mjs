@@ -71,9 +71,10 @@ class Settings extends Signals {
 }
 const settings = new Settings();
 class ThemeSettings extends Signals {
-    constructor() { super(); this.theme = "DockNormalized"; }
-    get_string() { return this.theme; }
-    set_string(_key, value) { this.theme = value; this.emit("changed::icon-theme"); }
+    constructor() { super(); this.data = {'icon-theme': 'DockNormalized',
+        'color-scheme': 'prefer-light', 'accent-color': 'blue', 'gtk-theme': 'Yaru-blue'}; }
+    get_string(key) { return this.data[key]; }
+    set_string(key, value) { this.data[key] = value; this.emit(`changed::${key}`); return true; }
 }
 const themeSettings = new ThemeSettings();
 const requests = [];
@@ -84,6 +85,8 @@ const fakeModules = {
     'gi://GLib': {default: {
         get_home_dir: () => '/fixture', build_filenamev: parts => parts.join('/'),
         get_language_names: () => ['zh_CN', 'C'],
+        get_user_data_dir: () => '/fixture/.local/share',
+        get_system_data_dirs: () => ['/usr/share'], FileTest: {IS_REGULAR: 1}, file_test: () => true,
         PRIORITY_DEFAULT: 0, SOURCE_REMOVE: false,
         timeout_add: (_priority, _delay, fn) => { timers.set(++nextTimer, fn); return nextTimer; },
         source_remove: id => timers.delete(id),
@@ -196,7 +199,7 @@ console.log('ok   missing backend, busy, recovery and failure render distinct st
 
 const monitor = monitors.at(-1);
 monitor.emit('changed');
-assert.equal(timers.size, 1);
+assert.equal(timers.size, 2); // indicator refresh plus startup theme reconciliation
 extension.disable();
 assert.equal(registry.size, 0);
 assert.equal(timers.size, 0);

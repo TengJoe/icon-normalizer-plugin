@@ -75,6 +75,8 @@ The installer checks dependencies, takes a snapshot, stages and validates files,
 
 > Current public release: extension **1.1.4**, backend **3.1.3**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
 
+The local source candidate is extension **1.1.5** / backend **3.1.4**, with Yaru accent, GTK and explicit light-preference synchronization. It has not been published; see the [candidate notes](docs/RELEASE-1.1.5.md).
+
 <details>
 <summary>Install from source</summary>
 

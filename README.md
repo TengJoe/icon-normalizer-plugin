@@ -75,6 +75,8 @@ python3 tools/install.py
 
 > 当前公开发行版：扩展 **1.1.4**，后台 **3.1.3**。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。
 
+本地源码候选版为扩展 **1.1.5** / 后台 **3.1.4**，包含 Yaru 强调色、GTK 与明确浅色偏好同步；尚未公开发布，见[候选说明](docs/RELEASE-1.1.5.md)。
+
 <details>
 <summary>从源码安装</summary>
 
