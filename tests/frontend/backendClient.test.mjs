@@ -93,4 +93,20 @@ assert.equal((await flow).apply, null);
 assert.equal(children.length, beforeFlow + 1);
 assert.equal(timers.size, 0);
 console.log('ok   closing during status prevents the next apply step');
-console.log('12/12 passed');
+// status → apply → status where the theme switch never lands
+const inactive = {ok: true, result: {revision: 'fixture', overlay_in_use: false}};
+const base = children.length;
+const pending = flowEntry.namespace.runApplyFlow('/control.py', {});
+const steps = [inactive, {ok: true, result: {file_operations: 1, theme_activation: 'unavailable'}}, inactive];
+for (let i = 0; i < steps.length; i++) {
+    for (let spin = 0; spin < 200 && children.length < base + i + 1; spin++) await new Promise(r => setImmediate(r));
+    assert.equal(children.length, base + i + 1);
+    children.at(-1).finish(steps[i]);
+}
+const completed = await pending;
+assert.equal(completed.activate, true);
+assert.equal(completed.activation, 'unavailable');
+assert.equal(completed.themeActive, false);
+assert.equal(completed.activationFailed, true);
+console.log('ok   an activation that never lands is reported instead of looking applied');
+console.log('13/13 passed');
