@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.1.5 公开发布说明 / Published release notes](RELEASE-1.1.5.md) | 当前修复、下载、验证与升级范围 / Current fixes, downloads, validation, and upgrades | 中文 / English |
+| [v1.1.7 公开发布说明 / Published release notes](RELEASE-1.1.7.md) | 当前修复、下载、验证与升级范围 / Current fixes, downloads, validation, and upgrades | 中文 / English |
+| [v1.1.5 发布说明 / v1.1.5 release notes](RELEASE-1.1.5.md) | 历史版本 / Previous release | 中文 / English |
 | [v1.1.1 发布说明 / Release notes](RELEASE-1.1.1.md) | 首个公开版本的下载、验证与支持范围 / Downloads, validation, and scope | 中文 / English |
 
 ## 开发与发布 / Development and releases
