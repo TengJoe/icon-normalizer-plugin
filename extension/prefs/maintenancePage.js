@@ -29,6 +29,10 @@ export class MaintenancePage {
 
         // ---- dashboard -------------------------------------------------
         const dashboard = new Adw.PreferencesGroup({title: t('运行状态')});
+        // Persistent (not transient) notice: an inactive overlay means every
+        // "applied" run is invisible on the desktop.
+        this._themeNotice = noticeRow();
+        dashboard.add(this._themeNotice.row);
         this._rowVersion = this._dashboardRow(t('后端版本'), '—', 'badge-keep', '_badgeVersion');
         this._rowTheme = this._dashboardRow(t('图标主题'), '', 'badge-keep', '_badgeTheme');
         this._rowTheme._normalizerDataProperties = ['subtitle'];
@@ -61,7 +65,7 @@ export class MaintenancePage {
 
         // ---- actions ---------------------------------------------------
         this._btnScan = actionButton(t('立即检查'), () => this._scan());
-        this._btnApply = actionButton(t('立即应用'), () => this._apply(false));
+        this._btnApply = actionButton(t('仅重新渲染'), () => this._apply(false));
         this._btnActivate = actionButton(t('应用并激活'), () => this._apply(true), {primary: true});
         const actions = actionGroup(t('图标维护'), [this._btnScan, this._btnApply, this._btnActivate],
             t('检查当前图标，或将归一化效果应用到桌面。'), {window: this._win, scope: this._scope});
@@ -171,6 +175,7 @@ export class MaintenancePage {
             : s.overlay_in_use === false ? t('未生效') : t('未知'));
         this._badgeTheme.set_css_classes(['badge-pill',
             s.overlay_in_use === true ? 'badge-active' : 'badge-keep']);
+        this._syncThemeNotice(s.overlay_in_use);
         const managed = s.summary?.managed_icons;
         this._badgeManaged.set_text(Number.isFinite(managed) ? t('{count} 个', {count: managed}) : '—');
         this._badgeAuto.set_text(automaticLabel(s));
@@ -192,9 +197,19 @@ export class MaintenancePage {
         }
     }
 
-    _showOpBanner(text) {
+    _showOpBanner(text, options = {}) {
         if (this._scope.closed) return;
-        this._opNotice.show(text);
+        this._opNotice.show(text, options);
+    }
+
+    _syncThemeNotice(overlayInUse) {
+        if (this._scope.closed) return;
+        if (overlayInUse !== false) {
+            this._themeNotice.hide();
+            return;
+        }
+        this._themeNotice.show(t('图标主题未激活：桌面仍在使用原始图标。'),
+            {error: true, buttonLabel: t('立即激活'), onClick: () => this._apply(true)});
     }
 
     _showHealthDetails() {
@@ -253,8 +268,14 @@ export class MaintenancePage {
             const ops = flow.apply.result.file_operations ?? 0;
             const recovered = flow.apply.result.recovered_transaction
                 ? t('（已恢复中断事务）') : '';
-            this._showOpBanner(t('应用完成：{operations} 项文件操作', {operations: ops}) + recovered +
-                (flow.activate ? t('，主题已激活') : ''));
+            if (flow.activationFailed) {
+                this._showOpBanner(
+                    t('应用完成：{operations} 项文件操作，但图标主题仍未激活', {operations: ops}) + recovered,
+                    {error: true});
+            } else {
+                this._showOpBanner(t('应用完成：{operations} 项文件操作', {operations: ops}) + recovered +
+                    (flow.themeActive ? t('，主题已激活') : ''));
+            }
             await this.refresh();
         } finally {
             this._busy(false);

@@ -394,6 +394,28 @@ def _failure(exc: Exception, compensation: Exception | None = None) -> int:
     return 5
 
 
+def _icon_theme() -> str:
+    """Current GNOME icon theme, or an empty string when gsettings is unavailable."""
+    try:
+        proc = subprocess.run(["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"],
+                              capture_output=True, text=True, timeout=5, check=False)
+    except Exception:
+        return ""
+    value = proc.stdout.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        return value[1:-1]
+    return value
+
+
+def _activate_icon_theme(theme: str = "DockNormalized") -> bool:
+    try:
+        proc = subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", theme],
+                              capture_output=True, text=True, timeout=10, check=False)
+    except Exception:
+        return False
+    return proc.returncode == 0 and _icon_theme() == theme
+
+
 def install(assume_yes: bool) -> int:
     layout = resolve()
     missing = precheck()
@@ -401,6 +423,7 @@ def install(assume_yes: bool) -> int:
         print(json.dumps({"ok": False, "stage": "precheck", "missing": missing}))
         return 4
     before, snap = None, None
+    before_theme = _icon_theme()
     identifier = uuid.uuid4().hex
     staging = layout.libexec.parent / (".icon-normalizer-staging-" + identifier)
     old_dir = layout.libexec.parent / (".icon-normalizer-old-" + identifier)
@@ -455,9 +478,20 @@ def install(assume_yes: bool) -> int:
                     return _failure(exc, recovery)
                 return _failure(exc)
         pruned = prune_install_snapshots(layout)
+        # An upgrade must not silently drop a theme the user had already activated.
+        theme = _icon_theme()
+        if is_upgrade and before_theme == "DockNormalized" and theme != "DockNormalized":
+            _activate_icon_theme()
+            theme = _icon_theme()
+        theme_active = theme == "DockNormalized"
+        if not theme_active:
+            log("Icon theme is not active yet. Open Icon Normalizer → Maintenance → "
+                "“Apply and activate”, or run: "
+                "gsettings set org.gnome.desktop.interface icon-theme DockNormalized")
         print(json.dumps({"ok": True, "stage": "done", "upgraded": is_upgrade,
                           "backend_version": BACKEND_VERSION, "snapshot": str(snap),
-                          "snapshots_pruned": pruned,
+                          "snapshots_pruned": pruned, "icon_theme": theme,
+                          "theme_active": theme_active,
                           "trigger_states_before": before, "extension": str(layout.extension)}))
         return 0
     except Exception as exc:

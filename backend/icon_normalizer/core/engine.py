@@ -762,22 +762,36 @@ class Engine:
             result.changes, committed_last=(self.state_dir / "manifest.json", manifest_bytes),
             expected_before=result.expected_before,
         )
-        if activate and self.config.settings and (activate_if_theme is None or
-                gsettings.current_icon_theme(self.config.settings) in (activate_if_theme, self.theme_name)):
-            pending = self.state_dir / "settings-pending.json"
-            atomic_write(
-                pending,
-                json.dumps({"stage": "files_committed", "activate_theme": self.theme_name,
-                            **({"only_if_current_theme": activate_if_theme} if activate_if_theme else {})}).encode(),
-                0o600,
-            )
-            gsettings.finish_pending_theme(self.config.settings, pending, self.state_dir / "manifest.json")
+        activation = "not_requested"
+        if activate:
+            if self.config.settings is None:
+                # Report the gap instead of reporting success with nothing switched.
+                activation = "unavailable"
+            else:
+                current_theme = gsettings.current_icon_theme(self.config.settings)
+                if activate_if_theme is not None and current_theme not in (activate_if_theme, self.theme_name):
+                    # The user picked another theme while this transaction ran.
+                    activation = "superseded"
+                else:
+                    pending = self.state_dir / "settings-pending.json"
+                    atomic_write(
+                        pending,
+                        json.dumps({"stage": "files_committed", "activate_theme": self.theme_name,
+                                    **({"only_if_current_theme": activate_if_theme} if activate_if_theme else {})}).encode(),
+                        0o600,
+                    )
+                    gsettings.finish_pending_theme(self.config.settings, pending, self.state_dir / "manifest.json")
+                    activation = "applied"
         payload = result.payload
         payload["applied"] = True
         payload["recovered_transaction"] = recovered
         payload["file_operations"] = opcount
+        # A committed file transaction is not a committed theme switch: report the
+        # activation outcome so callers cannot mistake "rendered" for "live".
+        payload["theme_activation"] = activation
         payload["summary"]["cache_valid"] = self.cache_valid()
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
+        payload["summary"]["theme_active"] = payload["summary"]["active_theme"] == self.theme_name
         record = {key: value for key, value in payload.items() if key != "apps"}
         previous = self.state_dir / "last-run.json"
         previous_run = read_json_file(previous) or {}
