@@ -92,4 +92,4 @@ The upgrader preserves settings, rules, and maintenance state, and restores its 
 - Release gates include strict schema compilation, source/ZIP consistency, complete-package checks, and privacy scanning.
 - The full real GTK interaction and GNOME Shell lock/unlock matrix was not rerun for this release and is not claimed as newly passed.
 
-GitHub publication does not imply GNOME Extensions approval. Tray icons and artwork drawn by applications may bypass icon themes; non-default `XDG_DATA_HOME` remains unsupported. All features are free; optional support is documented on the [support page](SUPPORT.md).
+GitHub publication does not imply GNOME Extensions approval. Tray icons and artwork drawn by applications may bypass icon themes; non-default `XDG_DATA_HOME` remains unsupported. All features are free; optional support is documented on the project repository.

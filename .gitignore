@@ -40,3 +40,5 @@ extension/schemas/gschemas.compiled
 /settings-pending.json
 /revert-pending.json
 /backups/
+
+/node_modules/

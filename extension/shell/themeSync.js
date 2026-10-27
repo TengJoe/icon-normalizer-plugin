@@ -37,12 +37,7 @@ export function isThemeInstalled(theme) {
 export function syncGtkTheme(settings, installed = isThemeInstalled) {
     if (!settings) return;
     let scheme = settings.get_string('color-scheme');
-    let accent = '';
-    try {
-        accent = settings.get_string('accent-color');
-    } catch {
-        accent = 'blue';
-    }
+    const accent = settings.get_string('accent-color');
 
     // Promote Ubuntu 'default' to 'prefer-light' so xdg-desktop-portal broadcasts light mode (2)
     if (scheme === 'default') {

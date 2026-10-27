@@ -146,6 +146,8 @@
 - status 追加可选 last_check_at，表示最近完整维护成功；last_apply_at 表示实际输出更新时间，零改动维护不推进。旧记录缺少 last_updated_at_unix 时无法证明实际更新时间，返回 null。
 - last_error 追加可选 operation、details、at_unix、first_seen_unix、last_seen_unix、count；原 code/message 不变。
 - OWNERSHIP_CONFLICT/5 的 details 含 conflict_count、conflicts、truncated。清单提供 path、icon_name、expected_sha256、actual_sha256、reason，最多 100 条；不授权覆盖或采纳外部文件。
+- 检查后变化的目标同样返回 OWNERSHIP_CONFLICT，可带 reason=changed_since_inspection；复用文件也检查前置状态。该检测不等同于对不合作外部写入者的内核级原子互斥。
+- INVALID_CONFIG 的 details 可带 reason=PERSISTED_CONFIG_INVALID 和 file，表示磁盘配置读取失败；此类后台故障进入健康记录，普通输入错误不进入。status 可只读返回该故障；修复配置后仍需完整维护成功才能解除已有活动故障。
 - status 无图像依赖启动导入，缺失模块时仍返回状态。doctor 正常返回检查清单（ok_all 可为 false）；图像操作缺已知依赖返回 DEPENDENCY_MISSING/4。
 - 成功读取、保存配置、版本冲突、空主题同步或仅事务恢复均不解除维护故障。完整维护/还原成功才解除对应维护故障；开关成功只解除开关故障。活动故障保留首次时间及计数，事件历史最多 64 条。
 

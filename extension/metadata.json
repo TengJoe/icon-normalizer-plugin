@@ -6,9 +6,6 @@
     "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.icon-normalizer",
-  "version-name": "1.1.5",
-  "url": "https://github.com/TengJoe/icon-normalizer-plugin",
-  "donations": {
-    "custom": "https://github.com/TengJoe/icon-normalizer-plugin/blob/main/docs/SUPPORT.md"
-  }
+  "version-name": "1.1.7",
+  "url": "https://github.com/TengJoe/icon-normalizer-plugin"
 }

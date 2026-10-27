@@ -209,7 +209,6 @@ export const EN = {
     "后台尚未安装，请安装配套服务。": "The backend is missing. Install the companion service.",
     "后台响应格式或退出状态无效": "Invalid backend response or exit status",
     "此功能需要后台 3.1.0 或更新版本，请安装完整发行包升级后台。": "This feature requires backend 3.1.0 or newer. Upgrade using the full release package.",
-    "关于与支持": "About and support",
     "作者": "Author",
     "扩展版本": "Extension version",
     "项目主页": "Project homepage",
@@ -217,13 +216,6 @@ export const EN = {
     "问题反馈": "Report an issue",
     "报告问题或提出建议。": "Report a problem or suggest an improvement.",
     "许可证": "License",
-    "支持开发": "Support development",
-    "微信支付": "WeChat Pay",
-    "支付宝": "Alipay",
-    "扫描收款码，自愿支持开发。": "Scan the payment QR code to support development voluntarily.",
-    "自愿支持开发，所有功能均可免费使用。": "Support development voluntarily. All features are available for free.",
-    "请使用对应支付应用扫描，并核对收款人。": "Scan with the matching payment app and verify the recipient.",
-    "收款码无法加载，请从项目主页查看支持方式。": "The payment QR code could not be loaded. Visit the project homepage for support options.",
     "无法打开链接，请检查默认浏览器。": "The link could not be opened. Check your default browser.",
     "维护受阻": "Maintenance blocked",
     "关闭": "Close",
@@ -247,4 +239,5 @@ export const EN = {
     "首次发现：{time}": "First detected: {time}",
     "最近发现：{time}": "Last detected: {time}",
     "维护故障详情": "Maintenance failure details",
+    "关于": "About"
 };

@@ -1,7 +1,7 @@
 // Real cross-process dconf notifications on a private session bus.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import {syncGtkTheme} from '../../extension/lib/themeSync.js';
+import {syncGtkTheme} from '../../extension/shell/themeSync.js';
 const settings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
 const wait = ms => new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms,
     () => { resolve(); return GLib.SOURCE_REMOVE; }));

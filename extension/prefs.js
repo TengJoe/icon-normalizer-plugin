@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Extension preferences entry (GNOME 45+ ESM).
-import {t} from './lib/i18n.js';
+// Extension preferences entry (GNOME 51 ESM).
+import {t} from './shared/i18n.js';
 import GLib from 'gi://GLib';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {buildPreferences} from './ui/preferences.js';
+import {buildPreferences} from './prefs/preferences.js';
 
 const CONTROL_PATH_PARTS = ['.local', 'libexec', 'icon-normalizer', 'control.py'];
 

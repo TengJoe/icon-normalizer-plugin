@@ -17,7 +17,8 @@ import zipfile
 PROJECT = Path(__file__).resolve().parent.parent
 PUBLIC_DIRS = ('backend', 'extension', 'tools', 'contracts', 'docs', 'packaging', 'tests')
 PUBLIC_FILES = ('README.md', 'README.en.md', 'CHANGELOG.md', 'ARCHITECTURE.md',
-                'PROTOCOL.md', 'pyproject.toml', 'LICENSE', '.gitignore')
+                'PROTOCOL.md', 'pyproject.toml', 'LICENSE', '.gitignore',
+                'package.json', 'package-lock.json', 'eslint.config.mjs')
 PATTERNS = {
     'private_key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----'),
     'github_token': re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b'),

@@ -70,6 +70,29 @@ class PreferencesRuntime(unittest.TestCase):
             make_desktop(box.system_apps/'one.desktop','Fixture UI','fixture-ui')
             backend=box.home/'.local/libexec/icon-normalizer'
             shutil.copytree(REPO/'backend',backend,ignore=shutil.ignore_patterns('__pycache__'))
+            if script == 'lifecycle-smoke.mjs':
+                (backend/'control.py').write_text(r"""import io, json, sys, time
+from pathlib import Path
+from icon_normalizer.control import main
+payload = sys.stdin.read()
+request = json.loads(payload)
+root = Path.home()
+with (root/'operations.log').open('a') as log:
+    log.write(json.dumps(request) + '\n')
+op = request['operation']
+delay = root/'delay-operation'
+if delay.exists() and delay.read_text() == op:
+    (root/('started-' + op)).write_text(payload)
+    gate = root/('release-' + request['request_id'])
+    deadline = time.monotonic() + 10
+    while not gate.exists() and time.monotonic() < deadline:
+        time.sleep(0.01)
+sys.stdin = io.TextIOWrapper(io.BytesIO(payload.encode()))
+code = main()
+if delay.exists() and delay.read_text() == op:
+    (root/('finished-' + op)).write_text(payload)
+sys.exit(code)
+""")
             if script == 'profiles-compat-smoke.mjs':
                 # Emulate the old companion's status shape at the CLI boundary.
                 (backend/'control.py').write_text("import sys\nfrom icon_normalizer import control\nnative_status = control.op_status\ndef legacy_status(args, ctx):\n    result = native_status(args, ctx)\n    result['backend_version'] = '3.0.2'\n    result.pop('theme_follow', None)\n    return result\ncontrol.OPERATIONS['status'] = legacy_status\nsys.exit(control.main())\n")
@@ -98,9 +121,9 @@ class PreferencesRuntime(unittest.TestCase):
             self.assertNotIn('Adwaita-WARNING',result.stderr)
             self.assertNotIn('icon-normalizer:',result.stderr)
             records=[json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
-            if script == 'support-smoke.mjs':
+            if script == 'about-smoke.mjs':
                 self.assertFalse((box.state/'last-scan.json').exists(),
-                                 'Support UI must not scan or invoke the backend')
+                                 'About UI must not scan or invoke the backend')
             else:
                 scan=json.loads((box.state/'last-scan.json').read_text())
                 self.assertEqual(scan['groups'][0]['names'],['Fixture UI'])
@@ -153,18 +176,24 @@ class PreferencesRuntime(unittest.TestCase):
         self.assertTrue(result['config_unchanged'])
         self.assertTrue(result['close_disconnect'])
 
-    def test_support_dialogs_languages_and_responsive_layout(self):
-        result=next(r for r in self.run_fixture('support-smoke.mjs') if r.get('ok'))
-        self.assertEqual(result['payment_methods'],['wechat','alipay'])
-        self.assertEqual(len(result['dimensions']),8)
-        self.assertTrue(result['open_dialog_language_switch'])
+    def test_about_has_author_links_and_no_donations(self):
+        result=next(r for r in self.run_fixture('about-smoke.mjs') if r.get('ok'))
+        self.assertTrue(result['no_donations'])
+        self.assertEqual(len(result['dimensions']),4)
         self.assertTrue(result['close_cleanup'])
+
+    def test_closing_pending_requests_and_reopening(self):
+        result=next(r for r in self.run_fixture('lifecycle-smoke.mjs') if r.get('ok'))
+        for name in ('preview_close_cancelled', 'parent_close_cancelled', 'latest_preview_wins',
+                     'writer_completed_after_close', 'no_followup_apply', 'reopen_reads_fresh_state'):
+            self.assertTrue(result[name],name)
 
     def test_health_error_details_and_recovery_in_both_languages(self):
         result=next(r for r in self.run_fixture('health-smoke.mjs') if r.get('ok'))
         self.assertTrue(result['bilingual_health'])
         self.assertTrue(result['conflict_details'])
         self.assertTrue(result['recovery'])
+        self.assertTrue(result['persisted_config_health'])
 
 
 if __name__=='__main__':

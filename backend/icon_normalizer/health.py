@@ -71,7 +71,10 @@ def _event(state: Path, kind: str, record: dict[str, Any]) -> None:
 
 
 def record_error(state: Path, exc: ProtocolError) -> None:
-    if exc.code in EXPECTED or exc.operation in ("profiles.list", "profiles.save", "profiles.delete", "theme.follow"):
+    persisted_config_failure = (exc.code == "INVALID_CONFIG" and
+                                exc.details.get("reason") == "PERSISTED_CONFIG_INVALID")
+    if ((exc.code in EXPECTED and not persisted_config_failure) or
+            exc.operation in ("profiles.list", "profiles.save", "profiles.delete", "theme.follow")):
         return
     # Preview/diagnostic failures are local requests, except global missing deps.
     if exc.operation in ("preview", "status", "doctor") and exc.code != "DEPENDENCY_MISSING":

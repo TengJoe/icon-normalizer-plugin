@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Apps page: virtualized icon list (Gtk.ListView + Gio.ListStore), instant
-// fuzzy search, filter pills, and the live before/after preview dialog.
+// substring search, filter pills, and the live before/after preview dialog.
 // Excluded leftover launchers (uninstalled software) are hidden by default
 // and available under their own pill.
-import {t} from '../lib/i18n.js';
-import GLib from 'gi://GLib';
+import {t} from '../shared/i18n.js';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
 import Gdk from 'gi://Gdk';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 
-import {call} from '../lib/backendClient.js';
+import {WindowScope} from './requestScope.js';
 import {
     FILTERS,
     actionLabel,
@@ -19,8 +18,8 @@ import {
     groupMatchesFilter,
     groupMatchesSearch,
     groupSubtitle,
-} from '../lib/stateModel.js';
-import {cachedTexture, configurePage, makePills, observeWindowSize, statusBadge, toast} from '../lib/uiCommon.js';
+} from '../shared/stateModel.js';
+import {cachedTexture, configurePage, makePills, observeWindowSize, statusBadge, toast} from './uiCommon.js';
 import {openPreview} from './previewDialog.js';
 
 const AppGroupItem = GObject.registerClass({
@@ -60,6 +59,7 @@ function placeholderPaintable() {
 export class AppsPage {
     constructor(controlPath, win, settings) {
         this._controlPath = controlPath;
+        this._scope = new WindowScope(win);
         this._win = win;
         this._settings = settings;
         this._groups = [];
@@ -209,6 +209,7 @@ export class AppsPage {
     }
 
     async refresh() {
+        if (this._scope.closed) return;
         if (this._scanPromise) return this._scanPromise;
         this._scanPromise = this._refresh();
         try { return await this._scanPromise; }
@@ -217,14 +218,8 @@ export class AppsPage {
 
     async _refresh() {
         this._controls.set_description(t('正在扫描…'));
-        let envelope;
-        for (let attempt = 0; attempt < 4; attempt++) {
-            envelope = await call(this._controlPath, 'scan', {});
-            if (envelope.ok || envelope.error?.code !== 'BUSY' || attempt === 3) break;
-            await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-                resolve(); return GLib.SOURCE_REMOVE;
-            }));
-        }
+        const envelope = await this._scope.read(this._controlPath, 'scan');
+        if (this._scope.closed) return;
         if (!envelope.ok) {
             this._controls.set_description(actionLabel(envelope.error));
             toast(this._win, actionLabel(envelope.error));
@@ -275,7 +270,11 @@ export class AppsPage {
         this._render();
     }
 
-    destroy() { this._stopObserving?.(); this._stopObserving = null; }
+    destroy() {
+        this._scope.close();
+        this._stopObserving();
+        this._stopObserving = null;
+    }
 
     openPreview(group) {
         openPreview(this._win, group, {

@@ -18,7 +18,7 @@ class Child {
 const stubs = {
  'gi://GLib': {default: {uuid_string_random: () => 'fixture', PRIORITY_DEFAULT: 0, SOURCE_REMOVE: false,
    timeout_add: (_p, _ms, fn) => {timers.set(++timer, fn); return timer;}, source_remove: id => timers.delete(id)}},
- 'gi://Gio': {default: {File: {new_for_path: () => ({query_exists: () => exists})},
+ 'gi://Gio': {default: {Cancellable: class {cancel() {this.cancelled = true;} is_cancelled() {return Boolean(this.cancelled);}}, File: {new_for_path: () => ({query_exists: () => exists})},
    SubprocessFlags: {STDIN_PIPE: 1, STDOUT_PIPE: 2, STDERR_PIPE: 4},
    SubprocessLauncher: class {spawnv(argv) {assert.deepEqual(Array.from(argv), ['/usr/bin/python3', '/control.py', '--json']);
       const child = new Child(); children.push(child); return child;}}}},
@@ -32,7 +32,7 @@ function module(id) {
  }, {context, identifier: id}) : new SourceTextModule(readFileSync(fileURLToPath(id), 'utf8'), {context, identifier: id});
  modules.set(id,m); return m;
 }
-const entry = module(new URL('../../extension/lib/backendClient.js', import.meta.url).href);
+const entry = module(new URL('../../extension/shared/backendClient.js', import.meta.url).href);
 await entry.link((s,p) => module(s.startsWith('.') ? new URL(s,p.identifier).href : s)); await entry.evaluate();
 const {call, RequestScope} = entry.namespace;
 let promise = call('/control.py', 'status', {}); children.at(-1).finish();
@@ -73,4 +73,24 @@ console.log('ok   signaled children never access get_exit_status');
 const scope=new RequestScope(); promise=call('/control.py','status',{},scope); children.at(-1).finish(); await promise;
 assert.equal(scope._requests.size,0); scope.close(); assert.equal(timers.size,0);
 console.log('ok   completed calls detach from scope');
-console.log('10/10 passed');
+const retryScope = new RequestScope();
+const delay = retryScope.delay(250);
+let cleanups = 0;
+retryScope.cleanup(() => {cleanups++;});
+retryScope.close(); retryScope.close();
+assert.equal(await delay, false);
+assert.equal(timers.size, 0);
+assert.equal(cleanups, 1);
+console.log('ok   close cancels retry delays and runs resource cleanup once');
+const flowEntry = module(new URL('../../extension/shared/applyFlow.js', import.meta.url).href);
+await flowEntry.link((s,p) => module(s.startsWith('.') ? new URL(s,p.identifier).href : s));
+await flowEntry.evaluate();
+const flowScope = new RequestScope();
+const beforeFlow = children.length;
+const flow = flowEntry.namespace.runApplyFlow('/control.py', {scope: flowScope});
+flowScope.close(); children.at(-1).finish({ok:true,result:{revision:'fixture'}});
+assert.equal((await flow).apply, null);
+assert.equal(children.length, beforeFlow + 1);
+assert.equal(timers.size, 0);
+console.log('ok   closing during status prevents the next apply step');
+console.log('12/12 passed');

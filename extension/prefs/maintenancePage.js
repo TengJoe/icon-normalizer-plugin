@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Maintenance page: dashboard of background health, one-tap apply/revert
 // channels and the automation/panel switches (signal-guarded).
-import {t, getLanguage, formatAppliedTime, LANGUAGE_CHOICES} from '../lib/i18n.js';
+import {t, getLanguage, formatAppliedTime, LANGUAGE_CHOICES} from '../shared/i18n.js';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 
-import {call} from '../lib/backendClient.js';
-import {runApplyFlow} from '../lib/applyFlow.js';
-import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth} from '../lib/stateModel.js';
-import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from '../lib/uiCommon.js';
-import {AboutSupport} from './aboutSupport.js';
+import {call} from '../shared/backendClient.js';
+import {WindowScope} from './requestScope.js';
+import {runApplyFlow} from '../shared/applyFlow.js';
+import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth} from '../shared/stateModel.js';
+import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from './uiCommon.js';
+import {About} from './about.js';
 
 export class MaintenancePage {
     constructor(controlPath, win, settings) {
         this._controlPath = controlPath;
+        this._scope = new WindowScope(win);
         this._win = win;
         this._settings = settings;
         this._build();
@@ -62,7 +64,7 @@ export class MaintenancePage {
         this._btnApply = actionButton(t('立即应用'), () => this._apply(false));
         this._btnActivate = actionButton(t('应用并激活'), () => this._apply(true), {primary: true});
         const actions = actionGroup(t('图标维护'), [this._btnScan, this._btnApply, this._btnActivate],
-            t('检查当前图标，或将归一化效果应用到桌面。'));
+            t('检查当前图标，或将归一化效果应用到桌面。'), {window: this._win, scope: this._scope});
         this._actionLayout = actions;
         this._opNotice = noticeRow();
         actions.group.add(this._opNotice.row);
@@ -78,7 +80,8 @@ export class MaintenancePage {
             subtitle: t('切换到新图标主题时保留参数并重新归一化；需要开启自动维护。')});
         this._setFollow = bindSwitch(this._followRow, async enabled => {
             this._followRow.set_sensitive(false);
-            const response = await call(this._controlPath, 'theme.follow', {enabled});
+            const response = await call(this._controlPath, 'theme.follow', {enabled}, this._scope);
+            if (this._scope.closed) return;
             if (!response.ok) this._showOpBanner(actionLabel(response.error));
             await this.refresh();
         });
@@ -118,18 +121,18 @@ export class MaintenancePage {
         revertRow.add_suffix(this._btnRevert);
         danger.add(revertRow);
         this.page.add(danger);
-        this._about = new AboutSupport(this._win);
+        this._about = new About(this._win);
         this.page.add(this._about.group);
     }
 
     retranslate() {
+        if (this._scope.closed) return;
         this._syncingLanguage = true;
         try {
             this._languageRow.set_model(Gtk.StringList.new([t('跟随系统'), '简体中文', 'English']));
             this._languageRow.set_selected(Math.max(0, LANGUAGE_CHOICES.indexOf(
                 this._settings.get_string('ui-language'))));
         } finally { this._syncingLanguage = false; }
-        this._about.retranslate();
         this.refresh();
     }
 
@@ -142,7 +145,9 @@ export class MaintenancePage {
     }
 
     async refresh() {
-        const envelope = await call(this._controlPath, 'status', {});
+        if (this._scope.closed) return;
+        const envelope = await call(this._controlPath, 'status', {}, this._scope);
+        if (this._scope.closed) return;
         if (!envelope.ok) {
             this._showOpBanner(actionLabel(envelope.error));
             return;
@@ -188,6 +193,7 @@ export class MaintenancePage {
     }
 
     _showOpBanner(text) {
+        if (this._scope.closed) return;
         this._opNotice.show(text);
     }
 
@@ -207,8 +213,8 @@ export class MaintenancePage {
         text.get_buffer().set_text(lines.join('\n\n'), -1);
         const scroll = new Gtk.ScrolledWindow({min_content_height: 220, hexpand: true,
             hscrollbar_policy: Gtk.PolicyType.NEVER, child: text});
-        const dialog = new Adw.MessageDialog({transient_for: this._win,
-            destroy_with_parent: true, heading: t('维护故障详情'), extra_child: scroll});
+        const dialog = new Adw.MessageDialog({destroy_with_parent: true, transient_for: this._win,
+            heading: t('维护故障详情'), extra_child: scroll});
         dialog.add_response('close', t('关闭'));
         dialog.set_close_response('close');
         dialog.present();
@@ -218,7 +224,8 @@ export class MaintenancePage {
     async _scan() {
         this._busy(true);
         try {
-            const envelope = await call(this._controlPath, 'scan', {});
+            const envelope = await call(this._controlPath, 'scan', {}, this._scope);
+            if (this._scope.closed) return;
             if (!envelope.ok) {
                 this._showOpBanner(actionLabel(envelope.error));
                 return;
@@ -237,7 +244,8 @@ export class MaintenancePage {
     async _apply(activate) {
         this._busy(true);
         try {
-            const flow = await runApplyFlow(this._controlPath, {activate});
+            const flow = await runApplyFlow(this._controlPath, {activate, scope: this._scope});
+            if (this._scope.closed) return;
             if (!flow.apply?.ok) {
                 this._showOpBanner(flow.hint || actionLabel(flow.apply?.error));
                 return;
@@ -254,7 +262,8 @@ export class MaintenancePage {
     }
 
     async _setAutomation(enabled) {
-        const envelope = await call(this._controlPath, 'automation.set', {enabled});
+        const envelope = await call(this._controlPath, 'automation.set', {enabled}, this._scope);
+        if (this._scope.closed) return;
         if (!envelope.ok) {
             this._showOpBanner(actionLabel(envelope.error));
         } else {
@@ -265,7 +274,7 @@ export class MaintenancePage {
     }
 
     _confirmRevert() {
-        const confirm = new Adw.MessageDialog({
+        const confirm = new Adw.MessageDialog({destroy_with_parent: true,
             heading: t('完全还原桌面图标？'),
             body: t('将移除全部 DockNormalized 托管图标，恢复原始启动器与主题设置。此操作不依赖回收站，但可随时重新应用。'),
             modal: true,
@@ -284,7 +293,8 @@ export class MaintenancePage {
     async _revert() {
         this._busy(true);
         try {
-            const envelope = await call(this._controlPath, 'revert', {});
+            const envelope = await call(this._controlPath, 'revert', {}, this._scope);
+            if (this._scope.closed) return;
             if (!envelope.ok) {
                 this._showOpBanner(actionLabel(envelope.error));
                 return;
@@ -300,9 +310,15 @@ export class MaintenancePage {
     }
 
     _busy(busy) {
+        if (this._scope.closed) return;
         this._btnScan.set_sensitive(!busy);
         this._btnApply.set_sensitive(!busy);
         this._btnActivate.set_sensitive(!busy);
         this._btnRevert.set_sensitive(!busy);
     }
+    destroy() {
+        this._scope.close();
+        this._about.destroy();
+    }
+
 }

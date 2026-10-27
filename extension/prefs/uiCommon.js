@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Shared UI primitives: signal-safe switch binding, filter pills, texture
-// cache, CSS loading and the Adw.Dialog/GNOME-45 compatibility layer.
+// cache and CSS loading for the preferences process.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Gdk from 'gi://Gdk';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
-import {t, translateText} from './i18n.js';
+import {t, translateText} from '../shared/i18n.js';
 
 export function translateWidgetTree(widget, protectedText = new Set()) {
     if (!widget._normalizerUserText) {
@@ -25,7 +25,6 @@ export function translateWidgetTree(widget, protectedText = new Set()) {
     for (const child of children) translateWidgetTree(child, data);
 }
 
-export const SIZES = [16, 24, 32, 48, 64, 96, 128, 256, 512];
 export const PREVIEW_SIZES = [32, 48, 64, 128, 256];
 
 export function configurePage(page) {
@@ -57,7 +56,7 @@ export function statusBadge(text, tone = 'badge-keep') {
         css_classes: ['badge-pill', tone]});
 }
 
-export function adaptiveBox(children, {spacing = 8, below = 560, homogeneous = true} = {}) {
+export function adaptiveBox(children, {spacing = 8, below = 560, homogeneous = true, window, scope} = {}) {
     // Let GTK measure wrapped rows itself. A fixed-height BreakpointBin can
     // retain the previous row height during a resize or language change.
     const box = new Gtk.FlowBox({selection_mode: Gtk.SelectionMode.NONE,
@@ -69,19 +68,20 @@ export function adaptiveBox(children, {spacing = 8, below = 560, homogeneous = t
         box.insert(child, -1);
     }
     const updateLayout = () => {
-        const width = box.get_width();
+        const width = Math.min(window.get_width(), box.get_width() || Infinity);
         if (!width) return;
         const columns = width <= below ? 1 : children.length;
         if (box.get_max_children_per_line() !== columns)
             box.set_max_children_per_line(columns);
     };
-    box.add_tick_callback(() => { updateLayout(); return GLib.SOURCE_CONTINUE; });
+    const stop = observeWindowSize(window, updateLayout, () => box.get_width());
+    scope.cleanup(stop);
     return {widget: box, box, children, updateLayout};
 }
 
-export function actionGroup(title, buttons, description = '') {
+export function actionGroup(title, buttons, description = '', owner) {
     const group = new Adw.PreferencesGroup({title, description});
-    const layout = adaptiveBox(buttons);
+    const layout = adaptiveBox(buttons, owner);
     layout.widget.set_margin_top(12);
     layout.widget.set_margin_bottom(12);
     layout.widget.set_margin_start(12);
@@ -121,30 +121,20 @@ export function noticeRow() {
 }
 
 export function observeWindowSize(window, callback, extraSize = () => '') {
-    let width = -1;
-    let height = -1;
-    let extra = null;
-    // Observe GTK allocation changes on the frame clock; perform no work when
-    // unchanged. No timer, backend polling or file I/O is involved.
-    const id = window.add_tick_callback(() => {
-        const w = window.get_width();
-        const h = window.get_height();
-        const e = extraSize();
-        if (w !== width || h !== height || e !== extra) {
-            width = w;
-            height = h;
-            extra = e;
-            callback(w, h);
+    let previous = '';
+    let id = window.add_tick_callback(() => {
+        const width = window.get_width();
+        const height = window.get_height();
+        const state = `${width}:${height}:${extraSize()}`;
+        if (state !== previous) {
+            previous = state;
+            callback(width, height);
         }
         return GLib.SOURCE_CONTINUE;
     });
-    const closeId = window.connect('close-request', () => {
-        window.remove_tick_callback(id);
-        return false;
-    });
     return () => {
-        window.remove_tick_callback(id);
-        window.disconnect(closeId);
+        if (id) window.remove_tick_callback(id);
+        id = 0;
     };
 }
 
@@ -246,16 +236,6 @@ export function pictureFromBase64(b64, pixelSize = 112) {
     }
 }
 
-export function pictureFromPath(path, pixelSize = 48) {
-    const texture = cachedTexture(`file:${path}`, () => Gdk.Texture.new_from_filename(path));
-    if (texture) {
-        const picture = new Gtk.Picture({paintable: texture, can_shrink: true});
-        picture.set_size_request(pixelSize, pixelSize);
-        return picture;
-    }
-    return new Gtk.Image({icon_name: 'image-missing-symbolic', pixel_size: pixelSize});
-}
-
 // ---------------------------------------------------------------- CSS
 let cssApplied = false;
 
@@ -281,42 +261,12 @@ export function ensureCss(moduleUrl, relativePath = '../stylesheet.css') {
 }
 
 // ---------------------------------------------------------------- dialogs
-export function supportsDialog() {
-    return Adw.Dialog !== undefined;
-}
-
-/**
- * Present `content` as a modal dialog on `parent`, using Adw.Dialog when the
- * runtime provides it (GNOME 46+, libadwaita 1.5) and an Adw.Window fallback
- * for GNOME 45. Returns an object with close().
- */
 export function presentDialog(parent, title, content, {width = 760, height = 680} = {}) {
-    if (Adw.Dialog !== undefined) {
-        const dialog = new Adw.Dialog({
-            title,
-            child: content,
-            content_width: width,
-            content_height: height,
-        });
-        dialog.present(parent);
-        return {close: () => dialog.close(), widget: dialog};
-    }
-    const window = new Adw.Window({
-        title,
-        default_width: width,
-        default_height: height,
-        modal: true,
-        transient_for: parent,
-    });
-    window.set_content(content);
-    window.present();
-    return {close: () => window.close(), widget: window};
+    const dialog = new Adw.Dialog({title, child: content, content_width: width, content_height: height});
+    dialog.present(parent);
+    return {close: () => dialog.close(), widget: dialog};
 }
 
 export function toast(window, message) {
-    try {
-        window.add_toast(Adw.Toast.new(message));
-    } catch (err) {
-        logError(err, 'icon-normalizer: toast failed');
-    }
+    window.add_toast(Adw.Toast.new(message));
 }

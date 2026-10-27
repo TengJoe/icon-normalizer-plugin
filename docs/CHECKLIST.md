@@ -1,8 +1,16 @@
 # 发布验收清单
 
-当前发行版：扩展 **1.1.4**、后台 **3.1.3**。变体配对设计见 [1.1.4 发布说明](RELEASE-1.1.4.md)。
+## 1.1.7 / 3.1.5 规范化候选（2026-10-24）
 
-命令从仓库根目录执行；标注“手动”的项目需要真实桌面会话。勾选项表示已有自动回归覆盖，不代表当前用户桌面的手动观察结果。
+当前源码与候选包版本为 1.1.7；公网发布和 GNOME 送审状态独立记录，不由本清单推定。
+前端分为 shell / prefs / shared；捐赠入口与支付素材已移除。
+
+- `npm ci --ignore-scripts` 后运行 `npm run lint`，要求零告警。
+- `npm run test:logic` 与 `node tests/frontend/syntax-check.mjs`。
+- `python3 tests/frontend/test_runtime.py`：包含真实 GTK 预览取消、尺寸竞态、写入中关闭与重开窗口。
+- `python3 tests/frontend/headless_shell.py`：隔离 Shell 51 顶栏和生命周期。
+- 后台、安装回归与构建命令见下方质量门；每次执行结果以交付回执为准。
+- 维护与资源所有权见 [MAINTENANCE.md](MAINTENANCE.md)。
 
 ## 1.1.4 / 3.1.3 变体配对联动验收（2026-10-16）
 
@@ -26,16 +34,16 @@
 | # | 项目 | 命令 | 通过标准 |
 | --- | --- | --- | --- |
 | Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 27 source files` |
-| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 178 tests OK |
-| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 17 个 JavaScript 文件通过，依赖存在 |
+| Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 当前全部测试 OK |
+| Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 全部 JavaScript 文件通过，依赖存在 |
 | Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 14/14 passed |
-| Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 19 tests OK，独立假 manager |
+| Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 当前全部测试 OK，独立假 manager |
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
-| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 10 tests OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与支持弹窗 |
+| Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 当前全部测试 OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与关于页面 |
 | Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 13/13，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
-| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部 247 条翻译、占位符、自动检测、17 错误码与回切 |
+| Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部当前翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、
@@ -100,7 +108,7 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 - [ ] 顶栏指示器（开启后）：状态摘要、立即检查/立即应用、自动维护开关、设置入口；
       锁屏/解锁不残留 UI、不触碰后台
 - [ ] 快速连点“立即应用”无死锁、无重复并发 apply（去重 + 单一流编排）
-- [ ] 关于与支持显示作者 TengJoe、版本、许可证及项目链接；微信与支付宝收款码
+- [ ] 关于显示作者 TengJoe、版本、许可证及项目链接；不包含捐赠入口或支付素材
       在中英文宽窄窗口下可扫描，关闭弹窗/父窗口后无残留。
 
 ## 5. 发布产物

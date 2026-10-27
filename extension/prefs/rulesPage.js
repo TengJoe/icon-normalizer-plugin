@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The existing read-only preview returns effective_policy and saved_revision.
-import {t} from '../lib/i18n.js';
-import GLib from 'gi://GLib';
+import {t} from '../shared/i18n.js';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
-import {call} from '../lib/backendClient.js';
-import {actionLabel} from '../lib/stateModel.js';
-import {actionButton, actionGroup, configurePage, noticeRow, toast} from '../lib/uiCommon.js';
+import {call} from '../shared/backendClient.js';
+import {WindowScope} from './requestScope.js';
+import {actionLabel} from '../shared/stateModel.js';
+import {actionButton, actionGroup, configurePage, noticeRow, toast} from './uiCommon.js';
 import {NamedProfiles} from './namedProfiles.js';
 
 const PRESETS = [
@@ -18,6 +18,7 @@ const PRESETS = [
 export class RulesPage {
     constructor(controlPath, win) {
         this._controlPath = controlPath;
+        this._scope = new WindowScope(win);
         this._win = win;
         this._loading = true;
         this._dirty = false;
@@ -83,7 +84,8 @@ export class RulesPage {
 
         this._saveApply = actionButton(t('保存并应用'), () => this._save(true), {primary: true});
         this._saveOnly = actionButton(t('仅保存'), () => this._save(false));
-        const actions = actionGroup(t('保存修改'), [this._saveApply, this._saveOnly]);
+        const actions = actionGroup(t('保存修改'), [this._saveApply, this._saveOnly], '',
+            {window: this._win, scope: this._scope});
         this._actionLayout = actions;
         this._notice = noticeRow();
         actions.group.add(this._notice.row);
@@ -101,6 +103,7 @@ export class RulesPage {
     }
 
     _sensitivity() {
+        if (this._scope.closed) return;
         const available = !this._loading && !this._saving;
         for (const button of this._presetButtons) button.set_sensitive(available);
         for (const spin of this._spins)
@@ -111,19 +114,12 @@ export class RulesPage {
         this._profiles.setDraftAvailable(Boolean(save));
     }
 
-    async _read(operation, args) {
-        let result;
-        for (let attempt = 0; attempt < 4; attempt++) {
-            result = await call(this._controlPath, operation, args);
-            if (result.ok || result.error?.code !== 'BUSY' || attempt === 3) return result;
-            await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-                resolve(); return GLib.SOURCE_REMOVE;
-            }));
-        }
-        return result;
+    _read(operation, args) {
+        return this._scope.read(this._controlPath, operation, args);
     }
 
     async refresh(scanEnvelope = null, {discard = false} = {}) {
+        if (this._scope.closed) return;
         if (this._refreshPromise) return this._refreshPromise;
         if (this._dirty && !discard) return;
         this._refreshPromise = this._load(scanEnvelope);
@@ -136,6 +132,7 @@ export class RulesPage {
         this._sensitivity();
         try {
             const scan = scanEnvelope ?? await this._read('scan', {});
+            if (this._scope.closed) return;
             if (!scan.ok) {
                 this._notice.show(actionLabel(scan.error), {error: true,
                     buttonLabel: t('重试'), onClick: () => this.refresh(null, {discard: true})});
@@ -147,6 +144,7 @@ export class RulesPage {
                 const result = await this._read('preview', {
                     icon_id: group.icon_id, source_sha256: group.source_sha256, size: 32,
                 });
+                if (this._scope.closed) return;
                 if (!result.ok) continue;
                 this._loadedRevision = result.result.saved_revision;
                 this._hasPolicy = true;
@@ -180,12 +178,13 @@ export class RulesPage {
     }
 
     async _save(thenApply) {
-        if (this._saving || !this._loadedRevision) return;
+        if (this._scope.closed || this._saving || !this._loadedRevision) return;
         this._saving = true;
         this._sensitivity();
         this._notice.hide();
         try {
-            const status = await call(this._controlPath, 'status', {});
+            const status = await call(this._controlPath, 'status', {}, this._scope);
+            if (this._scope.closed) return;
             if (!status.ok) { this._notice.show(actionLabel(status.error), {error: true}); return; }
             if (status.result.revision !== this._loadedRevision) {
                 this._notice.show(t('策略已被修改，请重新读取后再保存。'), {error: true,
@@ -195,7 +194,8 @@ export class RulesPage {
             const configure = await call(this._controlPath, 'configure', {
                 expected_revision: this._loadedRevision,
                 patch: this._parameters(),
-            });
+            }, this._scope);
+            if (this._scope.closed) return;
             if (!configure.ok) { this._notice.show(actionLabel(configure.error), {error: true}); return; }
             this._loadedRevision = configure.result.revision;
             this._savedPolicy = configure.result.effective_policy;
@@ -205,7 +205,8 @@ export class RulesPage {
             if (thenApply) {
                 const apply = await call(this._controlPath, 'apply', {
                     expected_revision: this._loadedRevision, activate: true,
-                });
+                }, this._scope);
+                if (this._scope.closed) return;
                 if (!apply.ok) { this._notice.show(actionLabel(apply.error), {error: true}); return; }
                 this._notice.show(t('策略已保存并应用。'), {success: true});
             } else {
@@ -218,4 +219,9 @@ export class RulesPage {
             this._sensitivity();
         }
     }
+    destroy() {
+        this._scope.close();
+        this._profiles.destroy();
+    }
+
 }

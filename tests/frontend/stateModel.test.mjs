@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const stateModelUrl = new URL('../../extension/lib/stateModel.js', import.meta.url);
+const stateModelUrl = new URL('../../extension/shared/stateModel.js', import.meta.url);
 const m = await import(stateModelUrl.href);
 
 const tests = [];
@@ -19,27 +19,6 @@ test('automaticLabel maps all statuses', () => {
     assert.equal(m.automaticLabel(null), '状态未知');
 });
 
-test('headline covers installed=false, revision and pending', () => {
-    assert.equal(m.headline(null).main, '后台状态未知');
-    const empty = m.headline({installed: false});
-    assert.match(empty.main, /后台未安装/);
-    const full = m.headline({
-        installed: true,
-        automatic: 'on',
-        revision: 'a'.repeat(64),
-        recovery_pending: true,
-        stale: true,
-        last_apply_at: '2026-10-02T09:30:00+00:00',
-        active_theme: 'DockNormalized',
-        summary: {managed_icons: 25},
-    });
-    assert.match(full.main, /自动维护：已开启/);
-    assert.match(full.main, /策略 aaaaaaaa/);
-    assert.match(full.main, /有待恢复事务/);
-    assert.match(full.main, /结果已过期/);
-    assert.match(full.sub, /主题 DockNormalized/);
-    assert.match(full.sub, /已管理 25 个图标/);
-});
 
 test('badgeFor covers every action', () => {
     const cases = {
@@ -122,7 +101,6 @@ test('persisted health is independent of enabled automation and active theme', (
         assert.equal(health.label, '维护受阻');
         assert.equal(health.warning, true);
         assert.match(health.detail, /连续失败 3 次/);
-        assert.match(m.headline(status).main, /维护受阻/);
     }
 });
 test('maintenance distinguishes unknown, success, pending and unresolved sources', () => {
@@ -136,8 +114,19 @@ test('maintenance distinguishes unknown, success, pending and unresolved sources
 test('a failed automation change is not described as a failed maintenance run', () => {
     const status={installed:true,last_error:{code:'AUTOMATION_FAILED',operation:'automation.set'}};
     assert.equal(m.maintenanceHealth(status).label,'自动维护设置失败');
-    assert.match(m.headline(status).main,/自动维护设置失败/);
-    assert.doesNotMatch(m.headline(status).main,/维护受阻/);
+});
+test('persisted config failures override an earlier successful maintenance', () => {
+    const status = {installed:true, automatic:'on', overlay_in_use:true, stale:false,
+        theme_follow:null, last_check_at:'2026-10-22T00:00:00Z',
+        last_error:{code:'INVALID_CONFIG', operation:'scheduled', count:2,
+            details:{reason:'PERSISTED_CONFIG_INVALID', file:'theme-follow.json'}}};
+    const health = m.maintenanceHealth(status);
+    assert.equal(health.label, '维护受阻');
+    assert.equal(health.warning, true);
+    assert.match(health.detail, /连续失败 2 次/);
+    status.last_error = null;
+    status.theme_follow = true;
+    assert.equal(m.maintenanceHealth(status).label, '最近维护成功');
 });
 for (const [name, fn] of tests) {
     try {

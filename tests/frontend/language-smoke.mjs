@@ -9,7 +9,7 @@ const root=ARGV[0],controlPath=GLib.get_home_dir()+'/.local/libexec/icon-normali
 const source=Gio.SettingsSchemaSource.new_from_directory(root+'/schemas',Gio.SettingsSchemaSource.get_default(),false);
 const settings=new Gio.Settings({settings_schema:source.lookup('org.gnome.shell.extensions.icon-normalizer',false)});
 settings.set_string('ui-language','zh');
-const {buildPreferences}=await import(Gio.File.new_for_path(root+'/ui/preferences.js').get_uri());
+const {buildPreferences}=await import(Gio.File.new_for_path(root+'/prefs/preferences.js').get_uri());
 const window=new Adw.PreferencesWindow({default_width:420,default_height:560});
 const pages=buildPreferences(window,{controlPath,settings});
 const check=(v,m)=>{if(!v)throw new Error(m);};

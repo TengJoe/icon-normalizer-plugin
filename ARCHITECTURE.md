@@ -1,6 +1,6 @@
 # Icon Normalizer 架构说明
 
-本文说明扩展 **1.1.1**、后台 **3.1.0** 的工程结构。架构沿用 3.0 重构的进程隔离与事务设计，并加入自定义方案、主题跟随和中英文支持入口。
+本文说明候选扩展 **1.1.7**、后台 **3.1.5** 的工程结构。架构沿用 3.0 重构的进程隔离与事务设计，并加入自定义方案、主题跟随和中英文界面。
 
 [使用说明](README.md) · [协议规范](PROTOCOL.md) · [架构决策记录](docs/README.md#架构决策记录--architecture-decision-records)
 
@@ -13,7 +13,7 @@ GNOME Shell                         设置窗口（独立 GJS 进程）
 extension.js → indicator.js          prefs.js → preferences.js
 GJS / St                            GTK 4 / Libadwaita
          │                                      │
-         └────── lib/backendClient.js ──────────┘
+         └────── shared/backendClient.js ──────────┘
                             │ Gio.Subprocess：固定 argv + JSON stdin
                             ▼
 Python 后台：control.py --json       systemd：control.py --scheduled
@@ -49,16 +49,16 @@ Python 后台：control.py --json       systemd：control.py --scheduled
 | `backend/icon_normalizer/service_control.py` | systemd 用户单元的查询、启停与失败恢复 |
 | `backend/icon_normalizer/core/` | 分析、渲染、图标解析、归一化编排与文件事务 |
 | `extension/extension.js`、`prefs.js` | Shell 扩展与设置窗口入口 |
-| `extension/lib/` | 后台客户端、状态映射、应用编排、界面原语、翻译与项目信息 |
-| `extension/ui/` | 三页设置、命名方案、图标预览、顶栏菜单与支持弹窗 |
-| `extension/assets/` | 单色 SVG 与维护者授权的微信、支付宝收款码 |
+| `extension/shared/` | 后台客户端、请求作用域、状态映射、应用编排、翻译与项目信息；不导入界面工具包 |
+| `extension/prefs/` | 三页设置、命名方案、图标预览、关于页面与 GTK 界面工具 |
+| `extension/shell/` | 顶栏菜单与 Shell 侧主题同步 |
+| `extension/icons/` | 顶栏使用的单色 SVG |
 | `extension/schemas/` | GSettings schema |
 | `contracts/` | 协议 v1 JSON Schema 与示例 |
 | `packaging/systemd/` | `service`、`timer`、`path` 模板 |
 | `tools/` | 安装布局、构建、安装、卸载与发布审计 |
 | `tests/` | 后台、安装故障、前端逻辑与隔离运行时验收 |
-| `docs/` | 发布验收、提交说明、支持入口与 ADR |
-| `.github/FUNDING.yml` | GitHub 支持按钮指向公开支持页面 |
+| `docs/` | 发布验收、提交说明、维护指南与 ADR |
 
 ## 3. 模块边界
 
@@ -76,7 +76,7 @@ Python 后台：control.py --json       systemd：control.py --scheduled
 | `core/resolver.py` | GTK 3 图标解析与素材装载 | 拒绝在后台进程加载 GTK 4 |
 | `core/transaction.py` | 路径检查、原子写、日志与恢复 | 不决定业务上需要写什么 |
 | `preview.py` | 预览与独立缓存 | 不修改生效配置和托管图标 |
-| `extension/lib/`、`extension/ui/` | 展示、用户交互与请求编排 | 不计算图标策略或直接写后台状态 |
+| `extension/shared/`、`extension/prefs/`、`extension/shell/` | 展示、用户交互与请求编排 | 不计算图标策略或直接写后台状态 |
 
 ## 4. 设计约束
 
@@ -105,11 +105,11 @@ Python 后台：control.py --json       systemd：control.py --scheduled
 
 `pending.json` 以 0600 权限在首个文件变更之前落盘。恢复时校验现有内容是否仍为事务记录的前后版本，再逆序回放；外部修改会阻止自动覆盖。主题激活另有 `settings-pending.json`，写入后设置并读回确认，成功才删除日志。
 
-### 生命周期与支持入口
+### 生命周期与项目入口
 
 关闭设置或停用顶栏只结束对应界面与监听。后台自动维护由 `timer` 和 `path` 管理；还原通过显式操作执行。
 
-支持入口只显示维护者授权的原始收款码，或打开项目与反馈链接。付款在微信或支付宝中完成，扩展不读取、追踪或验证交易。
+关于页面保留作者、版本、许可证以及项目与反馈链接，不包含支付界面或收款素材。
 
 ## 5. 关键数据流
 

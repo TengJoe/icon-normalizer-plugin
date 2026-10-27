@@ -113,15 +113,16 @@ def resolve_variant(
 
 
 def enabled(state: Path) -> bool:
-    path = safe_path(state / "theme-follow.json")
-    if not path.exists():
-        return True
+    details = {"reason": "PERSISTED_CONFIG_INVALID", "file": "theme-follow.json"}
     try:
+        path = safe_path(state / "theme-follow.json")
+        if not path.exists():
+            return True
         data = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        reject("INVALID_CONFIG", f"theme-follow.json unreadable: {exc}")
+        reject("INVALID_CONFIG", f"theme-follow.json unreadable: {exc}", details=details)
     if not isinstance(data, dict) or data.get("schema_version") != 1 or not isinstance(data.get("enabled"), bool):
-        reject("INVALID_CONFIG", "theme-follow.json invalid")
+        reject("INVALID_CONFIG", "theme-follow.json invalid", details=details)
     return bool(data["enabled"])
 
 
