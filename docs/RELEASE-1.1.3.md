@@ -98,4 +98,4 @@ The upgrader preserves settings, rules, and maintenance state, and restores its 
 
 This publication does not replace the maintainer's live installation. Real daily-session lock/unlock and multi-day acceptance remain pending installation. Lightweight module discovery does not prove ABI/typelib health; use doctor for fuller checks. Pattern scanning cannot prove the absence of every secret.
 
-GitHub publication does not imply GNOME Extensions approval; this release was not resubmitted there. Conflict details remain read-only, with no force-overwrite control. All features are free; support is voluntary and documented on the [support page](SUPPORT.md).
+GitHub publication does not imply GNOME Extensions approval; this release was not resubmitted there. Conflict details remain read-only, with no force-overwrite control. All features are free; support is voluntary and documented on the project repository.

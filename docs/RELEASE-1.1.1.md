@@ -41,7 +41,7 @@ python3 tools/install.py
 
 本版仅声明 GNOME Shell 51。托盘图标及应用自行绘制的图标可能绕过主题；非默认 `XDG_DATA_HOME` 暂不支持。扩展 ZIP 不包含配套后台，首次安装请使用完整发行包。
 
-本项目尚未提交 GNOME Extensions 商店。收款码的显示与扫描已验证，实际付款尚未测试。支持方式见[支持页面](SUPPORT.md)。
+本项目尚未提交 GNOME Extensions 商店。收款码的显示与扫描已验证，实际付款尚未测试。捐赠功能已在 1.1.7 移除。
 
 ## English
 
@@ -80,6 +80,6 @@ The complete release passes **147 backend tests** and **17 installation and faul
 
 Only GNOME Shell 51 support is declared. Tray icons and icons drawn directly by applications may bypass icon themes. Non-default `XDG_DATA_HOME` is unsupported. The extension ZIP does not include the companion backend; use the complete tarball for a first installation.
 
-This project has not been submitted to GNOME Extensions. Payment-code display and decoding have been verified; actual payments have not been tested. See the [support page](SUPPORT.md) for support options.
+This project has not been submitted to GNOME Extensions. Payment-code display and decoding have been verified; actual payments have not been tested. See the project repository for support options.
 
 [问题反馈 / Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [支持开发 / Support development](SUPPORT.md) · [License](../LICENSE)

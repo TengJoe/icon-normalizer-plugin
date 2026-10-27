@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import GLib from 'gi://GLib';
-import {initLanguage, getLanguage, t} from '../lib/i18n.js';
-import {ensureCss, translateWidgetTree} from '../lib/uiCommon.js';
+import {initLanguage, getLanguage, t} from '../shared/i18n.js';
+import {ensureCss, translateWidgetTree} from './uiCommon.js';
 import {AppsPage} from './appsPage.js';
 import {RulesPage} from './rulesPage.js';
 import {MaintenancePage} from './maintenancePage.js';
@@ -18,6 +18,7 @@ export function buildPreferences(window, {controlPath, settings}) {
     const pages = {rules, apps, maint};
     apps.onScan = async envelope => {
         await rules.refresh(envelope);
+        if (apps._scope.closed) return;
         apps.setPolicy(envelope.ok && envelope.result.revision === rules._loadedRevision
             ? rules._savedPolicy : null);
     };
@@ -43,7 +44,11 @@ export function buildPreferences(window, {controlPath, settings}) {
     });
     window.connect('close-request', () => {
         if (changeId) { GLib.source_remove(changeId); changeId = 0; }
-        settings.disconnect(handler); return false;
+        settings.disconnect(handler);
+        rules.destroy();
+        apps.destroy();
+        maint.destroy();
+        return false;
     });
     return pages;
 }

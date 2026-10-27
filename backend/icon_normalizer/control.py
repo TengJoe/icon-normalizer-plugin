@@ -208,10 +208,13 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
                 "diagnostics": ["config.json unreadable: " + str(exc)[:160]],
             }
     busy = _busy_probe(paths)
+    follow_error: dict[str, Any] | None = None
     try:
         follows_theme: bool | None = theme_follow.enabled(paths.state_dir)
-    except (ProtocolError, ValueError):
+    except ProtocolError as exc:
         follows_theme = None
+        follow_error = {"code": exc.code, "message": exc.message, "details": exc.details,
+                        "operation": "theme.sync"}
     summary = None
     stale = True
     if last_run and last_run.get("summary") and manifest:
@@ -228,6 +231,11 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
             # One successful apply writes the full policy+rules revision.
             stale = True
     error = health.status_error(paths.state_dir)
+    if follow_error is not None and not (error and all(
+            error.get(key) == follow_error[key] for key in ("code", "message", "details"))):
+        # Read-only detection works even before the next worker run. Retain a
+        # matching persisted receipt's first/last occurrence and count.
+        error = follow_error
     missing = missing_modules()
     if missing:
         recorded_module = (error or {}).get("details", {}).get("module", "")

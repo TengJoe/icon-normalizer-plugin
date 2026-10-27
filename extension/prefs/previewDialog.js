@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Live before/after comparison dialog: multi-size renders (32..256), light/dark
-// stage, detailed metrics and the per-icon skip rule — Adw.Dialog on GNOME 46+,
-// Adw.Window fallback on GNOME 45.
-import {t} from '../lib/i18n.js';
+// stage, detailed metrics and the per-icon skip rule.
+import {t} from '../shared/i18n.js';
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 
-import {call} from '../lib/backendClient.js';
-import {CLASSIFICATION_LABELS, actionLabel} from '../lib/stateModel.js';
+import {call, RequestScope} from '../shared/backendClient.js';
+import {WindowScope} from './requestScope.js';
+import {CLASSIFICATION_LABELS, actionLabel} from '../shared/stateModel.js';
 import {
     PREVIEW_SIZES,
     actionButton,
@@ -15,7 +15,7 @@ import {
     pictureFromBase64,
     presentDialog,
     toast,
-} from '../lib/uiCommon.js';
+} from './uiCommon.js';
 
 export function openPreview(parent, group, {controlPath, settings, onRuleChanged}) {
     if (!group.source_sha256) {
@@ -23,13 +23,15 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
         return;
     }
 
+    const scope = new WindowScope(parent);
+    let previewRequest = null;
+    scope.cleanup(() => { previewRequest?.close(); previewRequest = null; });
     const dialogState = {
         size: PREVIEW_SIZES.includes(settings.get_int('preview-size'))
             ? settings.get_int('preview-size') : 48,
         background: settings.get_string('preview-background') === 'dark' ? 'dark' : 'light',
     };
     let syncingControls = false;
-    let previewGeneration = 0;
 
     // ------------------------------------------------------------- layout
     const root = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 0,
@@ -50,7 +52,7 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
 
     const originalCard = _makeStage(t('原始图标素材'));
     const proposedCard = _makeStage(t('归一化效果'));
-    const stages = adaptiveBox([originalCard.box, proposedCard.box], {spacing: 16, below: 540});
+    const stages = adaptiveBox([originalCard.box, proposedCard.box], {spacing: 16, below: 540, window: parent, scope});
     content.append(stages.widget);
 
     // size selector + background toggle
@@ -103,9 +105,9 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     content.append(details);
 
     // action bar: skip toggle + close
-    const skipButton = actionButton(t('跳过此图标'), () => toggleSkip(group, () => {}));
+    const skipButton = actionButton(t('跳过此图标'), () => toggleSkip(group));
     const closeButton = actionButton(t('完成'), () => handle.close(), {primary: true});
-    const actionBar = adaptiveBox([skipButton, closeButton]);
+    const actionBar = adaptiveBox([skipButton, closeButton], {window: parent, scope});
     content.append(actionBar.widget);
 
     rowClass.set_subtitle(t('{classification}（{origin}）', {
@@ -140,11 +142,11 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     function _syncControls() {
         syncingControls = true;
         try {
-        for (const [size, button] of sizeButtons) {
-            button.set_active(size === dialogState.size);
-        }
-        backgroundButton.set_active(dialogState.background === 'dark');
-        skipButton.set_label(group.skipped ? t('取消跳过') : t('跳过此图标'));
+            for (const [size, button] of sizeButtons) {
+                button.set_active(size === dialogState.size);
+            }
+            backgroundButton.set_active(dialogState.background === 'dark');
+            skipButton.set_label(group.skipped ? t('取消跳过') : t('跳过此图标'));
         } finally {
             syncingControls = false;
         }
@@ -152,15 +154,18 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
 
     // ------------------------------------------------------------- data flow
     async function fetchPreview() {
-        const generation = ++previewGeneration;
+        if (scope.closed) return;
+        previewRequest?.close();
+        const request = new RequestScope();
+        previewRequest = request;
         originalCard.setLoading();
         proposedCard.setLoading();
-        const envelope = await call(controlPath, 'preview', {
+        const envelope = await request.read(controlPath, 'preview', {
             icon_id: group.icon_id,
             source_sha256: group.source_sha256,
             size: dialogState.size,
         });
-        if (generation !== previewGeneration) return envelope;
+        if (scope.closed || request.closed) return envelope;
         if (!envelope.ok) {
             originalCard.setError(actionLabel(envelope.error));
             proposedCard.setError(actionLabel(envelope.error));
@@ -181,34 +186,48 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
         return envelope;
     }
 
-    async function toggleSkip(g, onDone) {
-        const statusEnvelope = await call(controlPath, 'status', {});
-        if (!statusEnvelope.ok) {
-            toast(parent, actionLabel(statusEnvelope.error));
-            return;
+    async function toggleSkip(g) {
+        skipButton.set_sensitive(false);
+        try {
+            const statusEnvelope = await call(controlPath, 'status', {}, scope);
+            if (scope.closed) return;
+            if (!statusEnvelope.ok) {
+                toast(parent, actionLabel(statusEnvelope.error));
+                return;
+            }
+            const revision = statusEnvelope.result.revision;
+            const rule = g.skipped ? {reset: true} : {skip: true, classification: 'auto'};
+            const envelope = await call(controlPath, 'rules.set', {
+                expected_revision: revision,
+                icon_id: g.icon_id,
+                rule,
+            }, scope);
+            if (scope.closed) return;
+            if (!envelope.ok) {
+                toast(parent, actionLabel(envelope.error));
+                return;
+            }
+            toast(parent, g.skipped ? t('已取消跳过') : t('已跳过该图标'));
+            g.skipped = !g.skipped;
+            _syncControls();
+            onRuleChanged?.();
+        } finally {
+            if (!scope.closed) skipButton.set_sensitive(true);
         }
-        const revision = statusEnvelope.result.revision;
-        const rule = g.skipped ? {reset: true} : {skip: true, classification: 'auto'};
-        const envelope = await call(controlPath, 'rules.set', {
-            expected_revision: revision,
-            icon_id: g.icon_id,
-            rule,
-        });
-        if (!envelope.ok) {
-            toast(parent, actionLabel(envelope.error));
-            return;
-        }
-        toast(parent, g.skipped ? t('已取消跳过') : t('已跳过该图标'));
-        g.skipped = !g.skipped;
-        _syncControls();
-        onRuleChanged?.();
-        onDone();
     }
 
     _syncControls();
     _applyBackground();
     const handle = presentDialog(parent, t('{name} · 效果预览', {name: group.names?.[0] ?? group.icon_name}),
         root, {width: 800, height: 700});
+    const closedId = handle.widget.connect('closed', () => scope.close());
+    scope.cleanup(() => handle.widget.disconnect(closedId));
+    const close = handle.close;
+    handle.close = () => {
+        if (scope.closed) return;
+        scope.close();
+        close();
+    };
     handle.ready = fetchPreview();
     return handle;
 }
@@ -251,9 +270,9 @@ function _makeStage(title) {
             spinner.stop();
             const previous = stack.get_child_by_name('current-picture');
             const picture = pictureFromBase64(b64, 160);
+            if (previous) stack.remove(previous);
             stack.add_named(picture, 'current-picture');
             stack.set_visible_child(picture);
-            if (previous) stack.remove(previous);
             ratioLabel.set_text(ratioText);
         },
     };

@@ -111,7 +111,7 @@ const fakeModules = {
         openPreferences() { openedPreferences++; }
     }},
 };
-const clientUrl = new URL('lib/backendClient.js', extensionRoot).href;
+const clientUrl = new URL('shared/backendClient.js', extensionRoot).href;
 let delayedRequest = null;
 fakeModules[clientUrl] = {RequestScope: class {constructor() {this.closed = false;} close() {this.closed = true;}}, call: async (_path, operation, arguments_, scope) => {
     if (scope?.closed) return {ok: false, error: {code: 'TIMEOUT'}};
@@ -215,7 +215,7 @@ extension.disable();
 assert.equal(registry.size, 0);
 console.log('ok   disable cleans up monitor, timers and role; re-enable works');
 
-const {Indicator} = modules.get(new URL('ui/indicator.js', extensionRoot).href).namespace;
+const {Indicator} = modules.get(new URL('shell/indicator.js', extensionRoot).href).namespace;
 registry.set('icon-normalizer', {});
 assert.throws(() => new Indicator({}), /duplicate panel role/);
 assert.equal(buttons.at(-1).destroyed, true);
@@ -227,7 +227,7 @@ delayedRequest = new Promise(resolve => {release = resolve;});
 extension._request('status');
 extension.disable(); extension.enable(); await drain();
 release({ok: true, result: {...status, revision: 'z'.repeat(64)}}); await drain();
-assert.equal(extension._lastRevision, status.revision);
+assert.equal(extension._lastStatus.revision, status.revision);
 console.log('ok   late callbacks from a disabled session cannot update a re-enabled session');
 requests.length = 0;
 themeSettings.set_string('icon-theme', 'FixtureBlue');

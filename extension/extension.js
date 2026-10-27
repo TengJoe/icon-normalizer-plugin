@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// GNOME Shell entry (GNOME 45+ ESM). Desktop theme notifications live here;
+// GNOME Shell entry (GNOME 51 ESM). Desktop theme notifications live here;
 // background icon maintenance runs separately in systemd user units.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {call, RequestScope} from './lib/backendClient.js';
-import {runApplyFlow} from './lib/applyFlow.js';
-import {headline, operationExitHint, supportsProfilesAndThemes} from './lib/stateModel.js';
-import {Indicator} from './ui/indicator.js';
-import {initLanguage} from './lib/i18n.js';
-import {syncGtkTheme} from './lib/themeSync.js';
+import {call, RequestScope} from './shared/backendClient.js';
+import {runApplyFlow} from './shared/applyFlow.js';
+import {operationExitHint, supportsProfilesAndThemes} from './shared/stateModel.js';
+import {Indicator} from './shell/indicator.js';
+import {initLanguage} from './shared/i18n.js';
+import {syncGtkTheme} from './shell/themeSync.js';
 
 const CONTROL_PATH_PARTS = ['.local', 'libexec', 'icon-normalizer', 'control.py'];
 const PANEL_KEY = 'show-panel-indicator';
@@ -28,7 +28,6 @@ export default class IconNormalizerExtension extends Extension {
         initLanguage(this._settings, GLib.get_language_names());
         this._controlPath = GLib.build_filenamev([GLib.get_home_dir(), ...CONTROL_PATH_PARTS]);
         this._pending = new Set();
-        this._lastRevision = null;
         this._lastStatus = null;
         this._indicator = null;
         this._settingsHandler = this._settings.connect(`changed::${PANEL_KEY}`,
@@ -100,7 +99,6 @@ export default class IconNormalizerExtension extends Extension {
         }
         this._pending?.clear();
         this._lastStatus = null;
-        this._lastRevision = null;
         this._controlPath = null;
     }
 
@@ -108,7 +106,6 @@ export default class IconNormalizerExtension extends Extension {
         const show = this._settings?.get_boolean(PANEL_KEY) ?? false;
         if (show && !this._indicator) {
             this._indicator = new Indicator({
-                headline,
                 actionLabel: operationExitHint,
                 onOpenSettings: () => this.openPreferences(),
                 requestRefresh: (kind, arg) => this._request(kind, arg),
@@ -142,9 +139,6 @@ export default class IconNormalizerExtension extends Extension {
         call(this._controlPath, operation, args, this._requests).then(envelope => {
             if (generation !== this._generation) return;
             this._pending.delete(kind);
-            if (envelope.ok && envelope.result?.revision) {
-                this._lastRevision = envelope.result.revision;
-            }
             if (operation === 'status') {
                 if (envelope.ok) this._lastStatus = envelope.result;
                 this._indicator?.update(this._lastStatus ?? null, envelope);
@@ -174,7 +168,6 @@ export default class IconNormalizerExtension extends Extension {
             const flow = await runApplyFlow(this._controlPath, {activate: null, scope: this._requests});
             if (generation !== this._generation) return;
             if (flow.apply?.ok) {
-                this._lastRevision = flow.after?.result?.revision ?? this._lastRevision;
                 this._indicator?.update(flow.after?.result ?? null, flow.after);
             } else {
                 const envelope = flow.apply ?? flow.status;

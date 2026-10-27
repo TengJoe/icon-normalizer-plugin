@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
-import GLib from 'gi://GLib';
-import {call} from '../lib/backendClient.js';
-import {t} from '../lib/i18n.js';
-import {actionLabel, supportsProfilesAndThemes} from '../lib/stateModel.js';
-import {actionButton, noticeRow} from '../lib/uiCommon.js';
+import {call} from '../shared/backendClient.js';
+import {WindowScope} from './requestScope.js';
+import {t} from '../shared/i18n.js';
+import {actionLabel, supportsProfilesAndThemes} from '../shared/stateModel.js';
+import {actionButton, noticeRow} from './uiCommon.js';
 
 export class NamedProfiles {
     constructor(controlPath, window, {getParameters, onUse}) {
         this._controlPath = controlPath;
+        this._scope = new WindowScope(window);
         this._window = window;
         this._getParameters = getParameters;
         this._onUse = onUse;
@@ -26,7 +27,6 @@ export class NamedProfiles {
         this._notice = noticeRow();
         this.group.add(this._saveRow);
         this.group.add(this._notice.row);
-        window.connect('close-request', () => { this._closed = true; return false; });
         this.ready = this.refresh();
     }
 
@@ -40,24 +40,16 @@ export class NamedProfiles {
     }
 
     async refresh() {
-        const status = await call(this._controlPath, 'status', {});
-        if (this._closed) return;
+        if (this._scope.closed) return;
+        const status = await call(this._controlPath, 'status', {}, this._scope);
+        if (this._scope.closed) return;
         if (status.ok && !supportsProfilesAndThemes(status.result)) {
             this._notice.show(t('此功能需要后台 3.1.0 或更新版本，请安装完整发行包升级后台。'), {error: true});
             return;
         }
         if (!status.ok) { this._notice.show(this._hint(status.error), {error: true}); return; }
-        let response;
-        for (let attempt = 0; attempt < 4; attempt++) {
-            response = await call(this._controlPath, 'profiles.list', {});
-            if (this._closed) return;
-            if (response.ok || response.error?.code !== 'BUSY' || attempt === 3) break;
-            await new Promise(resolve => GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-                resolve(); return GLib.SOURCE_REMOVE;
-            }));
-            if (this._closed) return;
-        }
-        if (this._closed) return;
+        const response = await this._scope.read(this._controlPath, 'profiles.list');
+        if (this._scope.closed) return;
         if (!response.ok) {
             this._notice.show(this._hint(response.error), {error: true,
                 buttonLabel: t('重新读取'), onClick: () => this.refresh()});
@@ -114,14 +106,14 @@ export class NamedProfiles {
     }
 
     async _mutate(operation, arguments_) {
-        if (this._busy || this._closed) return;
+        if (this._scope.closed || this._busy) return;
         this._busy = true;
         this._saveButton.set_sensitive(false);
         for (const row of this._rows) row.set_sensitive(false);
         try {
             const response = await call(this._controlPath, operation,
-                {expected_profiles_revision: this._revision, ...arguments_});
-            if (this._closed) return;
+                {expected_profiles_revision: this._revision, ...arguments_}, this._scope);
+            if (this._scope.closed) return;
             if (!response.ok) {
                 this._notice.show(this._hint(response.error), {error: true,
                     buttonLabel: t('重新读取'), onClick: () => this.refresh()});
@@ -131,7 +123,7 @@ export class NamedProfiles {
             this._notice.show(operation === 'profiles.delete' ? t('方案已删除。') : t('方案已保存。'), {success: true});
         } finally {
             this._busy = false;
-            if (!this._closed) {
+            if (!this._scope.closed) {
                 this.setDraftAvailable(this._draftAvailable);
                 for (const row of this._rows) row.set_sensitive(true);
                 this.setDraftAvailable(this._draftAvailable);
@@ -140,9 +132,9 @@ export class NamedProfiles {
     }
 
     openDialog(profile = null) {
-        if (this._busy || !this._revision || (!profile && !this._draftAvailable)) return null;
+        if (this._scope.closed || this._busy || !this._revision || (!profile && !this._draftAvailable)) return null;
         const parameters = profile?.parameters ?? this._getParameters();
-        const dialog = new Adw.MessageDialog({transient_for: this._window, modal: true,
+        const dialog = new Adw.MessageDialog({destroy_with_parent: true, transient_for: this._window, modal: true,
             heading: profile ? t('重命名方案') : t('保存自定义方案'),
             body: profile ? t('重命名保留该方案的参数。') : t('保存当前视觉参数，不改变正在使用的配置。')});
         const entry = new Gtk.Entry({text: profile?.name ?? '', max_length: 64,
@@ -165,8 +157,8 @@ export class NamedProfiles {
     }
 
     confirmDelete(profile) {
-        if (this._busy) return null;
-        const dialog = new Adw.MessageDialog({transient_for: this._window, modal: true,
+        if (this._scope.closed || this._busy) return null;
+        const dialog = new Adw.MessageDialog({destroy_with_parent: true, transient_for: this._window, modal: true,
             heading: t('删除自定义方案？'),
             body: t('删除“{name}”。当前生效的视觉参数和图标不会改变。', {name: profile.name})});
         dialog.add_response('cancel', t('取消'));
@@ -180,5 +172,9 @@ export class NamedProfiles {
         return dialog;
     }
 
-    retranslate() { if (!this._closed) this._render(); }
+    retranslate() { if (!this._scope.closed) this._render(); }
+    destroy() {
+        this._scope.close();
+    }
+
 }

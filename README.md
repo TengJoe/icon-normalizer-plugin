@@ -13,9 +13,11 @@
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-2ec27e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[下载完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [支持开发](docs/SUPPORT.md)
+[下载完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
+
+当前源码候选为 **1.1.7 / 后台 3.1.5**：规范化前端生命周期与目录，并移除捐赠功能；下方下载链接仍指向已公开的 1.1.5。候选验证与维护边界见 [维护指南](docs/MAINTENANCE.md)。
 
 ---
 
@@ -191,25 +193,8 @@ python3 tools/uninstall.py --keep-backend
 
 更多资料见[文档索引](docs/README.md)。报告问题时，请附系统与组件版本、复现步骤，并先去除日志或截图中的私人信息。
 
-## 作者与支持
+## 作者
 
-由 **[TengJoe](https://github.com/TengJoe)** 开发，使用 [GPL-3.0-or-later](LICENSE) 许可证。所有功能均可免费使用，支持开发完全自愿。
+由 **[TengJoe](https://github.com/TengJoe)** 开发，使用 [GPL-3.0-or-later](LICENSE) 许可证。所有功能均可免费使用。
 
-[反馈问题](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [贡献代码](CONTRIBUTING.md) · [支持开发](docs/SUPPORT.md)
-
-<details>
-<summary>微信与支付宝支持入口</summary>
-
-可通过仓库 Sponsor、[支持页面](docs/SUPPORT.md)或“维护 → 关于与支持”查看收款码。
-
-**微信支付**
-
-<img src="extension/assets/support/wechat.png" alt="微信支付收款码" width="240">
-
-**支付宝**
-
-<img src="extension/assets/support/alipay.jpg" alt="支付宝收款码" width="240">
-
-使用对应支付应用扫描，并在应用内核对收款人和金额。支付由微信或支付宝完成，插件不读取或验证交易。
-
-</details>
+[反馈问题](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [贡献代码](CONTRIBUTING.md)

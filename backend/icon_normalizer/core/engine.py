@@ -73,6 +73,7 @@ class InspectResult:
     changes: dict[Path, bytes | None]
     manifest: dict[str, Any]
     payload: dict[str, Any]
+    expected_before: dict[Path, str | None]
 
 
 @dataclass
@@ -169,12 +170,22 @@ class Engine:
     def recover(self) -> bool:
         return self.store.recover()
 
-    def _owned_icon_conflicts(self, old: dict[str, Any]) -> list[dict[str, Any]]:
+    def _remember_before(self, expected: dict[Path, str | None], path: Path,
+                         current: bytes | None) -> None:
+        digest = sha_hex(current) if current is not None else None
+        if path in expected and expected[path] != digest:
+            reject_conflicts([conflict(path, expected[path], reason="changed_since_inspection")])
+        expected[path] = digest
+
+    def _owned_icon_conflicts(self, old: dict[str, Any],
+                              expected_before: dict[Path, str | None]) -> list[dict[str, Any]]:
         conflicts = []
         for icon, item in old.get("items", {}).items():
             for name, expected in item.get("files", {}).items():
                 target = self.allowed(Path(name))
-                if target.exists() and sha_hex(target.read_bytes()) != expected:
+                current = target.read_bytes() if target.exists() else None
+                self._remember_before(expected_before, target, current)
+                if current is not None and sha_hex(current) != expected:
                     conflicts.append(conflict(target, expected, icon=icon))
         return conflicts
 
@@ -225,7 +236,16 @@ class Engine:
 
     # ------------------------------------------------------------------ inspect
     def inspect(self) -> InspectResult:
+        expected_before: dict[Path, str | None] = {}
+        for path in (self.state_dir / "manifest.json", self.state_dir / "config.json",
+                     self.state_dir / "baseline.json", self.theme_dir / "index.theme",
+                     self.theme_dir / MARKER_FILE):
+            self.allowed(path)
+            self._remember_before(expected_before, path, path.read_bytes() if path.exists() else None)
         old = self.manifest()
+        for name in old.get("desktop_overrides", {}):
+            target = self.allowed(Path(name))
+            self._remember_before(expected_before, target, target.read_bytes() if target.exists() else None)
         owned = self.themedir.owned()
         grouped, counts, errors = self.collect(old)
         if errors:
@@ -247,7 +267,7 @@ class Engine:
         policy = self.config.policy
         sizes = list(policy.sizes)
 
-        conflicts = self._owned_icon_conflicts(old)
+        conflicts = self._owned_icon_conflicts(old, expected_before)
         # ---- phase A: exclusions, resolution, analysis-cache dispatch ----
         order: list[str] = []
         refs_by_icon: dict[str, list[DesktopRef]] = {}
@@ -356,7 +376,8 @@ class Engine:
             input_key = sha_hex((str(path) + digest + cls + self.policy_sha).encode())
             reusable = bool(prior and prior.get("input_key") == input_key)
             # Disk/ownership pass: verify every managed target before rendering.
-            missing_sizes = self._verify_targets(icon, output_name, sizes, prior, reusable, conflicts)
+            missing_sizes = self._verify_targets(icon, output_name, sizes, prior, reusable, conflicts,
+                                                 expected_before)
             plan_record = _IconPlan(
                 icon=icon, path=path, digest=digest, refs=refs, names=names,
                 desktop_ids=desktop_ids, metrics=metrics, cls=cls, confidence=confidence,
@@ -388,6 +409,7 @@ class Engine:
             self._materialize(
                 record, sizes, render_outputs.get(icon, {}),
                 old, items, changes, desired_desktops, used_overrides, backup_data,
+                expected_before,
             )
 
         # ---- phase F: stale cleanup + manifest -----------------------------
@@ -448,6 +470,7 @@ class Engine:
             changes=changes,
             manifest=new,
             payload={"ok": True, "summary": summary, "warnings": unresolved, "apps": rows},
+            expected_before=expected_before,
         )
 
     # ------------------------------------------------------------- workers
@@ -497,6 +520,7 @@ class Engine:
         prior: dict[str, Any] | None,
         reusable: bool,
         conflicts: list[dict[str, Any]],
+        expected_before: dict[Path, str | None],
     ) -> list[int]:
         """Ownership checks for every managed target; returns sizes to render."""
         missing: list[int] = []
@@ -505,6 +529,7 @@ class Engine:
             target = self.theme_dir / f"{n}x{n}" / "apps" / f"{output_name}.png"
             prior_sha = prior_files.get(str(target))
             current = target.read_bytes() if target.is_file() else None
+            self._remember_before(expected_before, target, current)
             if current is not None and prior_sha is None:
                 conflicts.append(conflict(target, None, icon=icon, reason="unowned_collision"))
             elif current is not None and prior_sha != sha_hex(current):
@@ -525,6 +550,7 @@ class Engine:
         desired_desktops: dict[str, dict[str, Any]],
         used_overrides: set[str],
         backup_data: dict[Path, bytes],
+        expected_before: dict[Path, str | None],
     ) -> None:
         icon, path, digest, cls = record.icon, record.path, record.digest, record.cls
         prior = record.prior
@@ -534,6 +560,7 @@ class Engine:
         for n in sizes:
             target = self.theme_dir / f"{n}x{n}" / "apps" / f"{record.output_name}.png"
             current = target.read_bytes() if target.is_file() else None
+            self._remember_before(expected_before, target, current)
             if record.reusable and current is not None:
                 result = current
                 renders[str(n)] = (prior or {}).get("renders", {}).get(str(n), {})
@@ -568,11 +595,13 @@ class Engine:
             f"{record.output_name}-{sha_hex(rendered_candidate)[:16]}.png"
         )
         known = prior_files.get(str(versioned))
-        if versioned.exists() and known is None:
+        versioned_current = versioned.read_bytes() if versioned.exists() else None
+        self._remember_before(expected_before, versioned, versioned_current)
+        if versioned_current is not None and known is None:
             reject_conflicts([conflict(versioned, None, icon=icon, reason="unowned_collision")])
-        if versioned.exists() and sha_hex(versioned.read_bytes()) != known:
+        if versioned_current is not None and sha_hex(versioned_current) != known:
             reject_conflicts([conflict(versioned, known, icon=icon)])
-        if not versioned.exists():
+        if versioned_current is None:
             changes[versioned] = rendered_candidate
         files[str(versioned)] = sha_hex(rendered_candidate) or ""
         old_overrides = old.get("desktop_overrides", {})
@@ -582,8 +611,9 @@ class Engine:
             target = self.apps_dir / ref.desktop_id
             source = Path(ref.desktop_path)
             previous = old_overrides.get(str(target))
+            current = target.read_bytes() if target.exists() else None
+            self._remember_before(expected_before, target, current)
             if previous:
-                current = target.read_bytes() if target.exists() else None
                 if current is None:
                     original = base64.b64decode(previous["original_data"])
                     existed = previous["original_existed"]
@@ -602,7 +632,7 @@ class Engine:
                     existed = True
                     origin = target
             else:
-                original = source.read_bytes()
+                original = current if source == target and current is not None else source.read_bytes()
                 existed = source == target
                 origin = source
                 if target.exists() and not existed:
@@ -618,7 +648,7 @@ class Engine:
                 "output_sha256": sha_hex(edited),
             }
             used_overrides.add(str(target))
-            if not target.exists() or target.read_bytes() != edited:
+            if current != edited:
                 changes[target] = edited
             backup_data[self.state_dir / "backups" / f"desktop-{sha_hex(original)}.before"] = original
 
@@ -729,7 +759,8 @@ class Engine:
             result.changes[baseline_path] = json.dumps(baseline, ensure_ascii=False, indent=2).encode()
         manifest_bytes = json.dumps(result.manifest, ensure_ascii=False, indent=2).encode()
         opcount, _changed = self.store.commit(
-            result.changes, committed_last=(self.state_dir / "manifest.json", manifest_bytes)
+            result.changes, committed_last=(self.state_dir / "manifest.json", manifest_bytes),
+            expected_before=result.expected_before,
         )
         if activate and self.config.settings and (activate_if_theme is None or
                 gsettings.current_icon_theme(self.config.settings) in (activate_if_theme, self.theme_name)):
@@ -779,15 +810,20 @@ class Engine:
     # ------------------------------------------------------------------ revert
     def revert(self) -> dict[str, Any]:
         self.recover()
+        expected_before: dict[Path, str | None] = {}
+        for path in (self.state_dir / "manifest.json", self.state_dir / "baseline.json"):
+            self.allowed(path)
+            self._remember_before(expected_before, path, path.read_bytes() if path.exists() else None)
         old = self.manifest()
         self.themedir.owned()
         changes: dict[Path, bytes | None] = {}
         conflicts: list[dict[str, Any]] = []
         for target_str, record in old.get("desktop_overrides", {}).items():
             target = Path(target_str)
-            if not target.exists():
+            current = target.read_bytes() if target.exists() else None
+            self._remember_before(expected_before, target, current)
+            if current is None:
                 continue
-            current = target.read_bytes()
             if sha_hex(current) == record["output_sha256"]:
                 changes[target] = (
                     base64.b64decode(record["original_data"])
@@ -801,9 +837,11 @@ class Engine:
         for item in old.get("items", {}).values():
             for p, digest in item.get("files", {}).items():
                 target = Path(p)
-                if not target.exists():
+                current = target.read_bytes() if target.exists() else None
+                self._remember_before(expected_before, target, current)
+                if current is None:
                     continue
-                if sha_hex(target.read_bytes()) == digest:
+                if sha_hex(current) == digest:
                     changes[target] = None
                 else:
                     conflicts.append(conflict(target, digest))
@@ -829,7 +867,8 @@ class Engine:
             if change_theme:
                 assert self.config.settings is not None
                 gsettings.set_icon_theme(self.config.settings, str(baseline["icon_theme"]))
-            self.store.commit(changes, committed_last=(manifest_path, manifest_bytes))
+            self.store.commit(changes, committed_last=(manifest_path, manifest_bytes),
+                              expected_before=expected_before)
         except Exception:
             # If file recovery itself failed, leave both journals for the next
             # locked control invocation; never restore triggers over that state.

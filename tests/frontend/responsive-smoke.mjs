@@ -26,8 +26,8 @@ const settings = readonly ? new Proxy(nativeSettings, {get(target, property) {
     if (property === 'get_string') return key => key === 'ui-language' ? language : target.get_string(key);
     const value = target[property]; return typeof value === 'function' ? value.bind(target) : value;
 }}) : nativeSettings;
-const {buildPreferences} = await import(Gio.File.new_for_path(root + '/ui/preferences.js').get_uri());
-const {call} = await import(Gio.File.new_for_path(root + '/lib/backendClient.js').get_uri());
+const {buildPreferences} = await import(Gio.File.new_for_path(root + '/prefs/preferences.js').get_uri());
+const {call} = await import(Gio.File.new_for_path(root + '/shared/backendClient.js').get_uri());
 const window = new Adw.PreferencesWindow({title: '图标统一', default_width: 960, default_height: 760});
 window.set_size_request(380, 420);
 const pages = buildPreferences(window, {controlPath, settings});
@@ -44,6 +44,7 @@ function settleAllocation() {
     // Fixed millisecond delays can sample an old allocation when Wayland
     // throttles background windows. Observe completed paints instead, without
     // weakening the geometry assertions or invoking the page's resize code.
+    // FlowBox column changes can queue a second allocation; observe that paint too.
     return new Promise((resolve, reject) => {
         const clock = window.get_frame_clock();
         let paints = 0;
@@ -55,7 +56,7 @@ function settleAllocation() {
             if (error) reject(error); else resolve();
         };
         const painted = clock.connect('after-paint', () => {
-            if (++paints === 2) finish();
+            if (++paints === 4) finish();
         });
         const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
             finish(new Error('GTK did not complete the requested allocation'));
@@ -163,7 +164,7 @@ async function run() {
         window.set_visible_page(controller.page); await delay(200); await capture(`${name}-1100x850-light`);
     }
 
-    const {openPreview} = await import(Gio.File.new_for_path(root + '/ui/previewDialog.js').get_uri());
+    const {openPreview} = await import(Gio.File.new_for_path(root + '/prefs/previewDialog.js').get_uri());
     const group = pages.apps._groups.find(g => g.source_sha256 && g.action !== 'excluded');
     for (const [width, height] of [[960,720], [420,560]]) {
         window.set_default_size(width, height);

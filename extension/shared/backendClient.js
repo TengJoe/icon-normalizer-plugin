@@ -8,8 +8,6 @@ import {t} from './i18n.js';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
-import {actionLabel} from './stateModel.js';
-
 export const API_VERSION = 1;
 
 // Read-style timeouts per operation (writers use the long tail and are not killed).
@@ -33,13 +31,50 @@ const TIMEOUT_MS = {
 const READ_ONLY = new Set(['status', 'doctor', 'scan', 'preview', 'profiles.list']);
 
 export class RequestScope {
-    constructor() { this.closed = false; this._requests = new Set(); }
+    constructor() {
+        this._cancellable = new Gio.Cancellable();
+        this._requests = new Set();
+        this._cleanups = new Set();
+    }
+
+    get closed() { return this._cancellable.is_cancelled(); }
     add(cancel) { this._requests.add(cancel); }
     remove(cancel) { this._requests.delete(cancel); }
+
+    cleanup(callback) {
+        if (this.closed) callback();
+        else this._cleanups.add(callback);
+        return () => this._cleanups.delete(callback);
+    }
+
+    delay(milliseconds) {
+        if (this.closed) return Promise.resolve(false);
+        return new Promise(resolve => {
+            const cancel = () => { GLib.source_remove(id); resolve(false); };
+            const id = GLib.timeout_add(GLib.PRIORITY_DEFAULT, milliseconds, () => {
+                this._cleanups.delete(cancel);
+                resolve(true);
+                return GLib.SOURCE_REMOVE;
+            });
+            this._cleanups.add(cancel);
+        });
+    }
+
+    async read(controlPath, operation, args = {}) {
+        for (let attempt = 0; attempt < 4; attempt++) {
+            const result = await call(controlPath, operation, args, this);
+            if (this.closed || result.ok || result.error?.code !== 'BUSY' || attempt === 3)
+                return result;
+            if (!await this.delay(250)) return result;
+        }
+    }
+
     close() {
-        this.closed = true;
+        this._cancellable.cancel();
         for (const cancel of [...this._requests]) cancel();
         this._requests.clear();
+        for (const cleanup of this._cleanups) cleanup();
+        this._cleanups.clear();
     }
 }
 
@@ -177,15 +212,4 @@ export function call(controlPath, operation, args, scope = null) {
             }
         });
     });
-}
-
-/**
- * Convenience wrapper that also renders the error copy for toasts/banners.
- */
-export async function callWithHint(controlPath, operation, args) {
-    const envelope = await call(controlPath, operation, args);
-    if (!envelope.ok) {
-        return {...envelope, hint: actionLabel(envelope.error)};
-    }
-    return {...envelope, hint: ''};
 }

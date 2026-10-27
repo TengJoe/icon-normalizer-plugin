@@ -13,9 +13,11 @@ Icon normalization, custom profiles, and automatic maintenance for GNOME.
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-2ec27e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Support development](docs/SUPPORT.md)
+[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.1.5/icon-normalizer-plugin-1.1.5.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
+
+The source candidate is **1.1.7 / companion 3.1.5**, with frontend lifecycle cleanup and donation removal. Download links below still refer to the published 1.1.5 release. See the [maintenance guide](docs/MAINTENANCE.md) for validation and maintainership boundaries.
 
 ---
 
@@ -191,25 +193,8 @@ Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, 
 
 See the [documentation index](docs/README.md) for more references. When reporting a problem, include system and component versions and reproduction steps, and remove private information from logs and screenshots first. Technical references currently use Chinese; installation and usage guides are available in both languages.
 
-## Author and support
+## Author
 
-Developed by **[TengJoe](https://github.com/TengJoe)** under [GPL-3.0-or-later](LICENSE). All features are free to use; supporting development is voluntary.
+Developed by **[TengJoe](https://github.com/TengJoe)** under [GPL-3.0-or-later](LICENSE). All features are free to use.
 
-[Report a problem](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Contribute](CONTRIBUTING.md) · [Support development](docs/SUPPORT.md)
-
-<details>
-<summary>WeChat Pay and Alipay support</summary>
-
-Find the codes through the repository's Sponsor button, the [support page](docs/SUPPORT.md), or **Maintenance → About and support**.
-
-**WeChat Pay**
-
-<img src="extension/assets/support/wechat.png" alt="WeChat Pay support code" width="240">
-
-**Alipay**
-
-<img src="extension/assets/support/alipay.jpg" alt="Alipay support code" width="240">
-
-Scan with the corresponding payment app and verify the recipient and amount there. Payments are handled by WeChat Pay or Alipay; the extension does not read or verify transactions.
-
-</details>
+[Report a problem](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Contribute](CONTRIBUTING.md)

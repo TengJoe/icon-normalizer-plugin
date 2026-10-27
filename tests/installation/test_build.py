@@ -22,8 +22,8 @@ class PackageParity(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name, data in {
             'extension/metadata.json': json.dumps({'version-name': '1.1.5', 'shell-version': ['51']}),
-            'extension/extension.js': "import './lib/themeSync.js';\n",
-            'extension/lib/themeSync.js': 'export const sync = true;\n',
+            'extension/extension.js': "import './shell/themeSync.js';\n",
+            'extension/shell/themeSync.js': 'export const sync = true;\n',
             'backend/control.py': 'print("fixture")\n',
             'README.md': 'fixture\n',
         }.items():
@@ -46,7 +46,7 @@ class PackageParity(unittest.TestCase):
         tar = self.root / 'source.tar.gz'
         build.build_tarball(tar, '1.1.5')
         self.assertTrue(release_audit.inspect_tarball(tar)['matches_source'])
-        helper = self.root / 'extension/lib/themeSync.js'
+        helper = self.root / 'extension/shell/themeSync.js'
         helper.write_text('export const sync = false;\n')
         self.assertFalse(release_audit.inspect_archive(archive)['matches_source'])
         self.assertFalse(release_audit.inspect_tarball(tar)['matches_source'])
@@ -74,6 +74,6 @@ class PackageParity(unittest.TestCase):
         dist = self.root / 'dist'
         manifest = json.loads((dist / 'DIST_MANIFEST.json').read_text())
         with zipfile.ZipFile(dist / manifest['extension_zip']) as package:
-            self.assertIn('lib/themeSync.js', package.namelist())
+            self.assertIn('shell/themeSync.js', package.namelist())
         self.assertTrue(release_audit.inspect_tarball(dist / manifest['full_package'])['matches_source'])
         self.assertEqual(manifest['extension_zip_sha256'], build.sha256_file(dist / manifest['extension_zip']))

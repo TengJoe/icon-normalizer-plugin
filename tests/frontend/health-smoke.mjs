@@ -11,8 +11,8 @@ const root=ARGV[0];
 const settingsSource=Gio.SettingsSchemaSource.new_from_directory(root+'/schemas',Gio.SettingsSchemaSource.get_default(),false);
 const settings=new Gio.Settings({settings_schema:settingsSource.lookup('org.gnome.shell.extensions.icon-normalizer',false)});
 settings.set_string('ui-language','zh');
-const {buildPreferences}=await import(Gio.File.new_for_path(root+'/ui/preferences.js').get_uri());
-const {call}=await import(Gio.File.new_for_path(root+'/lib/backendClient.js').get_uri());
+const {buildPreferences}=await import(Gio.File.new_for_path(root+'/prefs/preferences.js').get_uri());
+const {call}=await import(Gio.File.new_for_path(root+'/shared/backendClient.js').get_uri());
 const controlPath=GLib.get_home_dir()+'/.local/libexec/icon-normalizer/control.py';
 const window=new Adw.PreferencesWindow({default_width:420,default_height:560});
 const pages=buildPreferences(window,{controlPath,settings});
@@ -59,7 +59,23 @@ async function run() {
     await pages.maint.refresh();
     check(!pages.maint._healthDetails.get_visible(),'Recovered error stayed visible');
     check(pages.maint._badgeHealth.get_text()==='Succeeded','Recovery status');
-    print(JSON.stringify({ok:true,bilingual_health:true,conflict_details:true,recovery:true}));
+    const follow=Gio.File.new_for_path(GLib.get_home_dir()+'/.local/state/icon-normalizer/theme-follow.json');
+    follow.replace_contents('{ broken json',null,false,Gio.FileCreateFlags.PRIVATE,null);
+    for (const language of ['zh','en']) {
+        settings.set_string('ui-language',language); await wait(150);
+        await pages.maint.refresh();
+        check(pages.maint._badgeHealth.get_text()===(language==='zh'?'受阻':'Blocked'),'Corrupt config was shown as healthy');
+        const dialog=pages.maint._showHealthDetails();
+        check(dialog!==null,'Config details did not open');
+        const buffer=dialog.get_extra_child().get_child().get_buffer();
+        const contents=buffer.get_text(buffer.get_start_iter(),buffer.get_end_iter(),true);
+        check(contents.includes('INVALID_CONFIG') && contents.includes('theme-follow.json'),'Config receipt missing');
+        dialog.response('close'); await wait(100);
+    }
+    check((await call(controlPath,'theme.follow',{enabled:true})).ok,'Explicit config repair failed');
+    await pages.maint.refresh();
+    check(pages.maint._badgeHealth.get_text()==='Succeeded','Config repair did not restore health');
+    print(JSON.stringify({ok:true,bilingual_health:true,conflict_details:true,recovery:true,persisted_config_health:true}));
     code=0;
 }
 GLib.idle_add(GLib.PRIORITY_DEFAULT,()=>{

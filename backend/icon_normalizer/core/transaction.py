@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from ..ownership import conflict, reject_conflicts
+
 
 def sha_hex(data: bytes | None) -> str | None:
     return None if data is None else hashlib.sha256(data).hexdigest()
@@ -121,11 +123,14 @@ class TransactionStore:
         changes: Mapping[Path, bytes | None],
         *,
         committed_last: tuple[Path, bytes] | None = None,
+        expected_before: Mapping[Path, str | None] | None = None,
     ) -> tuple[int, bool]:
         """Apply a change-set; the manifest-like payload commits last.
 
         Returns ``(operations_applied, changed_under_first_root)``.
         """
+        guards = {self.allowed(path): digest for path, digest in (expected_before or {}).items()}
+        self._verify_expected(guards)
         all_changes: dict[Path, bytes | None] = dict(changes)
         if committed_last is not None:
             all_changes[committed_last[0]] = committed_last[1]
@@ -135,6 +140,7 @@ class TransactionStore:
         for path, data in all_changes.items():
             p = self.allowed(path)
             before = p.read_bytes() if p.exists() else None
+            guards.setdefault(p, sha_hex(before))
             if before == data:
                 continue
             ops.append({
@@ -146,12 +152,20 @@ class TransactionStore:
             })
             payloads.append(data)
         changed_theme = False
+        self._verify_expected(guards)
         if ops:
             journal = {"ops": [{k: v for k, v in op.items()} for op in ops]}
             atomic_write(self.journal_path, _json_bytes(journal), 0o600)
+        attempted: list[dict[str, object]] = []
         try:
+            # Journal creation itself can yield to an unrelated writer. Include
+            # unchanged/reused outputs, not just files in the change-set.
+            self._verify_expected(guards)
             for op, data in zip(ops, payloads):
                 p = Path(str(op["path"]))
+                self._verify_expected({p: guards[p]})
+                # Include a write that replaces successfully but fails fsync.
+                attempted.append(op)
                 if data is None:
                     if p.exists():
                         durable_unlink(p)
@@ -159,14 +173,34 @@ class TransactionStore:
                     atomic_write(p, data, self.mode_for(p))
                 if theme_root is not None and self.under_root(p, theme_root):
                     changed_theme = True
+                guards[p] = sha_hex(data)
+            self._verify_expected(guards)
             if self.finalize is not None:
                 self.finalize(changed_theme)
+            self._verify_expected(guards)
             if ops:
                 durable_unlink(self.journal_path)
         except Exception:
-            self.recover()
+            if ops:
+                # Only attempted writes belong to this process's rollback.
+                # Never replay an untouched file modified by another writer.
+                if attempted:
+                    atomic_write(self.journal_path, _json_bytes({"ops": attempted}), 0o600)
+                    self.recover()
+                else:
+                    durable_unlink(self.journal_path)
             raise
         return len(ops), changed_theme
+
+    def _verify_expected(self, expected: Mapping[Path, str | None]) -> None:
+        conflicts = []
+        for path, digest in expected.items():
+            p = self.allowed(path)
+            current = p.read_bytes() if p.exists() else None
+            if sha_hex(current) != digest:
+                conflicts.append(conflict(p, digest, reason="changed_since_inspection"))
+        if conflicts:
+            reject_conflicts(conflicts)
 
     # ---------- recovery ----------
     def recover(self) -> bool:

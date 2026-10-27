@@ -117,19 +117,6 @@ export function groupMatchesSearch(group, needle) {
     return haystack.includes(needle);
 }
 
-export function headline(status) {
-    if (!status) return { main: t('后台状态未知'), sub: '' };
-    if (status.installed === false) {
-        return { main: t('后台未安装'), sub: t('请先运行 tools/install.py 安装后端') };
-    }
-    const bits = [t('自动维护：{status}', {status: automaticLabel(status)})];
-    if (status.last_error) bits.push(maintenanceHealth(status).label);
-    if (status.revision) bits.push(t('策略 {revision}', {revision: String(status.revision).slice(0, 8)}));
-    if (status.recovery_pending) bits.push(t('有待恢复事务'));
-    if (status.stale && status.last_apply_at) bits.push(t('结果已过期'));
-    return { main: bits.join(' · '), sub: subLine(status) };
-}
-
 export function maintenanceHealth(status) {
     if (!status) return {label: t('状态未知'), badge: t('未知'), detail: '', warning: false};
     if (status.last_error) {
@@ -151,18 +138,6 @@ export function maintenanceHealth(status) {
     return {label: status.last_check_at || status.last_apply_at ? t('最近维护成功') : t('尚无维护记录'),
         badge: status.last_check_at || status.last_apply_at ? t('成功') : t('未知'),
         detail: '', warning: false};
-}
-
-function subLine(status) {
-    if (!status) return '';
-    const theme = status.active_theme ? t('主题 {theme}', {theme: status.active_theme}) : '';
-    const managed = Number.isFinite(status.summary?.managed_icons)
-        ? ' · ' + t('已管理 {count} 个图标', {count: status.summary.managed_icons})
-        : '';
-    const applied = status.last_apply_at
-        ? ' · ' + t('已应用 {time}', {time: String(status.last_apply_at).slice(0, 16).replace('T', ' ')})
-        : '';
-    return `${theme}${managed}${applied}`;
 }
 
 export function actionLabel(error) {

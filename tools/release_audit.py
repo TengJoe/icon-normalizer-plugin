@@ -19,7 +19,6 @@ PROJECT = Path(__file__).resolve().parent.parent
 EXTENSION = PROJECT / 'extension'
 TESTED_SHELL = {'51'}
 ALLOWED_SUFFIXES = {'.js', '.json', '.xml', '.compiled', '.css', '.svg'}
-SUPPORT_ASSETS = {'assets/support/wechat.png', 'assets/support/alipay.jpg'}
 IMPORT = re.compile(r"\bimport\s+(?:[\w{},*\s]+?\s+from\s+)?['\"]([^'\"]+)['\"]")
 
 
@@ -45,6 +44,7 @@ def inspect_source(submission: bool = False) -> dict:
     metadata = json.loads((EXTENSION/'metadata.json').read_text())
     check('metadata_identity', metadata.get('uuid') == 'icon-normalizer@joeydeng.local' and
           metadata.get('settings-schema') == 'org.gnome.shell.extensions.icon-normalizer')
+    check('no_donation_metadata', 'donations' not in metadata)
     check('version_name', bool(re.fullmatch(r'\d+\.\d+\.\d+', metadata.get('version-name', ''))))
     check('tested_shell_versions', bool(metadata.get('shell-version')) and
           set(metadata['shell-version']) <= TESTED_SHELL, 'Runtime evidence exists for GNOME 51.')
@@ -57,12 +57,14 @@ def inspect_source(submission: bool = False) -> dict:
             check(f'{entry}_toolkit_isolation', not hits, ', '.join(hits))
         except (OSError, ValueError) as exc:
             check(f'{entry}_toolkit_isolation', False, str(exc))
+    ui_toolkits = re.compile(r"gi://(?:Gtk|Gdk|Adw|St|Clutter|Meta|Shell)(?:[?'\"])")
+    shared_hits = [p.name for p in (EXTENSION/'shared').glob('*.js') if ui_toolkits.search(p.read_text())]
+    check('shared_modules_toolkit_free', not shared_hits, ', '.join(shared_hits))
     check('gpl_license', (PROJECT/'LICENSE').is_file() and (EXTENSION/'LICENSE').is_file() and
           (PROJECT/'LICENSE').read_bytes() == (EXTENSION/'LICENSE').read_bytes())
     files = [p for p in EXTENSION.rglob('*') if p.is_file()]
     unexpected = [str(p.relative_to(EXTENSION)) for p in files
-                  if p.name != 'LICENSE' and p.suffix not in ALLOWED_SUFFIXES and
-                  p.relative_to(EXTENSION).as_posix() not in SUPPORT_ASSETS]
+                  if p.name != 'LICENSE' and p.suffix not in ALLOWED_SUFFIXES]
     check('extension_source_only', not unexpected, ', '.join(unexpected))
     check('no_extension_symlinks', not any(p.is_symlink() for p in EXTENSION.rglob('*')))
     check('strict_schema_compiled', (EXTENSION/'schemas/gschemas.compiled').is_file())

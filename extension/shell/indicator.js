@@ -7,8 +7,8 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {t, formatAppliedTime} from '../lib/i18n.js';
-import {automaticLabel, maintenanceHealth} from '../lib/stateModel.js';
+import {t, formatAppliedTime} from '../shared/i18n.js';
+import {automaticLabel, maintenanceHealth} from '../shared/stateModel.js';
 
 const STATE_DIR_PARTS = ['.local', 'state', 'icon-normalizer'];
 
@@ -51,9 +51,7 @@ export class Indicator {
             hover: false, can_focus: false,
             style_class: 'normalizer-summary'});
         summary.remove_style_class_name('popup-inactive-menu-item');
-        const vertical = St.BoxLayout.list_properties().some(p => p.name === 'orientation')
-            ? {orientation: Clutter.Orientation.VERTICAL} : {vertical: true};
-        const body = new St.BoxLayout({...vertical, x_expand: true,
+        const body = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true,
             style_class: 'normalizer-summary-body'});
         const header = new St.BoxLayout({style_class: 'normalizer-summary-header'});
         header.add_child(new St.Icon({gicon: this._gicon, icon_size: 20}));

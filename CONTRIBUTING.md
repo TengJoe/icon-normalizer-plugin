@@ -10,7 +10,7 @@
 
 请提供 GNOME Shell 版本、发行版、扩展与后台版本、安装方式、复现步骤、预期结果和实际结果。界面问题请注明语言、窗口尺寸与主题；日志和截图请先去除用户名、个人路径、令牌及账户信息。
 
-不要把运行时状态、备份或账户截图加入源码。微信与支付宝收款码是维护者明确授权的公开支持素材；新增或替换收款方式需先取得维护者确认。
+不要把运行时状态、备份或账户截图加入源码。
 
 ### 修改代码
 
@@ -72,7 +72,12 @@ python3 -m unittest discover -s tests/installation -p 'test_*.py'
 
 ### 前端 / Frontend
 
+Node.js must satisfy the pinned ESLint version in `package-lock.json`. Development tools are not runtime dependencies.
+
 ```bash
+npm ci --ignore-scripts
+npm run lint
+npm run test:logic
 node tests/frontend/syntax-check.mjs
 node tests/frontend/stateModel.test.mjs
 node tests/frontend/i18n.test.mjs
@@ -92,3 +97,5 @@ python3 tools/release_audit.py --archive dist/icon-normalizer@joeydeng.local.zip
 运行时检查需要可用的图形栈，使用隔离的后端数据；具体环境要求与手动项目见[验收清单](docs/CHECKLIST.md)。仅修改文档时，核对格式、链接、命令及版本即可，无需重新安装插件。
 
 Runtime checks require an available graphical stack and use isolated backend data. The [checklist](docs/CHECKLIST.md) describes environment requirements and manual checks. For documentation-only changes, check formatting, links, commands, and versions without reinstalling the extension.
+
+前端生命周期、进程边界与维护要求见 [维护指南](docs/MAINTENANCE.md)。

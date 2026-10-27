@@ -11,11 +11,12 @@ import {operationExitHint} from './stateModel.js';
  * already in use", matching the panel's historical behavior; the maintenance
  * page passes explicit true/false from the button the user clicked.
  */
-export async function runApplyFlow(controlPath, {activate = null, requestId = 'apply-flow', scope = null} = {}) {
+export async function runApplyFlow(controlPath, {activate = null, scope = null} = {}) {
     const statusEnvelope = await call(controlPath, 'status', {}, scope);
     if (!statusEnvelope.ok) {
         return {status: statusEnvelope, apply: null, after: null};
     }
+    if (scope?.closed) return {status: statusEnvelope, apply: null, after: null};
     const status = statusEnvelope.result;
     if (!status.revision) {
         return {status: statusEnvelope, apply: null, after: null};
@@ -25,13 +26,12 @@ export async function runApplyFlow(controlPath, {activate = null, requestId = 'a
         expected_revision: status.revision,
         activate: shouldActivate,
     }, scope);
-    const after = await call(controlPath, 'status', {}, scope);
+    const after = scope?.closed ? null : await call(controlPath, 'status', {}, scope);
     return {
         status: statusEnvelope,
         apply: applyEnvelope,
         after,
         hint: operationExitHint(applyEnvelope),
         activate: shouldActivate,
-        requestId,
     };
 }

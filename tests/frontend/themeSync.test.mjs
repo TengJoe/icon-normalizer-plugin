@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import {targetGtkTheme, isThemeInstalled, syncGtkTheme} from '../../extension/lib/themeSync.js';
+import {targetGtkTheme, isThemeInstalled, syncGtkTheme} from '../../extension/shell/themeSync.js';
 
 function equal(actual, expected, message = '') {
     if (actual !== expected)

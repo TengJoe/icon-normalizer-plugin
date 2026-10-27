@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
-import {EN} from '../../extension/lib/translations.js';
-import {setLanguage, getLanguage, t, translateText, formatAppliedTime} from '../../extension/lib/i18n.js';
-import {automaticLabel, badgeFor, groupSubtitle, headline, actionLabel} from '../../extension/lib/stateModel.js';
+import {EN} from '../../extension/shared/translations.js';
+import {setLanguage, getLanguage, t, translateText, formatAppliedTime} from '../../extension/shared/i18n.js';
+import {automaticLabel, badgeFor, groupSubtitle, maintenanceHealth, actionLabel} from '../../extension/shared/stateModel.js';
 
 const placeholders = s => [...s.matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort();
 for (const [source, english] of Object.entries(EN)) {
@@ -38,7 +38,7 @@ assert.equal(automaticLabel({automatic:'on'}),'On');
 assert.equal(badgeFor({action:'add_plate'}).label,'New tile');
 assert.equal(groupSubtitle({action:'add_plate',classification:'glyph',target_ratio:.83,inner_target_ratio:.581}),
     'Standalone logo · Tile 83% · Logo 58%');
-assert.ok(!/\p{Script=Han}/u.test(headline({installed:true,automatic:'partial',summary:{managed_icons:53},revision:'a'.repeat(64)}).main));
+assert.ok(!/\p{Script=Han}/u.test(maintenanceHealth({last_check_at:'2026-10-24T00:00:00Z'}).label));
 assert.equal(formatAppliedTime(null),'Not applied yet');
 assert.equal(formatAppliedTime('invalid'),'Not applied yet');
 console.log('ok   17 backend error codes, statuses, ratios and missing timestamps');
