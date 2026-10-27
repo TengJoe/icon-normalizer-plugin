@@ -455,6 +455,9 @@ def op_apply(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, An
         "summary": result.get("summary"),
         "file_operations": result.get("file_operations"),
         "recovered_transaction": result.get("recovered_transaction", False),
+        # The file transaction and the theme switch commit separately; keep the
+        # activation outcome visible through the CLI/protocol boundary.
+        "theme_activation": result.get("theme_activation"),
         "applied": result.get("applied", True),
     }
 
