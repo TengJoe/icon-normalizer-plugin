@@ -52,6 +52,15 @@ class ActivationReporting(unittest.TestCase):
         self.assertEqual(payload["theme_activation"], "superseded")
         self.assertEqual(settings.value, "FixtureGreen")
 
+    def test_cli_apply_surfaces_theme_activation(self):
+        _, status = self.box.call_cli("status")
+        revision = status["result"]["revision"]
+        rc, envelope = self.box.call_cli(
+            "apply", {"expected_revision": revision, "activate": False})
+        self.assertEqual((rc, envelope["ok"]), (0, True))
+        self.assertEqual(envelope["result"]["theme_activation"], "not_requested")
+        self.assertIn("theme_active", envelope["result"]["summary"])
+
 
 if __name__ == "__main__":
     unittest.main()
