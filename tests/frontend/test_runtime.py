@@ -60,7 +60,7 @@ class PreferencesRuntime(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
         self.assertTrue(json.loads(result.stdout)['ok'])
 
-    def run_fixture(self,script,compact=False,language='zh',proof_dir=None):
+    def run_fixture(self,script,compact=False,language='zh',proof_dir=None,legacy=False):
         if not shutil.which('gjs'):
             self.skipTest('gjs unavailable')
         with Sandbox() as box:
@@ -96,6 +96,8 @@ sys.exit(code)
             if script == 'profiles-compat-smoke.mjs':
                 # Emulate the old companion's status shape at the CLI boundary.
                 (backend/'control.py').write_text("import sys\nfrom icon_normalizer import control\nnative_status = control.op_status\ndef legacy_status(args, ctx):\n    result = native_status(args, ctx)\n    result['backend_version'] = '3.0.2'\n    result.pop('theme_follow', None)\n    return result\ncontrol.OPERATIONS['status'] = legacy_status\nsys.exit(control.main())\n")
+            if script == 'skip-smoke.mjs' and legacy:
+                (backend/'control.py').write_text("import sys\nfrom icon_normalizer import control\nnative_status = control.op_status\ndef legacy_status(args, ctx):\n    result = native_status(args, ctx)\n    result['backend_version'] = '3.1.5'\n    return result\ncontrol.OPERATIONS['status'] = legacy_status\nsys.exit(control.main())\n")
             env=box.env()
             for key in SESSION_KEYS:
                 if key in os.environ:
@@ -110,6 +112,7 @@ sys.exit(code)
             arguments=[str(REPO/'extension')]
             if script=='health-smoke.mjs' and proof_dir: arguments.append(str(proof_dir))
             if script=='responsive-smoke.mjs': arguments+=['','fixture',language]
+            if script=='skip-smoke.mjs' and legacy: arguments+=['legacy']
             result=subprocess.run(['gjs','-m',str(REPO/'tests/frontend'/script),
                                    *arguments],env=env,capture_output=True,text=True,
                                   timeout=105 if script=='responsive-smoke.mjs' else 75)
@@ -137,6 +140,18 @@ sys.exit(code)
         records=self.run_fixture('dialogs-smoke.mjs')
         self.assertTrue(any(r.get('ok') and r.get('preview_sizes')==[32,48,64,128,256]
                             and r.get('revert_confirmation')=='cancelled' for r in records))
+
+    def test_skip_preserves_manual_rule_and_refreshes_native_previews(self):
+        result=next(r for r in self.run_fixture('skip-smoke.mjs',compact=True) if r.get('ok'))
+        self.assertEqual(result['sizes'],[32,48])
+        self.assertTrue(result['skip_preview_refreshed'])
+        self.assertTrue(result['unskip_preview_refreshed'])
+        self.assertTrue(result['manual_rule_preserved'])
+
+    def test_old_companion_cannot_overwrite_manual_rule(self):
+        result=next(r for r in self.run_fixture('skip-smoke.mjs',compact=True,legacy=True) if r.get('ok'))
+        self.assertTrue(result['legacy_backend_refused'])
+        self.assertTrue(result['rule_preserved'])
 
     def test_responsive_pages_and_saved_policy(self):
         records=self.run_fixture('responsive-smoke.mjs',compact=True)

@@ -19,6 +19,8 @@ Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
 The current public release is **1.1.7 / companion 3.1.5**: explicit theme-activation reporting, correctly named preferences actions, and a cleaned-up frontend lifecycle. See the [v1.1.7 notes](docs/RELEASE-1.1.7.md) and the [maintenance guide](docs/MAINTENANCE.md).
 
+The source tree also contains an unreleased **1.1.8 / companion 3.1.6** candidate; safe skipping requires the updated companion.
+
 ---
 
 [Preview](#preview) · [Features](#features) · [Quick start](#quick-start) · [Usage](#usage) · [Recovery and removal](#recovery-and-removal) · [Developer documentation](#developer-documentation)

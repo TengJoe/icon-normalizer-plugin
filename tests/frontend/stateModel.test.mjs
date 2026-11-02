@@ -92,6 +92,13 @@ test('backend version gates profile and theme operations', () => {
     assert.equal(m.supportsProfilesAndThemes(null),false);
 });
 
+test('safe skip is refused for older or unrecognized companions', () => {
+    for (const [version, expected] of [['3.1.5', false], ['3.1.6', true], ['3.2.0', true],
+        ['4.0.0', true], ['2.9.9', false], ['invalid', false], [null, false]])
+        assert.equal(m.supportsSafeSkip({backend_version: version}), expected);
+    assert.equal(m.supportsSafeSkip(null), false);
+});
+
 let failed = 0;
 test('persisted health is independent of enabled automation and active theme', () => {
     for (const code of ['OWNERSHIP_CONFLICT', 'DEPENDENCY_MISSING', 'INTERNAL_ERROR']) {

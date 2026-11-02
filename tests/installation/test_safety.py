@@ -120,6 +120,24 @@ class InstallerSafety(unittest.TestCase):
         for name in ['profiles.json', 'theme-follow.json']:
             self.assertEqual((self.layout.state/name).read_bytes(), b'newer-user-data')
 
+    def test_snapshot_distinguishes_saved_and_installer_versions(self):
+        version = self.layout.libexec/'icon_normalizer'/'version.py'
+        version.parent.mkdir()
+        sentinel = self.root/'version-code-executed'
+        version.write_text(f"open({str(sentinel)!r}, 'w').write('unsafe')\n"
+                           "BACKEND_VERSION = '3.1.5'\n")
+        snapshot = installer.snapshot(self.root/'version-snapshot', self.layout)
+        manifest = json.loads((snapshot/'snapshot.json').read_text())
+        self.assertEqual(manifest['saved_backend_version'], '3.1.5')
+        self.assertEqual(manifest['installer_backend_version'], installer.BACKEND_VERSION)
+        self.assertEqual(manifest['backend_version'], installer.BACKEND_VERSION)
+        self.assertFalse(sentinel.exists(), 'version metadata must never execute backend code')
+
+    def test_snapshot_unknown_saved_version_is_null(self):
+        snapshot = installer.snapshot(self.root/'unknown-version-snapshot', self.layout)
+        manifest = json.loads((snapshot/'snapshot.json').read_text())
+        self.assertIsNone(manifest['saved_backend_version'])
+
     def test_wait_timeout_aborts_before_code_changes(self):
         with patch.object(installer,'wait_service_idle',return_value=False):
             self.assertEqual(installer.install(True),5)

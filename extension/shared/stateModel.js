@@ -10,6 +10,14 @@ export function supportsProfilesAndThemes(status) {
         Number(version[1]) === 3 && Number(version[2]) >= 1));
 }
 
+export function supportsSafeSkip(status) {
+    const match = typeof status?.backend_version === 'string'
+        ? status.backend_version.match(/^(\d+)\.(\d+)\.(\d+)$/) : null;
+    if (!match) return false;
+    const [major, minor, patch] = match.slice(1).map(Number);
+    return major > 3 || major === 3 && (minor > 1 || minor === 1 && patch >= 6);
+}
+
 export const AUTOMATIC_LABELS = {
     on: '已开启',
     off: '已关闭',

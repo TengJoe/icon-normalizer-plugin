@@ -7,7 +7,7 @@ import Adw from 'gi://Adw';
 
 import {call, RequestScope} from '../shared/backendClient.js';
 import {WindowScope} from './requestScope.js';
-import {CLASSIFICATION_LABELS, actionLabel} from '../shared/stateModel.js';
+import {CLASSIFICATION_LABELS, actionLabel, supportsSafeSkip} from '../shared/stateModel.js';
 import {
     PREVIEW_SIZES,
     actionButton,
@@ -110,11 +110,14 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     const actionBar = adaptiveBox([skipButton, closeButton], {window: parent, scope});
     content.append(actionBar.widget);
 
-    rowClass.set_subtitle(t('{classification}（{origin}）', {
-        classification: t(CLASSIFICATION_LABELS[group.classification] ?? group.classification ?? '—'),
-        origin: group.classification_origin === 'user' ? t('用户指定') :
-            group.classification_origin === 'reviewed' ? t('已复核') : t('自动')}));
-    rowAction.set_subtitle(actionText(group));
+    function syncDetails() {
+        rowClass.set_subtitle(t('{classification}（{origin}）', {
+            classification: t(CLASSIFICATION_LABELS[group.classification] ?? group.classification ?? '—'),
+            origin: group.classification_origin === 'user' ? t('用户指定') :
+                group.classification_origin === 'reviewed' ? t('已复核') : t('自动')}));
+        rowAction.set_subtitle(actionText(group));
+    }
+    syncDetails();
 
     function actionText(g) {
         switch (g.action) {
@@ -172,6 +175,13 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
             return envelope;
         }
         const result = envelope.result;
+        group.action = result.action;
+        group.skipped = result.skipped;
+        group.classification = result.classification;
+        group.classification_origin = result.classification_origin;
+        group.classification_stale = result.classification_stale;
+        syncDetails();
+        _syncControls();
         originalCard.setPicture(
             result.original_png_base64,
             t('占比 {ratio}%', {ratio: ((result.metrics.source_ratio ?? 0) * 100).toFixed(1)}));
@@ -195,8 +205,12 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
                 toast(parent, actionLabel(statusEnvelope.error));
                 return;
             }
+            if (!supportsSafeSkip(statusEnvelope.result)) {
+                toast(parent, t('安全跳过需要后台 3.1.6 或更新版本，请先升级完整安装包。'));
+                return;
+            }
             const revision = statusEnvelope.result.revision;
-            const rule = g.skipped ? {reset: true} : {skip: true, classification: 'auto'};
+            const rule = {skip: !g.skipped};
             const envelope = await call(controlPath, 'rules.set', {
                 expected_revision: revision,
                 icon_id: g.icon_id,
@@ -210,7 +224,9 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
             toast(parent, g.skipped ? t('已取消跳过') : t('已跳过该图标'));
             g.skipped = !g.skipped;
             _syncControls();
-            onRuleChanged?.();
+            rowAction.set_subtitle(g.skipped ? t('已按规则跳过') : t('正在更新…'));
+            await onRuleChanged?.();
+            if (!scope.closed) await fetchPreview();
         } finally {
             if (!scope.closed) skipButton.set_sensitive(true);
         }

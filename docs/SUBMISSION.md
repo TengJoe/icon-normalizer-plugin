@@ -1,6 +1,6 @@
 # GNOME Extensions submission notes
 
-Current local candidate: extension **1.1.7**, companion backend **3.1.5**, verified **GNOME Shell 51**. These notes describe the review boundary and preparation steps. GitHub publication does not determine the status of an existing GNOME Extensions submission or claim approval.
+Current local candidate: extension **1.1.8**, companion backend **3.1.6**, targeting **GNOME Shell 51**. These notes describe the review boundary and preparation steps. GitHub publication does not determine the status of an existing GNOME Extensions submission or claim approval.
 
 [Published release v1.1.5](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.5) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
 

@@ -432,7 +432,32 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
     icons = rules["icons"]
     icon_id = args["icon_id"]
     rule = args["rule"]
-    if rule.get("reset"):
+    if set(rule) == {"skip"}:
+        previous = icons.get(icon_id)
+        if previous is not None and not isinstance(previous, dict):
+            reject("INVALID_CONFIG", "现有图标规则损坏；请先检查配置")
+        enabled = rule["skip"]
+        if previous is None:
+            if not enabled:
+                return {"revision": ctx.revision, "rule": {"reset": True}}
+            # The absence of a classification records that this rule exists
+            # only to skip the icon; unskipping restores reviewed overrides.
+            icons[icon_id] = {"skip": True}
+        elif not enabled and (previous == {"skip": True} or
+                              previous == {"skip": True, "classification": "auto"}):
+            # The second shape was created by the pre-3.1.6 frontend.
+            icons.pop(icon_id)
+        else:
+            updated = dict(previous)
+            if enabled and not updated.get("skip") and updated.get("classification") == "auto":
+                # Distinguish an explicitly selected auto rule from the old
+                # frontend's indistinguishable skip-only auto rule.
+                updated["_skip_preserve_auto"] = True
+            if not enabled:
+                updated.pop("_skip_preserve_auto", None)
+            updated["skip"] = enabled
+            icons[icon_id] = updated
+    elif rule.get("reset"):
         icons.pop(icon_id, None)
     else:
         entry: dict[str, Any] = {"skip": rule["skip"], "classification": rule["classification"]}

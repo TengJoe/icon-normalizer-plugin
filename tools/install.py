@@ -11,6 +11,7 @@ hardcoded user name.
 from __future__ import annotations
 
 import argparse
+import ast
 import fcntl
 from contextlib import contextmanager
 import uuid
@@ -162,6 +163,23 @@ def _known(states: dict[str, Any]) -> None:
         raise RuntimeError("Cannot confirm trigger state; no installation changes made")
 
 
+def _saved_backend_version(target: Path) -> str | None:
+    """Read the copied version declaration without executing saved code."""
+    version_file = target / "libexec" / "icon_normalizer" / "version.py"
+    try:
+        module = ast.parse(version_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return None
+    for node in module.body:
+        if (isinstance(node, ast.Assign) and
+                any(isinstance(name, ast.Name) and name.id == "BACKEND_VERSION"
+                    for name in node.targets) and
+                isinstance(node.value, ast.Constant) and
+                isinstance(node.value.value, str)):
+            return node.value.value
+    return None
+
+
 def snapshot(target: Path, layout: Any, trigger_states: Any = None) -> Path:
     target.mkdir(parents=True, mode=0o700)
     files, existed = {}, {}
@@ -181,7 +199,11 @@ def snapshot(target: Path, layout: Any, trigger_states: Any = None) -> Path:
             shutil.copy2(src, dest)
             files[name] = _sha(dest)
     _write_json(target / "snapshot.json", {"version": 2, "created_at_unix": time.time(),
-                "backend_version": BACKEND_VERSION, "sha256": files, "existed": existed,
+                # Preserve the legacy field's installer-version meaning.
+                "backend_version": BACKEND_VERSION,
+                "installer_backend_version": BACKEND_VERSION,
+                "saved_backend_version": _saved_backend_version(target),
+                "sha256": files, "existed": existed,
                 "trigger_states_before": trigger_states})
     return target
 

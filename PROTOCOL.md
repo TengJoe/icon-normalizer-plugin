@@ -51,8 +51,13 @@
 
 - `patch ⊆ {target, deadband, inner}`，≥1 项，范围 0.50–0.98 / 0.0–0.10 / 0.40–0.95，
   交叉约束 `0 < target-deadband ∧ target+deadband ≤ 1`。
-- `rule`：`{reset:true}` 或 `{skip, classification∈(auto|plate-rect|plate-circle|artwork|glyph), source_sha256?}`；
+- `rule`：`{reset:true}`、仅更新跳过状态的 `{skip:boolean}`，或完整规则
+  `{skip, classification∈(auto|plate-rect|plate-circle|artwork|glyph), source_sha256?}`；
   `auto` 禁带 `source_sha256`，手工分类必带（64-hex，绑定素材 SHA）。
+- 仅含 `skip` 的规则从后台 3.1.6 起支持；后台持锁读取现有规则后更新跳过状态，
+  保留手动分类及其素材指纹。旧版后台不支持该请求，前端应提示升级而不是覆盖整条规则。
+- 对旧版保存的 `{skip:true, classification:auto}`，取消跳过沿用旧界面语义并删除该临时规则；
+  被旧版覆盖且未另行备份的分类无法自动恢复。新版本在跳过明确的 auto 规则时保留该选择。
 - `size ∈ [16,24,32,48,64,96,128,256,512]`。
 
 ## 4. 并发控制（OCC）

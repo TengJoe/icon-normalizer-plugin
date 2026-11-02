@@ -18,6 +18,7 @@ export class MaintenancePage {
         this._scope = new WindowScope(win);
         this._win = win;
         this._settings = settings;
+        this._refreshGeneration = 0;
         this._build();
     }
 
@@ -148,13 +149,35 @@ export class MaintenancePage {
         return row;
     }
 
-    async refresh() {
+    async refresh({showError = true} = {}) {
         if (this._scope.closed) return;
+        const generation = ++this._refreshGeneration;
         const envelope = await call(this._controlPath, 'status', {}, this._scope);
         if (this._scope.closed) return;
+        if (generation !== this._refreshGeneration) return null;
         if (!envelope.ok) {
-            this._showOpBanner(actionLabel(envelope.error));
-            return;
+            this._lastHealthError = null;
+            this._badgeHealth.set_text(t('未知'));
+            this._badgeHealth.set_tooltip_text(actionLabel(envelope.error));
+            this._badgeHealth.set_css_classes(['badge-pill', 'badge-warn']);
+            this._rowHealth.set_subtitle(t('状态读取失败'));
+            this._healthDetails.set_visible(false);
+            this._rowHealthDetails.set_visible(false);
+            this._rowTheme.set_subtitle(t('未知主题'));
+            this._rowTheme.set_tooltip_text(t('状态未知'));
+            this._badgeTheme.set_text(t('未知'));
+            this._badgeTheme.set_css_classes(['badge-pill', 'badge-warn']);
+            this._badgeAuto.set_text(t('状态未知'));
+            this._badgeAuto.set_css_classes(['badge-pill', 'badge-warn']);
+            this._badgeVersion.set_text('—');
+            this._badgeManaged.set_text('—');
+            this._lblRev.set_text('—');
+            this._lblRev.set_tooltip_text('');
+            this._autoRow.set_sensitive(false);
+            this._followRow.set_sensitive(false);
+            this._syncThemeNotice(null);
+            if (showError) this._showOpBanner(actionLabel(envelope.error));
+            return envelope;
         }
         const s = envelope.result;
         this._lastHealthError = s.last_error;
@@ -186,6 +209,7 @@ export class MaintenancePage {
         this._lblRev.set_tooltip_text(s.revision ?? '');
         // programmatic sync — the guard keeps the handler from firing writes
         this._setAuto(s.automatic === 'on');
+        this._autoRow.set_sensitive(true);
         this._setFollow(s.theme_follow === true);
         this._followRow.set_sensitive(typeof s.theme_follow === 'boolean');
         this._followRow.set_tooltip_text(typeof s.theme_follow === 'boolean' ? null :
@@ -195,6 +219,7 @@ export class MaintenancePage {
                 s.automatic === 'partial' ? t('部分触发器未开启；点击自动维护开关可修复')
                     : t('触发器状态未知：systemd 用户实例不可用？'));
         }
+        return envelope;
     }
 
     _showOpBanner(text, options = {}) {
@@ -262,21 +287,33 @@ export class MaintenancePage {
             const flow = await runApplyFlow(this._controlPath, {activate, scope: this._scope});
             if (this._scope.closed) return;
             if (!flow.apply?.ok) {
-                this._showOpBanner(flow.hint || actionLabel(flow.apply?.error));
+                const error = flow.apply?.error ?? flow.status?.error ?? flow.status?.result?.last_error;
+                this._showOpBanner(flow.hint || actionLabel(error));
                 return;
             }
             const ops = flow.apply.result.file_operations ?? 0;
             const recovered = flow.apply.result.recovered_transaction
                 ? t('（已恢复中断事务）') : '';
-            if (flow.activationFailed) {
-                this._showOpBanner(
-                    t('应用完成：{operations} 项文件操作，但图标主题仍未激活', {operations: ops}) + recovered,
-                    {error: true});
-            } else {
-                this._showOpBanner(t('应用完成：{operations} 项文件操作', {operations: ops}) + recovered +
-                    (flow.themeActive ? t('，主题已激活') : ''));
-            }
-            await this.refresh();
+            let message = t('应用完成：{operations} 项文件操作', {operations: ops}) + recovered;
+            if (flow.activationFailed && flow.themeActive === false)
+                message = t('应用完成：{operations} 项文件操作，但图标主题仍未激活', {operations: ops}) + recovered;
+            else if (flow.activationFailed && flow.themeActive === true)
+                message += t('，但本次激活未完成（当前主题已生效）');
+            else if (flow.activationFailed)
+                message += t('，但本次激活未完成（当前状态未知）');
+            else if (flow.activationUnconfirmed)
+                message += t('，但当前主题状态无法确认');
+            else if (flow.themeActive)
+                message += t('，主题已激活');
+            const refreshed = await this.refresh({showError: false});
+            if (this._scope.closed) return;
+            const refreshFailed = refreshed?.ok === false;
+            const automatic = refreshed?.ok ? refreshed.result.automatic : null;
+            if (refreshFailed) message += t('；后台状态读取失败');
+            else if (automatic === 'partial') message += t('；部分自动维护触发器未开启');
+            else if (automatic === 'unknown') message += t('；自动维护状态未知');
+            this._showOpBanner(message, {error: flow.activationFailed || flow.activationUnconfirmed ||
+                refreshFailed || ['partial', 'unknown'].includes(automatic)});
         } finally {
             this._busy(false);
         }

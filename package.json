@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "lint": "eslint extension --max-warnings 0",
-    "test:logic": "node --experimental-vm-modules tests/frontend/backendClient.test.mjs && node --experimental-vm-modules tests/frontend/indicator.test.mjs && node tests/frontend/stateModel.test.mjs && node tests/frontend/i18n.test.mjs"
+    "test:logic": "node --experimental-vm-modules tests/frontend/backendClient.test.mjs && node --experimental-vm-modules tests/frontend/indicator.test.mjs && node --experimental-vm-modules tests/frontend/maintenance.test.mjs && node tests/frontend/stateModel.test.mjs && node tests/frontend/i18n.test.mjs"
   },
   "devDependencies": {
     "eslint": "10.13.0"

@@ -30,15 +30,21 @@ export async function runApplyFlow(controlPath, {activate = null, scope = null} 
     // The file transaction and the theme switch commit separately. Surface the
     // second one so "applied but still inactive" can never look like success.
     const afterStatus = after?.ok ? after.result : null;
-    const themeActive = afterStatus ? afterStatus.overlay_in_use === true : null;
+    const observed = afterStatus?.overlay_in_use;
+    const themeActive = typeof observed === 'boolean' ? observed : null;
+    const activation = applyEnvelope?.ok ? applyEnvelope.result?.theme_activation ?? null : null;
+    const activationFailed = Boolean(shouldActivate && applyEnvelope?.ok &&
+        (themeActive === false || ['unavailable', 'superseded'].includes(activation)));
     return {
         status: statusEnvelope,
         apply: applyEnvelope,
         after,
         hint: operationExitHint(applyEnvelope),
         activate: shouldActivate,
-        activation: applyEnvelope?.ok ? applyEnvelope.result?.theme_activation ?? null : null,
+        activation,
         themeActive,
-        activationFailed: Boolean(shouldActivate && applyEnvelope?.ok && themeActive === false),
+        activationFailed,
+        activationUnconfirmed: Boolean(shouldActivate && applyEnvelope?.ok &&
+            !activationFailed && themeActive === null),
     };
 }

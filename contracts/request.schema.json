@@ -85,6 +85,16 @@
           "properties": {
             "skip": {
               "type": "boolean"
+            }
+          },
+          "required": ["skip"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "skip": {
+              "type": "boolean"
             },
             "classification": {
               "enum": [

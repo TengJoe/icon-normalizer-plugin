@@ -1,13 +1,14 @@
 # 发布验收清单
 
-## 1.1.7 / 3.1.5 规范化候选（2026-10-24）
+## 1.1.8 / 3.1.6 未发布候选（2026-11-02）
 
-当前源码与候选包版本为 1.1.7；公网发布和 GNOME 送审状态独立记录，不由本清单推定。
+当前源码候选版本为 1.1.8 / 3.1.6；公网发布和 GNOME 送审状态独立记录，不由本清单推定。
 前端分为 shell / prefs / shared；捐赠入口与支付素材已移除。
 
 - `npm ci --ignore-scripts` 后运行 `npm run lint`，要求零告警。
 - `npm run test:logic` 与 `node tests/frontend/syntax-check.mjs`。
 - `python3 tests/frontend/test_runtime.py`：包含真实 GTK 预览取消、尺寸竞态、写入中关闭与重开窗口。
+- 跳过和取消跳过须保留手动分类与素材指纹，32/48 px 预览同步刷新；旧后台须安全提示升级。
 - `python3 tests/frontend/headless_shell.py`：隔离 Shell 51 顶栏和生命周期。
 - 后台、安装回归与构建命令见下方质量门；每次执行结果以交付回执为准。
 - 维护与资源所有权见 [MAINTENANCE.md](MAINTENANCE.md)。
@@ -36,7 +37,7 @@
 | Q1 | 后端类型严格检查 | `python3 -m mypy` | `Success: no issues found in 27 source files` |
 | Q2 | 后端全量单测 | `python3 -m unittest discover -s tests/backend -p 'test_*.py'` | 当前全部测试 OK |
 | Q3 | 前端语法及相对导入 | `node tests/frontend/syntax-check.mjs` | 全部 JavaScript 文件通过，依赖存在 |
-| Q4 | 前端纯逻辑单测 | `node tests/frontend/stateModel.test.mjs` | 14/14 passed |
+| Q4 | 前端纯逻辑单测 | `npm run test:logic` | 当前全部测试通过 |
 | Q5 | 安装/卸载与故障回归 | `python3 -m unittest discover -s tests/installation -p 'test_*.py'` | 当前全部测试 OK，独立假 manager |
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
@@ -117,6 +118,11 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 - [ ] `dist/icon-normalizer-plugin-<version>.tar.gz`
 - [ ] `dist/DIST_MANIFEST.json` 双 SHA-256 校验通过
 - [ ] 升级快照位于 `~/.local/state/icon-normalizer/backups/install-snapshot-*`
+  - `snapshot.json` 的 `saved_backend_version` 表示备份中的后台版本；
+    `installer_backend_version` 表示创建快照的安装器版本。旧字段
+    `backend_version` 保留安装器版本以兼容已有快照。
+  - 旧快照可能没有上述新字段；确认哈希后，可查看备份内的
+    `libexec/icon_normalizer/version.py`，不要执行该文件。
 
 ## 6. 回滚预案
 

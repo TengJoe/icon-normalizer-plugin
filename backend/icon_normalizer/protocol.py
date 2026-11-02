@@ -164,6 +164,10 @@ def parse_rules(args: dict[str, Any]) -> dict[str, Any]:
         reject("INVALID_REQUEST", "rule must be an object", exit_code=2)
     if set(rule) == {"reset"} and rule.get("reset") is True:
         return {"expected_revision": expected, "icon_id": icon_id, "rule": {"reset": True}}
+    if set(rule) == {"skip"}:
+        if not isinstance(rule["skip"], bool):
+            reject("INVALID_REQUEST", "rule.skip must be a boolean", exit_code=2)
+        return {"expected_revision": expected, "icon_id": icon_id, "rule": {"skip": rule["skip"]}}
     _no_unknown(rule, ("skip", "classification", "source_sha256"), "rule")
     if "skip" not in rule or "classification" not in rule:
         reject("INVALID_REQUEST", "rule requires skip and classification (or reset:true)", exit_code=2)

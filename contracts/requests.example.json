@@ -59,6 +59,16 @@
   },
   {
     "api_version": 1,
+    "request_id": "example-07-skip",
+    "operation": "rules.set",
+    "arguments": {
+      "expected_revision": "1111111111111111111111111111111111111111111111111111111111111111",
+      "icon_id": "2222222222222222222222222222222222222222222222222222222222222222",
+      "rule": {"skip": true}
+    }
+  },
+  {
+    "api_version": 1,
     "request_id": "example-07",
     "operation": "rules.set",
     "arguments": {

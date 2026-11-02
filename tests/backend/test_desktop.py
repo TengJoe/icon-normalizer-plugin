@@ -4,7 +4,9 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
@@ -107,12 +109,18 @@ class TestCollect(unittest.TestCase):
 
     def test_application_roots_order(self) -> None:
         home = Path("/home/test")
-        roots = application_roots(home, data_dirs="/usr/local/share:/usr/share")
+        with patch.dict(os.environ, {"XDG_DATA_HOME": ""}):
+            roots = application_roots(home, data_dirs="/usr/local/share:/usr/share")
         self.assertEqual(roots[0], Path("/home/test/.local/share/applications"))
         self.assertIn(Path("/usr/share/applications"), roots)
         self.assertIn(Path("/var/lib/flatpak/exports/share/applications"), roots)
         # first-seen order, deduplicated
         self.assertEqual(len(roots), len(set(roots)))
+
+    def test_application_roots_respects_explicit_data_home(self) -> None:
+        with patch.dict(os.environ, {"XDG_DATA_HOME": "/tmp/custom-xdg-data"}):
+            roots = application_roots(Path("/home/test"), data_dirs="/usr/share")
+        self.assertEqual(roots[0], Path("/tmp/custom-xdg-data/applications"))
 
 
 if __name__ == "__main__":
