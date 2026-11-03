@@ -1,8 +1,8 @@
 # 发布验收清单
 
-## 1.1.8 / 3.1.6 未发布候选（2026-11-02）
+## 1.1.8 / 3.1.6 发布验收（2026-11-03）
 
-当前源码候选版本为 1.1.8 / 3.1.6；公网发布和 GNOME 送审状态独立记录，不由本清单推定。
+当前组件版本为 1.1.8 / 3.1.6；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
 前端分为 shell / prefs / shared；捐赠入口与支付素材已移除。
 
 - `npm ci --ignore-scripts` 后运行 `npm run lint`，要求零告警。
@@ -81,7 +81,7 @@ Q9 仅将 Shell/GI/后端边界换成测试替身，直接加载生产入口和�
 ## 3. 安装与生命周期 [手动 + Q5]
 
 - [ ] `python3 tools/install.py` 在真实桌面通过（`status` 探活 `ok=true`）
-- [ ] 升级路径：前端 1.0.6 / 后端 3.0.2 安装态被 1.1.2 / 3.1.1 接管（manifest 兼容），
+- [ ] 升级路径：前端 1.1.7 / 后端 3.1.5 安装态被 1.1.8 / 3.1.6 接管（manifest 兼容），
       保留视觉参数、用户规则与自动维护状态；必要重建后 `status.stale == false`
 - [ ] `systemctl --user status icon-normalizer.{timer,path}` 均 enabled+active；
       在验收账户中新增测试启动器，观察 `path` 触发与 `timer` 兜底，记录实际完成时间

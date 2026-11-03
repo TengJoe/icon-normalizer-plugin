@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import re
 import sys
 import tarfile
 import tempfile
@@ -13,6 +14,18 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 import build
 import release_audit
+from layout import backend_version
+
+
+class ProjectVersion(unittest.TestCase):
+    def test_project_metadata_matches_backend_version(self):
+        project = Path(__file__).resolve().parents[2] / 'pyproject.toml'
+        text = project.read_text()
+        match = re.search(r'(?ms)^\[project\]\s*\n(.*?)(?=^\[|\Z)', text)
+        self.assertIsNotNone(match, 'missing [project] metadata')
+        version = re.search(r'(?m)^version\s*=\s*[\'"]([^\'"]+)[\'"]\s*$', match.group(1))
+        self.assertIsNotNone(version, 'missing static project version')
+        self.assertEqual(version.group(1), backend_version())
 
 
 class PackageParity(unittest.TestCase):

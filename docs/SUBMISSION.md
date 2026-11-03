@@ -1,12 +1,12 @@
 # GNOME Extensions submission notes
 
-Current local candidate: extension **1.1.8**, companion backend **3.1.6**, targeting **GNOME Shell 51**. These notes describe the review boundary and preparation steps. GitHub publication does not determine the status of an existing GNOME Extensions submission or claim approval.
+Current release: extension **1.1.8**, companion backend **3.1.6**, targeting **GNOME Shell 51**. These notes describe the review boundary and preparation steps. GitHub publication does not determine the status of an existing GNOME Extensions submission or claim approval.
 
-[Published release v1.1.5](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.5) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
+[GitHub release v1.1.8](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.8) · [Contribution guide](../CONTRIBUTING.md) · [Release checklist](CHECKLIST.md)
 
 ## Package boundary
 
-The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, the GPLv3 license, GSettings schema XML,. It intentionally omits the compiled `schemas/gschemas.compiled` (review rule EGO-P-006); the extensions website compiles the schema during upload, and `tools/install.py` compiles it for local source installs. It contains no Python code, executables, shared libraries, package installers, downloads, telemetry, or clipboard integration.
+The extension ZIP contains readable GJS, symbolic SVG, CSS, metadata, the GPLv3 license and GSettings schema XML. It intentionally omits the compiled `schemas/gschemas.compiled` (review rule EGO-P-006); the extensions website compiles the schema during upload, and `tools/install.py` compiles it for local source installs. It contains no Python code, executables, shared libraries, package installers, downloads, telemetry, or clipboard integration.
 
 The extension controls a **separately installed user-level companion backend**. The complete release tarball contains the backend source and installer. A ZIP-only installation shows a missing-backend message until the companion is installed manually.
 
@@ -43,7 +43,9 @@ python3 tools/release_audit.py --submission --archive dist/icon-normalizer@joeyd
 
 Local checks cover entry-point toolkit isolation, source-only ZIP contents, source/archive equality, license, versions, schemas, and the tested Shell declaration. The builder runs local source checks before creating artifacts. The public URL must also be verified separately: a URL-format check does not prove accessibility.
 
-Source and issues are available at the [GitHub repository](https://github.com/TengJoe/icon-normalizer-plugin). The complete companion package is available in [Published release v1.1.5](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.5). Submit the extension ZIP to GNOME Extensions; the full tarball is a separate companion distribution.
+Source and issues are available at the [GitHub repository](https://github.com/TengJoe/icon-normalizer-plugin). The matching companion package is available in [GitHub release v1.1.8](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.1.8). Submit the extension ZIP to GNOME Extensions; the full tarball is a separate companion distribution.
+
+The existing [GNOME review of 1.1.2](https://extensions.gnome.org/review/76404) predates this release and includes support assets in that old upload. The 1.1.8 ZIP has no donation metadata or payment images. A new GitHub release or upload does not establish that an older website archive has been removed; that requires separate confirmation from the website staff.
 
 GNOME Extensions assigns its own numeric extension version. Keep `version-name` as the human-readable release version and preserve the UUID for upgrades. GNOME Shell caches ESM modules, so panel updates require a new login session; Preferences can be closed and reopened. The installer does not end the session.
 

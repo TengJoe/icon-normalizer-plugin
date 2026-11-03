@@ -48,8 +48,8 @@ The lifecycle fixture delays actual subprocess requests in a disposable home. It
 
 ## 发布边界 / Publication boundaries
 
-作者、许可证、项目与反馈入口保留；1.1.7 不包含捐赠元数据、Sponsor 配置、收款码或支付界面。
-Author attribution, license, project and issue links remain. Version 1.1.7 contains no donation UI or payment assets.
+作者、许可证、项目与反馈入口保留；1.1.8 不包含捐赠元数据、Sponsor 配置、收款码或支付界面。
+Author attribution, license, project and issue links remain. Version 1.1.8 contains no donation UI or payment assets.
 
 本项目使用 AI 辅助生成和重构。维护者需要本人能够解释、调试和维护提交的 JavaScript；自动测试不能证明这项能力。公开提交前须审阅实际差异，并如实回应审核者。外部 Python 后台是否被 EGO 接受仍由审核者判断，代码整理和测试通过不表示审核批准。
 AI assistance is used in this project. The submitter must personally understand, debug and maintain the code. Automated checks and this guide do not establish that ability or guarantee EGO approval.
