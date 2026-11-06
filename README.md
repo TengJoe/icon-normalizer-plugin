@@ -76,19 +76,33 @@ Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整�
 
 需要 **GNOME Shell 51** 与下方列出的[运行依赖](#兼容与依赖)。
 
-**一条命令安装（推荐）**
+安装分两部分：**扩展**按 GNOME 的标准方式安装，**后端**是本项目的配套程序，需要单独装一次。
+
+### 1. 安装扩展
+
+在 GNOME 扩展网站（extensions.gnome.org）点「Install」—— 目前**审核中**，通过后即可一键安装。
+
+或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
+
+```bash
+gnome-extensions install --force icon-normalizer@joeydeng.local.zip
+```
+
+### 2. 安装后端
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
 ```
 
-安装器会检查依赖、下载最新发行包、**校验 SHA-256** 后安装。**不使用 `sudo`**，扩展、后台与 systemd 用户单元全部位于你的主目录。先只检查依赖是否齐全：
+安装器会检查依赖、下载最新发行包、**校验 SHA-256** 后安装后端与 systemd 用户单元，并把扩展更新到同一版本。**不使用 `sudo`**，所有文件都在你的主目录。只检查依赖：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
 ```
 
-**或者手动安装**
+> 只装扩展、没装后端时，设置界面会提示「后端未安装」。
+
+### 或者：离线包一次装完
 
 1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS)，放在同一目录。
 2. 校验后解压安装：
@@ -99,8 +113,6 @@ tar -xzf icon-normalizer-plugin-1.2.0.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
-
-> 单独的扩展 ZIP 只含前端，不包含 Python 后台；仅安装 ZIP 时界面会提示“后端未安装”。
 
 安装器会检查依赖、创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。从扩展管理器打开 **Icon Normalizer → 设置** 开始使用。
 

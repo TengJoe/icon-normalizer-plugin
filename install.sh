@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Icon Normalizer — one-command installer.
+# Icon Normalizer — backend installer.
+#
+# The extension itself installs the standard GNOME way (extensions.gnome.org or
+# "gnome-extensions install"). This script installs the companion backend and
+# the systemd user units, and brings the extension to the same release.
 #
 # Local mode:  run from a checkout or an extracted release tarball.
 # Remote mode: run anywhere; downloads the latest release, verifies the
@@ -27,11 +31,11 @@ fail() { printf "\n  error: %s\n" "$*" >&2; exit 1; }
 
 usage() {
     if [ -r "$0" ] && [ -f "$0" ]; then
-        sed -n "3,15p" "$0" | sed "s/^# \{0,1\}//"
+        sed -n "2,20p" "$0" | sed "s/^# \{0,1\}//"
     else
         # Piped through curl: $0 is the interpreter, not this file.
         printf '%s\n' \
-            "Icon Normalizer — one-command installer." \
+            "Icon Normalizer — backend installer." \
             "" \
             "  ./install.sh                 install or upgrade the latest release" \
             "  ./install.sh v1.2.0          install a specific release" \

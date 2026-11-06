@@ -76,19 +76,33 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 
 Requires **GNOME Shell 51** and the [runtime dependencies](#compatibility-and-dependencies) listed below.
 
-**One command (recommended)**
+Installation has two parts: the **extension** installs the standard GNOME way, and the **backend** is a companion program that needs one extra step.
+
+### 1. Install the extension
+
+On extensions.gnome.org, press **Install** — it is currently **under review**, after which this is a single click.
+
+Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer@joeydeng.local.zip) and install it the standard way:
+
+```bash
+gnome-extensions install --force icon-normalizer@joeydeng.local.zip
+```
+
+### 2. Install the backend
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
 ```
 
-The installer checks dependencies, downloads the latest release, **verifies its SHA-256** and installs it. **No `sudo`**: the extension, the backend and the systemd user units all live under your home directory. To check dependencies only:
+The installer checks dependencies, downloads the latest release, **verifies its SHA-256**, then installs the backend and the systemd user units and brings the extension to the same version. **No `sudo`**: everything lives under your home directory. To check dependencies only:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
 ```
 
-**Or install manually**
+> With only the extension installed, the preferences window reports that the backend is missing.
+
+### Or: one offline package for both
 
 1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS) into the same directory.
 2. Verify, extract and install:
@@ -99,8 +113,6 @@ tar -xzf icon-normalizer-plugin-1.2.0.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
-
-> The extension ZIP alone contains only the frontend; the preferences window then reports that the backend is not installed.
 
 The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
 
