@@ -5,9 +5,11 @@ import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
 import {call} from '../shared/backendClient.js';
 import {WindowScope} from './requestScope.js';
-import {actionLabel} from '../shared/stateModel.js';
+import {CLASSIFICATION_LABELS, actionLabel, ruleOriginLabel} from '../shared/stateModel.js';
 import {actionButton, actionGroup, configurePage, noticeRow, toast} from './uiCommon.js';
 import {NamedProfiles} from './namedProfiles.js';
+
+const CLASS_CHOICES = ['plate-rect', 'plate-rounded', 'plate-circle', 'artwork', 'glyph'];
 
 const PRESETS = [
     {label: '标准', detail: '88% · ±2% · 内层 72%', target: 88, deadband: 2, inner: 72},
@@ -50,6 +52,10 @@ export class RulesPage {
             });
         }
         this.page.add(this._core);
+        this._ruleGroup = new Adw.PreferencesGroup({title: t('逐图标规则'),
+            description: t('列出所有手动或已复核的分类，可直接改类别或重置为自动。')});
+        this.page.add(this._ruleGroup);
+        this._ruleRows = [];
 
         const presets = new Adw.PreferencesGroup({title: t('常用方案'),
             description: t('选择方案填入参数，再保存生效。')});
@@ -118,6 +124,83 @@ export class RulesPage {
         return this._scope.read(this._controlPath, operation, args);
     }
 
+    _renderRules(groups) {
+        for (const row of this._ruleRows ?? []) this._ruleGroup.remove(row);
+        this._ruleRows = [];
+        const manual = groups.filter(g => ['user', 'reviewed'].includes(g.classification_origin));
+        if (!manual.length) {
+            const empty = new Adw.ActionRow({title: t('暂无逐图标规则'),
+                subtitle: t('在应用页打开预览并选择分类后，规则会出现在这里。')});
+            this._ruleGroup.add(empty);
+            this._ruleRows.push(empty);
+            return;
+        }
+        for (const group of manual) this._ruleRows.push(this._ruleRow(group));
+    }
+
+    _ruleRow(group) {
+        const name = (group.names ?? [group.icon_name])[0] ?? '—';
+        const row = new Adw.ActionRow({title: name,
+            subtitle: t('{cls} · {origin}', {
+                cls: t(CLASSIFICATION_LABELS[group.classification] ?? group.classification ?? '—'),
+                origin: t(ruleOriginLabel(group) || '自动')})});
+        const model = Gtk.StringList.new(CLASS_CHOICES.map(c =>
+            t(CLASSIFICATION_LABELS[c] ?? c)));
+        const selected = Math.max(0, CLASS_CHOICES.indexOf(group.classification));
+        const dropdown = new Gtk.DropDown({model, selected});
+        dropdown.connect('notify::selected', () => {
+            const cls = CLASS_CHOICES[dropdown.get_selected()];
+            if (cls && cls !== group.classification) this._applyClass(group, cls, row, dropdown);
+        });
+        row.add_suffix(dropdown);
+        row.add_suffix(actionButton(t('重置'), () => this._resetRule(group, row)));
+        return row;
+    }
+
+    async _applyClass(group, cls, row, dropdown) {
+        dropdown.set_sensitive(false);
+        try {
+            const status = await call(this._controlPath, 'status', {}, this._scope);
+            if (this._scope.closed) return;
+            if (!status.ok) { toast(this._win, actionLabel(status.error)); return; }
+            const response = await call(this._controlPath, 'rules.set', {
+                expected_revision: status.result.revision,
+                icon_id: group.icon_id,
+                rule: {skip: false, classification: cls, source_sha256: group.source_sha256},
+            }, this._scope);
+            if (this._scope.closed) return;
+            if (!response.ok) { toast(this._win, actionLabel(response.error)); return; }
+            group.classification = cls;
+            group.classification_origin = 'user';
+            toast(this._win, t('已更新为 {cls}', {cls: t(CLASSIFICATION_LABELS[cls] ?? cls)}));
+            this.onSaved?.();
+        } finally {
+            if (!this._scope.closed) dropdown.set_sensitive(true);
+        }
+    }
+
+    async _resetRule(group, row) {
+        row.set_sensitive(false);
+        try {
+            const status = await call(this._controlPath, 'status', {}, this._scope);
+            if (this._scope.closed) return;
+            if (!status.ok) { toast(this._win, actionLabel(status.error)); return; }
+            const response = await call(this._controlPath, 'rules.set', {
+                expected_revision: status.result.revision,
+                icon_id: group.icon_id,
+                rule: {reset: true},
+            }, this._scope);
+            if (this._scope.closed) return;
+            if (!response.ok) { toast(this._win, actionLabel(response.error)); return; }
+            toast(this._win, t('已重置为自动分类'));
+            this._ruleGroup.remove(row);
+            this._ruleRows = this._ruleRows.filter(r => r !== row);
+            this.onSaved?.();
+        } finally {
+            if (!this._scope.closed) row.set_sensitive(true);
+        }
+    }
+
     async refresh(scanEnvelope = null, {discard = false} = {}) {
         if (this._scope.closed) return;
         if (this._refreshPromise) return this._refreshPromise;
@@ -139,6 +222,7 @@ export class RulesPage {
                 return;
             }
             this._loadedRevision = scan.result.revision;
+            this._renderRules(scan.result.groups ?? []);
             const candidates = (scan.result.groups ?? []).filter(g => g.source_sha256 && g.action !== 'excluded');
             for (const group of candidates.slice(0, 3)) {
                 const result = await this._read('preview', {
