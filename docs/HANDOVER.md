@@ -19,7 +19,9 @@ bash tools/verify.sh
 bash tools/verify.sh --quick
 ```
 
-脚本会打印每道门的结果并统计，任一失败即返回非零。2026-11-06 实测：**13/13 通过**；在**全新克隆**里执行 `npm ci --ignore-scripts && bash tools/verify.sh --quick` 同样 **11/11 通过**（仓库自包含，无遗漏文件）。
+脚本会打印每道门的结果并统计，任一失败即返回非零。2026-11-06 实测：完整模式 **14/14 通过**、`--quick` **12/12 通过**；在**全新克隆**里执行 `npm ci --ignore-scripts && bash tools/verify.sh --quick` 同样全绿（仓库自包含，无遗漏文件）。
+
+> **改完代码记得重新安装**：Q14 会检查已安装树与仓库是否一致 —— 源码改了但没跑 `tools/install.py` 时，桌面仍在运行旧代码，而版本号可能完全相同。
 
 构建是**可复现**的：同一份源码（含全新克隆）产出的 ZIP 与 tar 的 SHA-256 完全一致。
 

@@ -52,6 +52,25 @@ run Q11 "i18n catalogue"     node --experimental-vm-modules tests/frontend/i18n.
 run Q12 "backend client"     node --experimental-vm-modules tests/frontend/backendClient.test.mjs
 run Q13 "release + privacy"  bash -c "python3 tools/release_audit.py --submission >/dev/null && python3 tools/privacy_audit.py >/dev/null"
 
+# Q14 keeps the installed tree honest: a code change that is never installed
+# leaves the desktop running older code under the same version number.
+if [ -d "$HOME/.local/libexec/icon-normalizer/icon_normalizer" ]; then
+    check_drift() {
+        local rc=0
+        while IFS= read -r rel; do
+            if ! cmp -s "backend/icon_normalizer/$rel" \
+                    "$HOME/.local/libexec/icon-normalizer/icon_normalizer/$rel"; then
+                echo "drift: backend/icon_normalizer/$rel differs from the installed copy"
+                rc=1
+            fi
+        done < <(cd backend/icon_normalizer && find . -name '*.py' | sed 's|^\./||' | sort)
+        return $rc
+    }
+    run Q14 "installed tree matches repo" check_drift
+else
+    skip Q14 "installed tree matches repo" "not installed"
+fi
+
 echo
 echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"
 [ "$FAIL" -eq 0 ] || exit 1
