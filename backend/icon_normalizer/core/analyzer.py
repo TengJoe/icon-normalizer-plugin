@@ -23,7 +23,10 @@ CIRCLE_IOU_MIN = 0.92
 RECT_FILL_MIN = 0.86
 RECT_RING_MIN = 0.75
 
-CLASSES = ("plate-rect", "plate-circle", "artwork", "glyph")
+CLASSES = ("plate-rect", "plate-rounded", "plate-circle", "artwork", "glyph")
+
+#: A plate whose corners stay this opaque is considered square-cornered.
+SHARP_CORNER_ALPHA = 0.5
 
 
 @dataclass(frozen=True)
@@ -66,6 +69,8 @@ class IconMetrics:
     cy: float
     core_alpha: int = CORE_ALPHA
     full_alpha: int = FULL_ALPHA
+    #: Mean opacity at the four corners of the core box (1.0 = square corners).
+    corner_alpha: float = 1.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -83,6 +88,7 @@ class IconMetrics:
             "cy": self.cy,
             "core_alpha": self.core_alpha,
             "full_alpha": self.full_alpha,
+            "corner_alpha": self.corner_alpha,
         }
 
     @classmethod
@@ -102,6 +108,7 @@ class IconMetrics:
             cy=float(data["cy"]),
             core_alpha=int(data.get("core_alpha", CORE_ALPHA)),
             full_alpha=int(data.get("full_alpha", FULL_ALPHA)),
+            corner_alpha=float(data.get("corner_alpha", 1.0)),
         )
 
 
@@ -126,6 +133,17 @@ def analyze(img: Image.Image) -> IconMetrics:
     )
     strict = bbox_of(alpha > 250)
     canvas = max(img.size)
+    # Opacity at the four corners of the core box distinguishes a square plate
+    # from an already rounded one (the box may be non-square, so sample a small
+    # square patch at each corner scaled to the shorter side).
+    patch = max(1, round(min(w, h) * 0.02))
+    corner_pixels = np.concatenate([
+        alpha[y0:y0 + patch, x0:x0 + patch].ravel(),
+        alpha[y0:y0 + patch, max(x0, x1 - patch):x1].ravel(),
+        alpha[max(y0, y1 - patch):y1, x0:x0 + patch].ravel(),
+        alpha[max(y0, y1 - patch):y1, max(x0, x1 - patch):x1].ravel(),
+    ])
+    corner_alpha = float(corner_pixels.mean() / 255.0) if corner_pixels.size else 1.0
     return IconMetrics(
         core_bbox=core,
         full_bbox=full,
@@ -141,6 +159,7 @@ def analyze(img: Image.Image) -> IconMetrics:
         aspect=w / h,
         cx=(x0 + x1) / 2,
         cy=(y0 + y1) / 2,
+        corner_alpha=corner_alpha,
     )
 
 
@@ -154,6 +173,19 @@ def classify(metrics: IconMetrics) -> Classification:
     if metrics.fill >= RECT_FILL_MIN and metrics.ring >= RECT_RING_MIN:
         return Classification("plate-rect", "filled_silhouette", "medium")
     return Classification("artwork", "ambiguous_preserve_artwork", "review")
+
+
+def suggest_class(metrics: IconMetrics) -> str | None:
+    """Suggest a class that the automatic table cannot prove on its own.
+
+    A filled rectangular plate with fully opaque corners is a square plate;
+    on a rounded desktop grid that reads as broken. The suggestion is advisory
+    only -- applying it requires an explicit per-icon rule.
+    """
+    if (metrics.fill >= RECT_FILL_MIN and metrics.ring >= RECT_RING_MIN
+            and metrics.corner_alpha >= SHARP_CORNER_ALPHA):
+        return "plate-rounded"
+    return None
 
 
 @dataclass(frozen=True)

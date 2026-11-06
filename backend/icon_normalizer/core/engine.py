@@ -143,6 +143,7 @@ class Engine:
                 + canonical_json(config.overrides)
                 + canonical_json(config.user_rules)
                 + sha_hex(Path(__file__).with_name("classification.py").read_bytes())
+                + sha_hex(Path(__file__).with_name("analyzer.py").read_bytes())
             ).encode()
         )
 

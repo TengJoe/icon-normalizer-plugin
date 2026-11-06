@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageFilter
 
 from .analyzer import IconMetrics, analyze
 
@@ -152,6 +152,14 @@ def normalize(
         out.alpha_composite(shadow)
         out.alpha_composite(plate, (origin, origin))
     crop = img.crop(full)
+    if cls == "plate-rounded":
+        # Keep the artwork but replace its silhouette with a squircle: a
+        # square-cornered plate reads as broken on a rounded desktop grid.
+        silhouette = superellipse_mask(max(crop.width, crop.height)).resize(
+            (crop.width, crop.height), Image.Resampling.LANCZOS)
+        rounded = crop.copy()
+        rounded.putalpha(ImageChops.multiply(crop.getchannel("A"), silhouette))
+        crop = rounded
     desired = round(target_px * inner) if cls == "glyph" else target_px
     best: tuple[int, Image.Image, float, tuple[int, int], int] | None = None
     # Quantized alpha edges can lose a pixel after downsampling; each trial
