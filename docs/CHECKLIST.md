@@ -62,6 +62,8 @@
 | Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部当前翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
 | Q13 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
+| Q14 | 已安装后台与仓库一致 | `cmp` 逐文件比较（`tools/verify.sh`） | 全部一致；版本号相同但代码不同也算失败 |
+| Q15 | 已安装扩展与仓库一致 | `diff -r -x metadata.json -x gschemas.compiled`（`tools/verify.sh`） | 无差异；忽略版本号与编译后 schema |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、
 GSettings memory 后端、只记录 fixture 状态的 systemctl；临时 HOME 本身不提供会话隔离。
