@@ -8,10 +8,14 @@
 
 ## 原型
 
-`tools/prototype/gjs-render.js` —— 用 GdkPixbuf + Cairo 复刻 `analyzer.analyze()` 与 `renderer.normalize()` 的非 glyph 路径：
+两个脚本，合起来覆盖全部分支：
 
 ```sh
+# 非 glyph 路径（artwork / plate-rect / plate-circle / plate-rounded 的缩放合成）
 gjs -m tools/prototype/gjs-render.js <源图.png> <输出目录> <类别> 0.83 0.7
+
+# glyph 路径（圆角底板 + 渐变 + 投影 + 高斯模糊 + 自适应明暗）
+gjs -m tools/prototype/gjs-render-glyph.js <源图.png> <输出目录> 0.83 0.7
 ```
 
 ## 实测结果
@@ -24,13 +28,32 @@ gjs -m tools/prototype/gjs-render.js <源图.png> <输出目录> <类别> 0.83 0
 | 平均像素差 | 1.15 – 7.18 / 255（0.5% – 2.8%） |
 | 最大差异像素占比 | 12.9% – 38.6%，集中在 16–48 px 的边缘 |
 
-### 唯一发现的系统性偏差
+### glyph 路径
+
+用同一个 DeepSeek Harness 图标（浅色底板 + 深色字形）实测：
+
+| 指标 | 结果 |
+| --- | --- |
+| **占比偏差** | **0.00 px**（全部 9 档） |
+| 平均像素差 | 0.18 – 2.05 / 255（均值 1.19，比非 glyph 路径更小） |
+| 最大差异像素占比 | 8.6%（16 px）→ 0.8%（256 px） |
+| 底板明暗判定 | 与 Python 一致（`light`） |
+
+底板渐变、squircle 遮罩、投影偏移与模糊半径均按 `renderer.make_plate()` / `normalize()` 复刻；Cairo 无高斯模糊原语，用可分离高斯核实现（PIL 用的是三次盒式模糊近似，两者在柔和投影上视觉等价）。
+
+### 移植时必须保留的两个细节
 
 Python 的 `round()` 是**银行家舍入**（.5 取偶），JS 的 `Math.round()` 是向上取整。放置偏移在部分尺寸上正好落在 .5，导致 1 px 错位。
 
 在 32 px 上实测：修正前偏移 `+1.00,+1.00`、不同像素 38.7%；修正后偏移 `0.00`、不同像素 19.8%。
 
 原型里的 `pyRound()` 已复刻该行为。**移植时必须保留这个细节**，否则每个图标在部分尺寸上会偏 1 px。
+
+#### 2. glyph 的测量对象是"只有字形"的图层
+
+`normalize()` 里 `measured = analyze(layer)` 测量的是**仅含字形的图层**，底板和投影是在循环结束后才合成上去的。
+
+原型第一版把底板一起算进了测量，16 px 上立刻偏离（`measured=13, desired=9`）。改为单独测量字形层后 9 档全部收敛到 `err=0`。**这是移植时最容易踩的坑**：底板会主导 `source_ratio`，让校正循环朝错误方向收敛。
 
 ### 性能
 
@@ -45,9 +68,8 @@ GJS 约为 Python 的 1.8 倍。按 74 个图标计约 4 秒，且这发生在**
 
 | 项 | 说明 |
 | --- | --- |
-| `glyph` 路径 | 需要实现 `make_plate()`（自适应底板 + 阴影 + 高斯模糊）与 `superellipse_mask()` |
-| SVG 源图 | 现有后端经 GdkPixbuf 处理，原型只验证了 PNG |
-| 其余 I/O | 见下 |
+| SVG 源图 | 原型只验证了 PNG；现有后端对 SVG 走 GdkPixbuf 加载，需单独确认 |
+| 编排逻辑 | 扫描、分类、写主题、manifest —— 见下节 |
 
 ## 移植规模的重新估算
 
