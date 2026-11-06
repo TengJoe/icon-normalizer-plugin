@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Run every documented quality gate (Q1-Q13). Exit non-zero on the first failure.
+# Usage: tools/verify.sh [--quick]   (--quick skips the display-dependent gates)
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT" || exit 2
+
+QUICK=0
+[ "${1:-}" = "--quick" ] && QUICK=1
+
+# Display-dependent gates need the session bus and a compositor.
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then export XDG_RUNTIME_DIR="/run/user/$(id -u)"; fi
+if [ -z "${WAYLAND_DISPLAY:-}" ] && [ -S "$XDG_RUNTIME_DIR/wayland-0" ]; then export WAYLAND_DISPLAY=wayland-0; fi
+if [ -z "${DISPLAY:-}" ] && [ -S /tmp/.X11-unix/X0 ]; then export DISPLAY=:0; fi
+
+PASS=0; FAIL=0; SKIP=0
+run() {
+    local id="$1" name="$2"; shift 2
+    printf "  %-4s %-38s " "$id" "$name"
+    if "$@" >/tmp/verify-step.log 2>&1; then
+        printf "PASS\n"; PASS=$((PASS+1))
+    else
+        printf "FAIL\n"; FAIL=$((FAIL+1)); sed "s/^/       /" /tmp/verify-step.log | tail -12
+    fi
+}
+
+skip() { printf "  %-4s %-38s SKIP (%s)\n" "$1" "$2" "$3"; SKIP=$((SKIP+1)); }
+
+echo "Icon Normalizer — quality gates"
+echo
+
+run Q1  "mypy strict"        python3 -m mypy
+run Q2  "backend tests"      bash -c "cd backend && python3 -m unittest discover -s ../tests/backend -t ../tests/backend -q"
+run Q3  "frontend syntax"    node tests/frontend/syntax-check.mjs
+run Q4  "frontend logic"     bash -c "npm run lint --silent && npm run test:logic --silent"
+run Q5  "installation tests" python3 -m unittest discover -s tests/installation -p "test_*.py" -q
+run Q6  "build"              python3 tools/build.py
+run Q7  "protocol tests"     bash -c "cd backend && python3 -m unittest discover -s ../tests/backend -t ../tests/backend -p \"test_protocol.py\" -q"
+
+if [ "$QUICK" = "1" ]; then
+    skip Q8  "GTK runtime"            "--quick"
+    skip Q10 "isolated GNOME Shell"   "--quick"
+else
+    run Q8  "GTK runtime"        python3 tests/frontend/test_runtime.py
+    run Q9  "indicator regression" node --experimental-vm-modules tests/frontend/indicator.test.mjs
+    run Q10 "isolated GNOME Shell" python3 tests/frontend/headless_shell.py
+fi
+
+if [ "$QUICK" = "1" ]; then
+    skip Q9  "indicator regression"   "--quick"
+fi
+
+run Q11 "i18n catalogue"     node --experimental-vm-modules tests/frontend/i18n.test.mjs
+run Q12 "backend client"     node --experimental-vm-modules tests/frontend/backendClient.test.mjs
+run Q13 "release + privacy"  bash -c "python3 tools/release_audit.py --submission >/dev/null && python3 tools/privacy_audit.py >/dev/null"
+
+echo
+echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"
+[ "$FAIL" -eq 0 ] || exit 1

@@ -14,16 +14,12 @@ python3 tools/install.py --assume-yes     # 安装扩展 + 后台 + systemd 用�
 python3 tools/build.py                    # 构建 dist/ 产物（ZIP + tar.gz + 清单）
 python3 tools/release_audit.py --submission && python3 tools/privacy_audit.py
 
-# 全部质量门（缺一不可 —— 安装层测试曾抓到 pyproject 版本不一致）
-python3 -m mypy                                              # Q1 严格类型
-cd backend && python3 -m unittest discover -s ../tests/backend -t ../tests/backend -q  # Q2
-cd .. && node tests/frontend/syntax-check.mjs                 # Q3
-npm run lint && npm run test:logic                            # Q4
-python3 -m unittest discover -s tests/installation -p "test_*.py" -q   # Q5
-python3 tools/build.py                                        # Q6（产物可复现）
-python3 tools/release_audit.py --submission                   # Q10
-python3 tools/privacy_audit.py                                # Q10
+# 一条命令跑完全部 13 个质量门（--quick 跳过需要显示服务的 Q8/Q10）
+bash tools/verify.sh
+bash tools/verify.sh --quick
 ```
+
+脚本会打印每道门的结果并统计，任一失败即返回非零。2026-11-06 实测：**13/13 通过**。
 
 构建是**可复现**的：同一份源码（含全新克隆）产出的 ZIP 与 tar 的 SHA-256 完全一致。
 

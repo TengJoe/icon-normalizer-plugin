@@ -9,6 +9,7 @@
 - 发布审计 `tools/release_audit.py --submission`：**14/14 检查通过、0 警告**。
 - 隐私审计 `tools/privacy_audit.py`：**0 findings**（当前 183 个文件与成员）。
 - 产出质量审计见 [AUDIT-2026-11-06.md](AUDIT-2026-11-06.md)：625 个 PNG，0 个偏心，2 个最小尺寸 1px 取整。
+- 一键验证脚本 `bash tools/verify.sh` 实测 **13/13 通过**（`--quick` 跳过需要显示服务的 Q8/Q10）。
 - 隔离 Shell 验收（Q10）实测通过：`{"ok":true,"shell":"51.0","state":"ACTIVE","menu_items":7,"bilingual":true,"automation_guard":true,"scan":true,"apply":true,"disable_reenable":true,"theme_cycles":2,"custom_gtk_preserved":true}`，证据含中英文顶栏截图。
 - 运行时验收（Q8）实测通过 15 项；`responsive-smoke`、`health-smoke`、`about-smoke`、`profiles-smoke` 亦通过（调用方式见 [MAINTENANCE.md](MAINTENANCE.md)）。
 - 送审材料：`dist/icon-normalizer@joeydeng.local.zip` + [REVIEWER-NOTE.md](REVIEWER-NOTE.md)；上传需人工在浏览器完成，且**会驳回当前待审版本**。
