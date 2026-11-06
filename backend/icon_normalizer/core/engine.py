@@ -40,6 +40,7 @@ from .classification import (
     classify_source,
     describe_rule,
     lookup_rule,
+    lookup_rule_ex,
     resolve_rule,
 )
 from .renderer import normalize
@@ -271,6 +272,16 @@ class Engine:
 
         old_cache = old.get("analysis_cache", {})
         old_items = old.get("items", {})
+        # Previous source paths let a rule follow its icon when an application
+        # re-exports the same artwork into a different size directory.
+        previous_paths: dict[str, str] = {}
+        for key, item in old_items.items():
+            if not isinstance(item, dict) or not item.get("source_path"):
+                continue
+            source = str(item["source_path"])
+            previous_paths[key] = source
+            # Protocol v1 rule keys are SHA-256 digests of the icon string.
+            previous_paths.setdefault(sha_hex(key.encode()), source)
         policy = self.config.policy
         sizes = list(policy.sizes)
 
@@ -312,7 +323,7 @@ class Engine:
         if analysis_jobs:
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as pool:
                 futures: dict[Any, str] = {
-                    pool.submit(self._analyze_one, icon, path, digest): icon
+                    pool.submit(self._analyze_one, icon, path, digest, previous_paths): icon
                     for icon, path, digest in analysis_jobs
                 }
                 for future, icon in futures.items():
@@ -364,8 +375,11 @@ class Engine:
                 "source_ratio": metrics.source_ratio,
                 **decision.as_dict(),
             }
-            raw_rule = lookup_rule(self.config.user_rules, icon)
-            _rule_decision, rule_state, rule_detail = describe_rule(raw_rule, digest)
+            raw_rule, rule_matched_by = lookup_rule_ex(
+                self.config.user_rules, icon, previous_paths)
+            _rule_decision, rule_state, rule_detail = describe_rule(
+                raw_rule, digest, rule_matched_by)
+            row["rule_matched_by"] = rule_matched_by
             row["rule_state"] = rule_state
             if rule_detail:
                 row["rule_detail"] = rule_detail
@@ -494,11 +508,13 @@ class Engine:
         )
 
     # ------------------------------------------------------------- workers
-    def _analyze_one(self, icon: str, path: Path, digest: str) -> dict[str, Any]:
+    def _analyze_one(self, icon: str, path: Path, digest: str,
+                     path_by_key: dict[str, str] | None = None) -> dict[str, Any]:
         img, _meta = load_image(path)
         metrics = analyze(img)
         classification, auto_class = classify_source(
-            icon, digest, metrics, self.config.overrides, self.config.user_rules)
+            icon, digest, metrics, self.config.overrides, self.config.user_rules,
+            path_by_key)
         cls, reason, confidence = classification.cls, classification.reason, classification.confidence
         return {
             "metrics": metrics,
