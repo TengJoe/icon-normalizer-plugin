@@ -55,6 +55,10 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 <td valign="top"><strong>Adaptive bilingual interface</strong><br>Use wide or narrow windows and switch languages while keeping your page, search, and unsaved draft.</td>
 <td valign="top"><strong>Health diagnostics and safe recovery</strong><br>Show backend faults with bilingual details; restore managed changes and stop before overwriting external edits.</td>
 </tr>
+<tr>
+<td valign="top"><strong>Visible, fixable rules</strong><br>Every icon shows where its class came from (automatic, user rule, reviewed). When a rule stops matching, Maintenance warns you, the panel can notify you, and one click resets it.</td>
+<td valign="top"><strong>Keeps up with app updates</strong><br>Rules follow artwork that moves to another size directory; square-cornered plates can switch to a rounded plate; stale artwork is cleaned from the theme.</td>
+</tr>
 </table>
 
 ## Quick start
@@ -114,8 +118,8 @@ After a top bar code upgrade, save your work and log out and back in to refresh 
 
 | Page | Common actions |
 | --- | --- |
-| **Rules** | Adjust settings, choose a preset or named profile, then use **Save only** or **Save and apply** |
-| **App Icons** | Search, filter, compare original and proposed artwork, and manage per-icon skip rules |
+| **Rules** | Adjust settings, choose a preset or named profile, and review or edit per-icon rules (change class or reset to automatic) |
+| **App Icons** | Search, filter (including **With rules**), compare original and proposed artwork, and manage per-icon skip rules |
 | **Maintenance** | View status, check or apply icons, activate the theme, and configure maintenance, theme following, language, and the top bar button |
 
 **Suggested flow: preview → adjust settings → save and apply.** The Standard preset is **88% / ±2 percentage points / 72%**, with output sizes of `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`.
@@ -137,6 +141,21 @@ While the extension is enabled, standard Yaru GTK themes follow the system color
 Changing the GTK or GNOME Shell appearance theme keeps your visual settings. Selecting the current source theme does not force overlay activation; choose **Apply and activate** to enable the normalized theme again.
 
 User-level `path` monitoring detects launcher changes; a `timer` checks every minute as a fallback. Completion time depends on the events and number of icons. Closing Preferences or locking the screen does not stop maintenance.
+
+</details>
+
+<details>
+<summary>An app changed its icon — do my rules still apply?</summary>
+
+Rules bind to the source fingerprint. When an app replaces its artwork the fingerprint changes and the rule stops applying, falling back to automatic classification. This is no longer silent:
+
+- Maintenance shows “N icon rules no longer apply”; **Details** lists each app, error code and current fingerprint, with a one-click **Reset to automatic**;
+- the panel indicator (when enabled) sends a single desktop notification, which you can turn off under **Maintenance → Notify me when rules stop matching** — the same problem is not reported twice;
+- the **Rules** page lists per-icon rules with a class dropdown and a **Reset** button;
+- artwork that only moved to another size directory is matched automatically by file name;
+- square-cornered plates can switch to `plate-rounded` (the preview dialog suggests it).
+
+Command line: `status.rules_health` and `doctor.checks.rules`; see [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
 
 </details>
 
