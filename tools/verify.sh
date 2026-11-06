@@ -22,6 +22,14 @@ run() {
         printf "PASS\n"; PASS=$((PASS+1))
     else
         printf "FAIL\n"; FAIL=$((FAIL+1)); sed "s/^/       /" /tmp/verify-step.log | tail -12
+        # A fullscreen or maximised window on top of the session stops Wayland
+        # from sending frame callbacks to the fixture window, which looks like a
+        # regression but is not one. Say so instead of leaving a bare FAIL.
+        if grep -q "did not complete the requested allocation" /tmp/verify-step.log; then
+            printf "       hint: the GTK fixture window could not paint.\n"
+            printf "       hint: keep the desktop visible (no fullscreen window on top)\n"
+            printf "       hint: or run bash tools/verify.sh --quick to skip this gate.\n"
+        fi
     fi
 }
 
