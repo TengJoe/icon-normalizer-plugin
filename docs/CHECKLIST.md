@@ -57,10 +57,10 @@
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
 | Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 当前全部测试 OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与关于页面 |
 | Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 15/15，图标、双语、状态/错误、路由、规则通知（含开关与去重）、销毁与重启、主题监听与旧后台守卫 |
-| Q11 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
 | Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部当前翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
+| Q13 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、
 GSettings memory 后端、只记录 fixture 状态的 systemctl；临时 HOME 本身不提供会话隔离。
