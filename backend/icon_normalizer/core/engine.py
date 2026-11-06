@@ -876,17 +876,25 @@ class Engine:
         payload["summary"]["cache_valid"] = self.cache_valid()
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
         payload["summary"]["theme_active"] = payload["summary"]["active_theme"] == self.theme_name
+        previous = self.state_dir / "last-run.json"
+        previous_run = read_json_file(previous) or {}
+        if not isinstance(previous_run, dict):
+            previous_run = {}
         if payload.get("rule_warnings"):
             health.record_event(self.state_dir, "degraded", {
                 "code": "RULE_STALE",
                 "operation": "sync",
                 "count": len(payload["rule_warnings"]),
             })
+        elif previous_run.get("rule_warnings"):
+            # Close the loop in the health history: the previous run had stale
+            # rules, this one does not.
+            health.record_event(self.state_dir, "recovered", {
+                "code": "RULE_STALE",
+                "operation": "sync",
+                "count": 0,
+            })
         record = {key: value for key, value in payload.items() if key != "apps"}
-        previous = self.state_dir / "last-run.json"
-        previous_run = read_json_file(previous) or {}
-        if not isinstance(previous_run, dict):
-            previous_run = {}
         record["checked_at_unix"] = time.time()
         output_changed = opcount > 0 and any(
             path.is_relative_to(self.theme_dir) or path.is_relative_to(self.apps_dir)

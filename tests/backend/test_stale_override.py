@@ -62,5 +62,13 @@ class StaleOverrideIsReported(unittest.TestCase):
         overrides = _json.loads((self.box.state / "overrides.json").read_text())
         self.assertEqual(overrides.get("icons"), {})
 
+        # A follow-up run without warnings must record a recovery.
+        self.apply()
+        events = _json.loads((self.box.state / "health-events.json").read_text())
+        history = events if isinstance(events, list) else events.get("history", [])
+        kinds = [e.get("kind") for e in history]
+        self.assertIn("degraded", kinds)
+        self.assertIn("recovered", kinds)
+
 if __name__ == "__main__":
     unittest.main()
