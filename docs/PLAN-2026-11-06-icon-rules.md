@@ -128,7 +128,7 @@
 - `control.py doctor` 增加 `--rules`：输出规则总数、失效数、未绑定数、最近迁移记录。
 - `icon-normalizer status --json` 增加 `rules_health` 字段，便于外部监控。
 
-### OPT-5 文档与测试 🟡 部分完成（MAINTENANCE 应急章节已加，1.1.17）
+### OPT-5 文档与测试 ✅ 已实现（ADR-0005、MAINTENANCE 应急章节 1.1.17；各版本均补充测试）
 - 新增 `docs/adr/0005-icon-rule-model.md`（规则生命周期：bind → active → stale → rebind/reset）。
 - `docs/MAINTENANCE.md` 增加"源图变更应急处理"章节（本次复盘作为案例）。
 - 新增测试：`test_rule_staleness.py`、`test_rule_rebind.py`、`test_plate_rounded.py`、`test_schema_alias.py`、`test_skip_keep_desktop.py`。
