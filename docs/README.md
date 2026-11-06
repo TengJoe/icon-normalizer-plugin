@@ -1,6 +1,6 @@
 # 文档索引 / Documentation index
 
-[使用说明（中文）](../README.md) · [User guide (English)](../README.en.md) · [贡献指南 / Contributing](../CONTRIBUTING.md)
+[使用说明（中文）](../README.md) · [User guide (English)](../README.en.md) · [贡献指南 / Contributing](../CONTRIBUTING.md) · **[接手说明 / Handover](HANDOVER.md)**
 
 ## 使用说明 / Usage
 
