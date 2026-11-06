@@ -215,6 +215,9 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         follows_theme = None
         follow_error = {"code": exc.code, "message": exc.message, "details": exc.details,
                         "operation": "theme.sync"}
+    rule_warnings = []
+    if isinstance(last_run, dict):
+        rule_warnings = last_run.get("rule_warnings") or []
     rules_health = None
     apps_rows = read_json_file(paths.last_run_apps_path)
     if isinstance(apps_rows, list):
@@ -276,6 +279,7 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         "last_scan_at": _iso(last_scan, "checked_at_unix"),
         "summary": summary,
         "rules_health": rules_health,
+        "rule_warnings": rule_warnings,
         "stale": stale,
         "last_error": error,
         "theme_follow": follows_theme,

@@ -18,7 +18,8 @@ const mocks = {
     [new URL('prefs/requestScope.js', root).href]: {WindowScope: class {}},
     [new URL('prefs/about.js', root).href]: {About: class {}},
     [new URL('prefs/uiCommon.js', root).href]: Object.fromEntries([
-        'actionButton', 'actionGroup', 'bindSwitch', 'configurePage', 'noticeRow', 'statusBadge', 'toast',
+        'actionButton', 'actionGroup', 'bindSwitch', 'configurePage', 'noticeRow', 'presentDialog',
+        'statusBadge', 'toast',
     ].map(name => [name, () => {}])),
 };
 const modules = new Map();

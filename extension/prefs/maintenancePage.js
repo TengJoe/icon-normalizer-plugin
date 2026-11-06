@@ -10,7 +10,8 @@ import {WindowScope} from './requestScope.js';
 import {runApplyFlow} from '../shared/applyFlow.js';
 import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth,
     actionsSummary} from '../shared/stateModel.js';
-import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from './uiCommon.js';
+import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, presentDialog,
+    statusBadge, toast} from './uiCommon.js';
 import {About} from './about.js';
 
 export class MaintenancePage {
@@ -149,6 +150,57 @@ export class MaintenancePage {
         this.refresh();
     }
 
+    _showRuleWarnings() {
+        const warnings = this._ruleWarnings ?? [];
+        const box = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL, spacing: 12,
+            margin_top: 12, margin_bottom: 12, margin_start: 12, margin_end: 12});
+        if (!warnings.length) {
+            box.append(new Gtk.Label({label: t('没有失效的图标规则。')}));
+        } else {
+            const group = new Adw.PreferencesGroup({title: t('失效的图标规则')});
+            for (const warning of warnings) {
+                const fallback = String(warning.icon_name ?? '').split('/').pop();
+                const name = warning.names?.[0] ?? fallback ?? '—';
+                const detail = warning.detail ?? {};
+                const parts = [warning.error];
+                if (detail.actual_sha256) parts.push(`${String(detail.actual_sha256).slice(0, 12)}…`);
+                const row = new Adw.ActionRow({title: name, subtitle: parts.filter(Boolean).join(' · '),
+                    subtitle_lines: 2});
+                row.add_suffix(actionButton(t('重置为自动'), () => this._resetRule(warning, row)));
+                group.add(row);
+            }
+            box.append(group);
+        }
+        presentDialog(this._win, t('失效的图标规则'), box, {width: 640, height: 460});
+    }
+
+    async _resetRule(warning, row) {
+        const statusEnvelope = await call(this._controlPath, 'status', {}, this._scope);
+        if (this._scope.closed) return;
+        if (!statusEnvelope.ok) {
+            toast(this._win, actionLabel(statusEnvelope.error));
+            return;
+        }
+        const iconId = warning.rule_key;
+        if (!iconId) {
+            toast(this._win, t('无法定位该规则。'));
+            return;
+        }
+        const response = await call(this._controlPath, 'rules.set', {
+            expected_revision: statusEnvelope.result.revision,
+            icon_id: iconId,
+            rule: {reset: true},
+        }, this._scope);
+        if (this._scope.closed) return;
+        if (!response.ok) {
+            toast(this._win, actionLabel(response.error));
+            return;
+        }
+        toast(this._win, t('已重置为自动分类'));
+        row.set_sensitive(false);
+        await this.refresh();
+    }
+
     _dashboardRow(title, initial, cssClass, badgeField) {
         const row = new Adw.ActionRow({title});
         const badge = statusBadge(initial, cssClass);
@@ -213,10 +265,12 @@ export class MaintenancePage {
         this._badgeTheme.set_css_classes(['badge-pill',
             s.overlay_in_use === true ? 'badge-active' : 'badge-keep']);
         this._syncThemeNotice(s.overlay_in_use);
+        this._ruleWarnings = Array.isArray(s.rule_warnings) ? s.rule_warnings : [];
         const ruleWarnings = Number(s.summary?.rule_warnings ?? 0);
         if (Number.isFinite(ruleWarnings) && ruleWarnings > 0) {
             this._ruleNotice.show(t('检测到 {count} 条图标规则已失效：源图或分类发生变化，相关图标已退回自动分类。',
-                {count: ruleWarnings}), {error: true});
+                {count: ruleWarnings}), {error: true, buttonLabel: t('查看详情'),
+                onClick: () => this._showRuleWarnings()});
         } else {
             this._ruleNotice.hide();
         }

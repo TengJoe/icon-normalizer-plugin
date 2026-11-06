@@ -389,6 +389,7 @@ class Engine:
                     "icon_name": icon,
                     "names": names,
                     "error": "RULE_" + rule_state.upper(),
+                    "rule_key": sha_hex(icon.encode()),
                     "detail": rule_detail,
                 })
             if raw_rule and raw_rule.get("skip"):
@@ -510,6 +511,7 @@ class Engine:
                 "icon_name": icon,
                 "names": [],
                 "error": "OVERRIDE_STALE_SOURCE",
+                "rule_key": sha_hex(icon.encode()),
                 "detail": {"expected_sha256": expected, "actual_sha256": current},
             })
         summary = {

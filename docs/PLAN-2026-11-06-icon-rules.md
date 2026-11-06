@@ -117,7 +117,7 @@
 - `maintenancePage.js` 增加"本次运行"卡片：`actions` 分布（shrink/add_plate/keep…）、`planned_file_changes`、耗时、`warnings`。
 - 支持展开查看逐图标差异（旧→新动作、分类来源）。
 
-### OPT-2 规则编辑器
+### OPT-2 规则编辑器 ✅ 已实现核心（失效规则详情 + 一键重置，扩展 1.1.18 / 后台 3.1.15；完整浏览/编辑界面待做）
 - `rulesPage.js` 支持：按应用搜索 → 显示"当前类别 / 来源（auto·user·override）/ SHA / 上次生效时间" → 一键切换类别或重置为自动。
 - 展示"该规则为何未生效"（含 `rule_state` 原因码），取代目前只能读 JSON 的体验。
 

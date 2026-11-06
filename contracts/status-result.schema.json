@@ -262,6 +262,41 @@
         "states",
         "warnings"
       ]
+    },
+    "rule_warnings": {
+      "type": "array",
+      "description": "Per-icon warnings from the last applied run (stale rules/overrides).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "icon_name": {
+            "type": "string"
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "string"
+          },
+          "rule_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "icon_name",
+          "error"
+        ]
+      }
     }
   },
   "required": [
