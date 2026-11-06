@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.1.51 发布说明 / Latest release notes](RELEASE-1.1.51.md) | 当前版本：索引与工具一致性 / Current: index and tooling consistency | 中文 / English |
+| [v1.2.0 发布说明 / Latest release notes](RELEASE-1.2.0.md) | 当前版本：规则可靠性（自 1.1.8 以来首个用户发布）/ Current: rule reliability, first user release since 1.1.8 | 中文 / English |
+| [v1.1.51 发布说明](RELEASE-1.1.51.md) | 开发过程版本（未公开发布）/ Development-only version | 中文 / English |
 | [v1.1.50 发布说明](RELEASE-1.1.50.md) | 文档与工具一致性 / Documentation and tooling consistency | 中文 / English |
 | [v1.1.30 发布说明](RELEASE-1.1.30.md) | 规则生命周期文档写入 README / Rule lifecycle documented in the READMEs | 中文 / English |
 | [v1.1.29 发布说明](RELEASE-1.1.29.md) | 健康事件闭环（degraded → recovered） / Health events close the loop | 中文 / English |

@@ -107,6 +107,32 @@ check_doc_versions() {
 }
 run Q16 "docs match the current version" check_doc_versions
 
+# Q17 machine-checks CONTRIBUTING.md line 30: documentation maintenance must not
+# mint a new version. A PATCH bump has to come with a real code change in the same
+# commit; MINOR and MAJOR bumps are deliberate releases and may stand alone.
+check_version_bump_discipline() {
+    if ! git rev-parse --git-dir >/dev/null 2>&1 || ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+        return 0
+    fi
+    local prev_ver now_ver touched
+    prev_ver=$(git show HEAD~1:extension/metadata.json 2>/dev/null \
+        | python3 -c "import json,sys;print(json.load(sys.stdin).get('version-name',''))" 2>/dev/null)
+    now_ver=$(python3 -c "import json;print(json.load(open('extension/metadata.json'))['version-name'])")
+    [ -z "$prev_ver" ] && return 0
+    [ "$prev_ver" = "$now_ver" ] && return 0          # no bump at all: fine
+    [ "${prev_ver%.*}" != "${now_ver%.*}" ] && return 0  # minor/major: deliberate release
+    touched=$(git diff --name-only HEAD~1..HEAD -- extension backend \
+        | grep -vE '^(extension/metadata\.json|backend/icon_normalizer/version\.py)$' \
+        | wc -l)
+    if [ "$touched" -eq 0 ]; then
+        echo "patch bump $prev_ver -> $now_ver without any code change in the same commit"
+        echo "documentation, tests and tooling must not mint a version (see docs/RELEASING.md)"
+        return 1
+    fi
+    return 0
+}
+run Q17 "no patch bump without code" check_version_bump_discipline
+
 echo
 echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"
 [ "$FAIL" -eq 0 ] || exit 1
