@@ -14,11 +14,18 @@ python3 tools/install.py --assume-yes     # 安装扩展 + 后台 + systemd 用�
 python3 tools/build.py                    # 构建 dist/ 产物（ZIP + tar.gz + 清单）
 python3 tools/release_audit.py --submission && python3 tools/privacy_audit.py
 
-# 后端测试
-cd backend && python3 -m unittest discover -s ../tests/backend -t ../tests/backend -q
-# 前端测试
-cd .. && npm run lint && npm run test:logic
+# 全部质量门（缺一不可 —— 安装层测试曾抓到 pyproject 版本不一致）
+python3 -m mypy                                              # Q1 严格类型
+cd backend && python3 -m unittest discover -s ../tests/backend -t ../tests/backend -q  # Q2
+cd .. && node tests/frontend/syntax-check.mjs                 # Q3
+npm run lint && npm run test:logic                            # Q4
+python3 -m unittest discover -s tests/installation -p "test_*.py" -q   # Q5
+python3 tools/build.py                                        # Q6（产物可复现）
+python3 tools/release_audit.py --submission                   # Q10
+python3 tools/privacy_audit.py                                # Q10
 ```
+
+构建是**可复现**的：同一份源码（含全新克隆）产出的 ZIP 与 tar 的 SHA-256 完全一致。
 
 ## 目录地图
 
