@@ -1,5 +1,17 @@
 # 发布验收清单
 
+## 1.1.34 / 3.1.20 发布验收（2026-11-06）
+
+当前组件版本为 **1.1.34 / 3.1.20**（渲染核心 3）；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
+
+- 后端全量 **253 项**、前端 **5 组套件**（逻辑 13/13 ×2、指示器 15/15、维护页 11/11、状态模型 17/17、i18n 5/5）全部通过。
+- `npm run lint` 零告警；`glib-compile-schemas --strict` 通过。
+- 发布审计 `tools/release_audit.py --submission`：**14/14 检查通过、0 警告**。
+- 隐私审计 `tools/privacy_audit.py`：**0 findings**（当前 183 个文件与成员）。
+- 产出质量审计见 [AUDIT-2026-11-06.md](AUDIT-2026-11-06.md)：625 个 PNG，0 个偏心，2 个最小尺寸 1px 取整。
+- 送审材料：`dist/icon-normalizer@joeydeng.local.zip` + [REVIEWER-NOTE.md](REVIEWER-NOTE.md)；上传需人工在浏览器完成，且**会驳回当前待审版本**。
+- 交接与已知限制见 [HANDOVER.md](HANDOVER.md)。
+
 ## 1.1.8 / 3.1.6 发布验收（2026-11-03）
 
 当前组件版本为 1.1.8 / 3.1.6；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
@@ -42,7 +54,8 @@
 | Q6 | 构建产物 | `python3 tools/build.py` | `glib-compile-schemas --strict` 无告警；`dist/` 中 ZIP、完整发行包和 manifest 均生成 |
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
 | Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 当前全部测试 OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与关于页面 |
-| Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 13/13，图标、双语、状态/错误、路由、去重、销毁与重启、主题监听与旧后台守卫 |
+| Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 15/15，图标、双语、状态/错误、路由、规则通知（含开关与去重）、销毁与重启、主题监听与旧后台守卫 |
+| Q10 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
 | Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部当前翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
