@@ -8,7 +8,8 @@ import Adw from 'gi://Adw';
 import {call} from '../shared/backendClient.js';
 import {WindowScope} from './requestScope.js';
 import {runApplyFlow} from '../shared/applyFlow.js';
-import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth} from '../shared/stateModel.js';
+import {actionLabel, supportsProfilesAndThemes, automaticLabel, maintenanceHealth,
+    actionsSummary} from '../shared/stateModel.js';
 import {actionButton, actionGroup, bindSwitch, configurePage, noticeRow, statusBadge, toast} from './uiCommon.js';
 import {About} from './about.js';
 
@@ -58,6 +59,10 @@ export class MaintenancePage {
             subtitle: t('查看冲突文件与首次发生时间')});
         this._rowHealthDetails.add_suffix(this._healthDetails);
         dashboard.add(this._rowHealthDetails);
+        this._rowActions = new Adw.ActionRow({title: t('上次运行处理'),
+            subtitle: t('按图标统计的处理结果')});
+        this._rowActions._normalizerDataProperties = ['subtitle'];
+        dashboard.add(this._rowActions);
         this._rowChecked = new Adw.ActionRow({title: t('最近检查成功')});
         this._rowUpdated = new Adw.ActionRow({title: t('最近更新')});
         this._rowChecked._normalizerDataProperties = ['subtitle'];
@@ -192,6 +197,11 @@ export class MaintenancePage {
         this._rowHealth.set_subtitle(health.detail || '');
         this._healthDetails.set_visible(Boolean(s.last_error));
         this._rowHealthDetails.set_visible(Boolean(s.last_error));
+        const actions = actionsSummary(s.summary);
+        const files = s.summary?.planned_file_changes;
+        this._rowActions.set_subtitle(actions
+            ? (Number.isFinite(files) ? `${actions} · ${t('文件改动 {count} 项', {count: files})}` : actions)
+            : '—');
         this._rowChecked.set_subtitle(s.last_check_at ? formatAppliedTime(s.last_check_at) : '—');
         this._rowUpdated.set_subtitle(s.last_apply_at ? formatAppliedTime(s.last_apply_at) : t('暂无更新记录'));
         // Badge widths stay uniform: short words only; details live in subtitles.

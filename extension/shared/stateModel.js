@@ -97,6 +97,20 @@ export function badgeFor(group) {
     }
 }
 
+export function actionsSummary(summary) {
+    const actions = summary?.actions;
+    if (!actions || typeof actions !== 'object') return '';
+    const order = ['enlarge', 'shrink', 'add_plate', 'keep', 'skipped', 'excluded',
+        'unresolved', 'retain_previous'];
+    const parts = [];
+    for (const key of order) {
+        const count = actions[key];
+        if (!Number.isFinite(count) || count <= 0) continue;
+        parts.push(`${badgeFor({action: key}).label} ${count}`);
+    }
+    return parts.join(' · ');
+}
+
 export function groupMatchesFilter(group, filterId) {
     switch (filterId) {
         case 'changed':

@@ -32,6 +32,13 @@ test('badgeFor covers every action', () => {
     assert.equal(m.badgeFor({}).label, '—');
 });
 
+test('actionsSummary lists non-zero actions in a stable order', () => {
+    assert.equal(m.actionsSummary({actions: {enlarge: 6, shrink: 59, add_plate: 4, keep: 14, excluded: 2}}),
+        '放大 6 · 缩小 59 · 补底板 4 · 保持 14 · 已排除 2');
+    assert.equal(m.actionsSummary({actions: {keep: 1}}), '保持 1');
+    assert.equal(m.actionsSummary({}), '');
+    assert.equal(m.actionsSummary(null), '');
+});
 test('groupMatchesFilter semantics', () => {
     assert.equal(m.groupMatchesFilter({action: 'enlarge'}, 'changed'), true);
     assert.equal(m.groupMatchesFilter({action: 'shrink'}, 'changed'), true);

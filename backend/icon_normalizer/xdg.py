@@ -85,6 +85,11 @@ class RuntimePaths:
         return self.state_dir / "last-run.json"
 
     @property
+    def last_run_apps_path(self) -> Path:
+        """Per-icon detail of the last applied run."""
+        return self.state_dir / "last-run-apps.json"
+
+    @property
     def last_scan_path(self) -> Path:
         return self.state_dir / "last-scan.json"
 

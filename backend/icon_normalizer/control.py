@@ -215,6 +215,19 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         follows_theme = None
         follow_error = {"code": exc.code, "message": exc.message, "details": exc.details,
                         "operation": "theme.sync"}
+    rules_health = None
+    apps_rows = read_json_file(paths.last_run_apps_path)
+    if isinstance(apps_rows, list):
+        states = {key: 0 for key in ("active", "stale_source", "unbound", "invalid", "none")}
+        for row in apps_rows:
+            state = row.get("rule_state") if isinstance(row, dict) else None
+            if state in states:
+                states[state] += 1
+        rules_health = {
+            "states": states,
+            "warnings": len(last_run.get("rule_warnings") or [])
+            if isinstance(last_run, dict) else 0,
+        }
     summary = None
     stale = True
     if last_run and last_run.get("summary") and manifest:
@@ -262,6 +275,7 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         "last_check_at": _iso(last_run, "checked_at_unix"),
         "last_scan_at": _iso(last_scan, "checked_at_unix"),
         "summary": summary,
+        "rules_health": rules_health,
         "stale": stale,
         "last_error": error,
         "theme_follow": follows_theme,

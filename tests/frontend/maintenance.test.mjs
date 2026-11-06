@@ -50,7 +50,8 @@ function page() {
         this.visible = true; this.text = text; this.options = options;}};
     for (const name of ['_badgeHealth', '_rowHealth', '_healthDetails', '_rowHealthDetails', '_rowChecked',
         '_rowUpdated', '_rowTheme', '_badgeVersion', '_badgeTheme', '_badgeManaged', '_badgeAuto', '_lblRev',
-        '_autoRow', '_followRow', '_btnScan', '_btnApply', '_btnActivate', '_btnRevert']) result[name] = widget();
+        '_autoRow', '_followRow', '_btnScan', '_btnApply', '_btnActivate', '_btnRevert',
+        '_rowActions']) result[name] = widget();
     result._setAuto = value => {result.automaticToggle = value;}; result._setFollow = () => {};
     return result;
 }
@@ -59,6 +60,9 @@ const healthy = {ok: true, result: {installed: true, backend_version: '3.1.6', r
     summary: {managed_icons: 1}}};
 const inactive = {ok: true, result: {...healthy.result, overlay_in_use: false}};
 const ioError = {ok: false, error: {code: 'IO_ERROR'}};
+const withActions = {ok: true, result: {...healthy.result,
+    summary: {managed_icons: 3, rule_warnings: 0, planned_file_changes: 11,
+        actions: {enlarge: 6, shrink: 59, add_plate: 4, keep: 14}}}};
 const staleRules = {ok: true, result: {...healthy.result,
     summary: {managed_icons: 1, rule_warnings: 2}}};
 const noRuleWarnings = {ok: true, result: {...healthy.result,
@@ -170,6 +174,15 @@ test('a clean run hides the stale-rule notice', async () => {
     responses.push(noRuleWarnings);
     await target.refresh();
     assert.equal(target._ruleNotice.visible, false);
+});
+
+test('dashboard shows the last run action mix', async () => {
+    const target = page();
+    responses.push(withActions);
+    await target.refresh();
+    assert.match(target._rowActions.subtitle, /缩小 59/);
+    assert.match(target._rowActions.subtitle, /补底板 4/);
+    assert.match(target._rowActions.subtitle, /文件改动 11 项/);
 });
 
 for (const [name, fn] of tests) {

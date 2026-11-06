@@ -113,7 +113,7 @@
 
 ## 三、优化方案
 
-### OPT-1 运行结果可见化
+### OPT-1 运行结果可见化 ✅ 已实现（扩展 1.1.16 / 后台 3.1.14）
 - `maintenancePage.js` 增加"本次运行"卡片：`actions` 分布（shrink/add_plate/keep…）、`planned_file_changes`、耗时、`warnings`。
 - 支持展开查看逐图标差异（旧→新动作、分类来源）。
 
@@ -124,7 +124,7 @@
 ### OPT-3 可选通知
 - 仅当**手动规则**进入 `stale_source` 或**重新绑定失败**时发送桌面通知（`Main.notify`），避免打扰。
 
-### OPT-4 诊断增强
+### OPT-4 诊断增强 ✅ 已实现（`status.rules_health`，扩展 1.1.16 / 后台 3.1.14；`doctor --rules` 待做）
 - `control.py doctor` 增加 `--rules`：输出规则总数、失效数、未绑定数、最近迁移记录。
 - `icon-normalizer status --json` 增加 `rules_health` 字段，便于外部监控。
 

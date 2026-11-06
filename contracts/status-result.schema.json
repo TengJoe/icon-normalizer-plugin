@@ -211,6 +211,57 @@
         "null"
       ],
       "format": "date-time"
+    },
+    "rules_health": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Per-state rule counts derived from the last applied run.",
+      "additionalProperties": false,
+      "properties": {
+        "states": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "active": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stale_source": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unbound": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "invalid": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "none": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "active",
+            "stale_source",
+            "unbound",
+            "invalid",
+            "none"
+          ]
+        },
+        "warnings": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "states",
+        "warnings"
+      ]
     }
   },
   "required": [
