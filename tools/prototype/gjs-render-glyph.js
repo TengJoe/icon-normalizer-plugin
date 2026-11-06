@@ -178,7 +178,12 @@ function shadowSurface(size, targetPx, origin, dy) {
     return surfaceFromPixbuf(pb, size);
 }
 
-const img = GdkPixbuf.Pixbuf.new_from_file(src);
+// Mirror resolver.load_image(): SVG is rasterized by GdkPixbuf at 1024 px,
+// raster sources are read as-is.
+const isVector = /\.svgz?$/i.test(src);
+const img = isVector
+    ? GdkPixbuf.Pixbuf.new_from_file_at_scale(src, 1024, 1024, true)
+    : GdkPixbuf.Pixbuf.new_from_file(src);
 const srcPb = img.get_has_alpha() ? img : img.add_alpha(false, 0, 0, 0);
 const metrics = analyze(srcPb);
 if (!metrics) { printerr('no opaque core'); System.exit(2); }
