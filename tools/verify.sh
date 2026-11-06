@@ -43,13 +43,10 @@ if [ "$QUICK" = "1" ]; then
     skip Q10 "isolated GNOME Shell"   "--quick"
 else
     run Q8  "GTK runtime"        python3 tests/frontend/test_runtime.py
-    run Q9  "indicator regression" node --experimental-vm-modules tests/frontend/indicator.test.mjs
     run Q10 "isolated GNOME Shell" python3 tests/frontend/headless_shell.py
 fi
 
-if [ "$QUICK" = "1" ]; then
-    skip Q9  "indicator regression"   "--quick"
-fi
+run Q9  "indicator regression" node --experimental-vm-modules tests/frontend/indicator.test.mjs
 
 run Q11 "i18n catalogue"     node --experimental-vm-modules tests/frontend/i18n.test.mjs
 run Q12 "backend client"     node --experimental-vm-modules tests/frontend/backendClient.test.mjs
