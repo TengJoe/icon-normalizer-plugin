@@ -394,7 +394,9 @@ class Engine:
             if raw_rule and raw_rule.get("skip"):
                 row["action"] = "skipped"
                 row["reason"] = "user_skip"
-                self._apply_skip(icon, path, digest, row, old, items, desired_desktops, changes)
+                self._apply_skip(icon, path, digest, row, old, items, desired_desktops,
+                                 changes, used_overrides,
+                                 bool(raw_rule.get("keep_desktop_override")))
                 rows.append(row)
                 continue
             rows.append(row)
@@ -700,6 +702,8 @@ class Engine:
         items: dict[str, dict[str, Any]],
         desired_desktops: dict[str, dict[str, Any]],
         changes: dict[Path, bytes | None],
+        used_overrides: set[str],
+        keep_desktop: bool = False,
     ) -> None:
         prior = old.get("items", {}).get(icon)
         if not prior:
@@ -710,6 +714,13 @@ class Engine:
                 changes[target] = None
         for target_str, record in old.get("desktop_overrides", {}).items():
             if record["source_icon"] != icon:
+                continue
+            if keep_desktop:
+                # The user asked to keep their launcher untouched while the
+                # plugin stops managing this icon (custom artwork scenario).
+                # Marking it as used stops the post-pass from restoring or
+                # deleting the file when the record is released.
+                used_overrides.add(target_str)
                 continue
             target = Path(target_str)
             current = target.read_bytes() if target.exists() else None

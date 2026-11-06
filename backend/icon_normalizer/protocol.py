@@ -164,17 +164,24 @@ def parse_rules(args: dict[str, Any]) -> dict[str, Any]:
         reject("INVALID_REQUEST", "rule must be an object", exit_code=2)
     if set(rule) == {"reset"} and rule.get("reset") is True:
         return {"expected_revision": expected, "icon_id": icon_id, "rule": {"reset": True}}
-    if set(rule) == {"skip"}:
+    if "skip" in rule and set(rule) <= {"skip", "keep_desktop_override"}:
         if not isinstance(rule["skip"], bool):
             reject("INVALID_REQUEST", "rule.skip must be a boolean", exit_code=2)
-        return {"expected_revision": expected, "icon_id": icon_id, "rule": {"skip": rule["skip"]}}
-    _no_unknown(rule, ("skip", "classification", "source_sha256"), "rule")
+        parsed: dict[str, Any] = {"skip": rule["skip"]}
+        if "keep_desktop_override" in rule:
+            if not isinstance(rule["keep_desktop_override"], bool):
+                reject("INVALID_REQUEST",
+                       "rule.keep_desktop_override must be a boolean", exit_code=2)
+            parsed["keep_desktop_override"] = rule["keep_desktop_override"]
+        return {"expected_revision": expected, "icon_id": icon_id, "rule": parsed}
+    _no_unknown(rule, ("skip", "classification", "source_sha256",
+                       "keep_desktop_override"), "rule")
     if "skip" not in rule or "classification" not in rule:
         reject("INVALID_REQUEST", "rule requires skip and classification (or reset:true)", exit_code=2)
     if not isinstance(rule["skip"], bool):
         reject("INVALID_REQUEST", "rule.skip must be a boolean", exit_code=2)
     cls = rule["classification"]
-    if cls not in ("auto", "plate-rect", "plate-circle", "artwork", "glyph"):
+    if cls not in ("auto", "plate-rect", "plate-rounded", "plate-circle", "artwork", "glyph"):
         reject("INVALID_REQUEST", "rule.classification invalid", exit_code=2)
     if "source_sha256" in rule and cls == "auto":
         reject("INVALID_REQUEST", "classification=auto must not carry source_sha256", exit_code=2)

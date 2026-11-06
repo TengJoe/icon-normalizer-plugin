@@ -69,5 +69,30 @@ class RenderPlateRounded(unittest.TestCase):
         self.assertEqual((state, decision["class"]), (RULE_STATE_ACTIVE, "plate-rounded"))
 
 
+class RuleAcceptsPlateRounded(unittest.TestCase):
+    """The protocol whitelist must accept the new class."""
+
+    def test_rules_set_accepts_plate_rounded(self):
+        from harness import Sandbox, make_desktop
+        box = Sandbox()
+        try:
+            box.base_icon("rounded", 200)
+            make_desktop(box.system_apps / "rounded.desktop", "Rounded", "rounded")
+            rc, scan = box.call_cli("scan", None)
+            group = scan["result"]["groups"][0]
+            rc2, status = box.call_cli("status", None)
+            rc3, answer = box.call_cli("rules.set", {
+                "expected_revision": status["result"]["revision"],
+                "icon_id": group["icon_id"],
+                "rule": {"skip": False, "classification": "plate-rounded",
+                         "source_sha256": group["source_sha256"]},
+            })
+            self.assertEqual(rc3, 0, answer)
+            self.assertTrue(answer["ok"], answer)
+            self.assertEqual(answer["result"]["rule"]["classification"], "plate-rounded")
+        finally:
+            box.close()
+
+
 if __name__ == "__main__":
     unittest.main()

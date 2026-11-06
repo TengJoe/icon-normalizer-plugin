@@ -88,7 +88,7 @@
 
 ---
 
-### FIX-5（P1）`skip` 不应强制还原桌面文件
+### FIX-5（P1）`skip` 不应强制还原桌面文件 ✅ 已实现（扩展 1.1.12 / 后台 3.1.10）
 
 **现状**：`_apply_skip()` 会 `rewrite_icon_line(current, record["source_icon"])`，导致"自备图标 + skip"无法实现。
 

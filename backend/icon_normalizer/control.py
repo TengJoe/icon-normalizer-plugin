@@ -432,7 +432,7 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
     icons = rules["icons"]
     icon_id = args["icon_id"]
     rule = args["rule"]
-    if set(rule) == {"skip"}:
+    if "skip" in rule and set(rule) <= {"skip", "keep_desktop_override"}:
         previous = icons.get(icon_id)
         if previous is not None and not isinstance(previous, dict):
             reject("INVALID_CONFIG", "现有图标规则损坏；请先检查配置")
@@ -442,7 +442,10 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
                 return {"revision": ctx.revision, "rule": {"reset": True}}
             # The absence of a classification records that this rule exists
             # only to skip the icon; unskipping restores reviewed overrides.
-            icons[icon_id] = {"skip": True}
+            entry: dict[str, Any] = {"skip": True}
+            if rule.get("keep_desktop_override"):
+                entry["keep_desktop_override"] = True
+            icons[icon_id] = entry
         elif not enabled and (previous == {"skip": True} or
                               previous == {"skip": True, "classification": "auto"}):
             # The second shape was created by the pre-3.1.6 frontend.
@@ -455,6 +458,11 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
                 updated["_skip_preserve_auto"] = True
             if not enabled:
                 updated.pop("_skip_preserve_auto", None)
+            if "keep_desktop_override" in rule:
+                if rule["keep_desktop_override"]:
+                    updated["keep_desktop_override"] = True
+                else:
+                    updated.pop("keep_desktop_override", None)
             updated["skip"] = enabled
             icons[icon_id] = updated
     elif rule.get("reset"):
@@ -463,6 +471,8 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
         entry: dict[str, Any] = {"skip": rule["skip"], "classification": rule["classification"]}
         if rule.get("source_sha256"):
             entry["source_sha256"] = rule["source_sha256"]
+        if rule.get("keep_desktop_override"):
+            entry["keep_desktop_override"] = True
         icons[icon_id] = entry
     store.write_rules_if_changed(rules)
     return {"revision": store.revision(), "rule": icons.get(icon_id, {"reset": True})}
