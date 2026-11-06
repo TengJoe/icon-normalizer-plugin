@@ -38,6 +38,7 @@ export const FILTERS = [
     { id: 'keep', label: '保持' },
     { id: 'skipped', label: '已跳过' },
     { id: 'plate', label: '补底板' },
+    { id: 'rules', label: '有规则' },
     { id: 'excluded', label: '已排除' },
 ];
 
@@ -111,8 +112,16 @@ export function actionsSummary(summary) {
     return parts.join(' · ');
 }
 
+export function ruleOriginLabel(group) {
+    if (group?.classification_origin === 'user') return '用户规则';
+    if (group?.classification_origin === 'reviewed') return '已复核';
+    return '';
+}
+
 export function groupMatchesFilter(group, filterId) {
     switch (filterId) {
+        case 'rules':
+            return ['user', 'reviewed'].includes(group?.classification_origin);
         case 'changed':
             return ['enlarge', 'shrink'].includes(group?.action);
         case 'keep':

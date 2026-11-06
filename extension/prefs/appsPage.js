@@ -18,6 +18,7 @@ import {
     groupMatchesFilter,
     groupMatchesSearch,
     groupSubtitle,
+    ruleOriginLabel,
 } from '../shared/stateModel.js';
 import {cachedTexture, configurePage, makePills, observeWindowSize, statusBadge, toast} from './uiCommon.js';
 import {openPreview} from './previewDialog.js';
@@ -259,7 +260,10 @@ export class AppsPage {
         const base = groupSubtitle({...g,
             target_ratio: this._policy?.target,
             inner_target_ratio: this._policy ? this._policy.target * this._policy.inner : undefined});
-        if (g.action !== 'excluded') return base;
+        if (g.action !== 'excluded') {
+            const origin = ruleOriginLabel(g);
+            return origin ? t('{base} · {origin}', {base, origin: t(origin)}) : base;
+        }
         // Surface WHERE the leftover launcher lives so it can be cleaned up.
         const entries = (g.desktop_ids ?? []).join('、');
         return entries ? t('{base} · 残留入口：{entries}', {base, entries}) : base;

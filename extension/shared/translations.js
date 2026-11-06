@@ -130,6 +130,8 @@ export const EN = {
     "图标规则需要处理": "Icon rules need attention",
     "规则失效时通知我": "Notify me when rules stop matching",
     "建议改为圆角底板": "Rounded plate suggested",
+    "有规则": "With rules",
+    "用户规则": "User rule",
     "该图标是满幅直角底板，在圆角图标网格中显得不协调。": "This icon is a square-cornered plate, which looks out of place on a rounded icon grid.",
     "改为圆角": "Use rounded plate",
     "已改为圆角底板": "Switched to a rounded plate",

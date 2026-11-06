@@ -39,6 +39,14 @@ test('actionsSummary lists non-zero actions in a stable order', () => {
     assert.equal(m.actionsSummary({}), '');
     assert.equal(m.actionsSummary(null), '');
 });
+test('the rules filter selects icons with a manual or reviewed classification', () => {
+    assert.equal(m.groupMatchesFilter({classification_origin: 'user'}, 'rules'), true);
+    assert.equal(m.groupMatchesFilter({classification_origin: 'reviewed'}, 'rules'), true);
+    assert.equal(m.groupMatchesFilter({classification_origin: 'automatic'}, 'rules'), false);
+    assert.equal(m.ruleOriginLabel({classification_origin: 'user'}), '用户规则');
+    assert.equal(m.ruleOriginLabel({classification_origin: 'reviewed'}), '已复核');
+    assert.equal(m.ruleOriginLabel({classification_origin: 'automatic'}), '');
+});
 test('groupMatchesFilter semantics', () => {
     assert.equal(m.groupMatchesFilter({action: 'enlarge'}, 'changed'), true);
     assert.equal(m.groupMatchesFilter({action: 'shrink'}, 'changed'), true);
@@ -88,9 +96,9 @@ test('operationExitHint distinguishes unconfirmed writes', () => {
     assert.match(m.operationExitHint({ok: false, error: {code: 'BUSY'}}), /稍后重试/);
 });
 
-test('FILTERS has the six documented pills', () => {
+test('FILTERS has the seven documented pills', () => {
     assert.deepEqual(m.FILTERS.map(f => f.id),
-        ['all', 'changed', 'keep', 'skipped', 'plate', 'excluded']);
+        ['all', 'changed', 'keep', 'skipped', 'plate', 'rules', 'excluded']);
 });
 
 test('backend version gates profile and theme operations', () => {
