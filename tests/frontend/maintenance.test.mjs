@@ -46,6 +46,8 @@ function page() {
     result._scope = {closed: false}; result._controlPath = '/fixture-only'; result._refreshGeneration = 0;
     result._opNotice = {show(text, options) {this.text = text; this.options = options;}};
     result._themeNotice = {hide() {this.visible = false;}, show(text) {this.visible = true; this.text = text;}};
+    result._ruleNotice = {hide() {this.visible = false;}, show(text, options) {
+        this.visible = true; this.text = text; this.options = options;}};
     for (const name of ['_badgeHealth', '_rowHealth', '_healthDetails', '_rowHealthDetails', '_rowChecked',
         '_rowUpdated', '_rowTheme', '_badgeVersion', '_badgeTheme', '_badgeManaged', '_badgeAuto', '_lblRev',
         '_autoRow', '_followRow', '_btnScan', '_btnApply', '_btnActivate', '_btnRevert']) result[name] = widget();
@@ -57,6 +59,10 @@ const healthy = {ok: true, result: {installed: true, backend_version: '3.1.6', r
     summary: {managed_icons: 1}}};
 const inactive = {ok: true, result: {...healthy.result, overlay_in_use: false}};
 const ioError = {ok: false, error: {code: 'IO_ERROR'}};
+const staleRules = {ok: true, result: {...healthy.result,
+    summary: {managed_icons: 1, rule_warnings: 2}}};
+const noRuleWarnings = {ok: true, result: {...healthy.result,
+    summary: {managed_icons: 1, rule_warnings: 0}}};
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
@@ -150,6 +156,22 @@ test('apply preserves the warning for partial automation', async () => {
 });
 
 let failures = 0;
+test('stale rules produce a persistent notice', async () => {
+    const target = page();
+    responses.push(staleRules);
+    await target.refresh();
+    assert.equal(target._ruleNotice.visible, true);
+    assert.match(target._ruleNotice.text, /2 条/);
+    assert.equal(target._ruleNotice.options.error, true);
+});
+
+test('a clean run hides the stale-rule notice', async () => {
+    const target = page();
+    responses.push(noRuleWarnings);
+    await target.refresh();
+    assert.equal(target._ruleNotice.visible, false);
+});
+
 for (const [name, fn] of tests) {
     try { await fn(); console.log(`ok   ${name}`); }
     catch (error) { failures++; console.error(`FAIL ${name}\n${error.stack}`); }

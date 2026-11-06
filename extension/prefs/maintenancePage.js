@@ -34,6 +34,9 @@ export class MaintenancePage {
         // "applied" run is invisible on the desktop.
         this._themeNotice = noticeRow();
         dashboard.add(this._themeNotice.row);
+        // Persistent notice when the last run had to drop manual rules.
+        this._ruleNotice = noticeRow();
+        dashboard.add(this._ruleNotice.row);
         this._rowVersion = this._dashboardRow(t('后端版本'), '—', 'badge-keep', '_badgeVersion');
         this._rowTheme = this._dashboardRow(t('图标主题'), '', 'badge-keep', '_badgeTheme');
         this._rowTheme._normalizerDataProperties = ['subtitle'];
@@ -176,6 +179,7 @@ export class MaintenancePage {
             this._autoRow.set_sensitive(false);
             this._followRow.set_sensitive(false);
             this._syncThemeNotice(null);
+            this._ruleNotice.hide();
             if (showError) this._showOpBanner(actionLabel(envelope.error));
             return envelope;
         }
@@ -199,6 +203,13 @@ export class MaintenancePage {
         this._badgeTheme.set_css_classes(['badge-pill',
             s.overlay_in_use === true ? 'badge-active' : 'badge-keep']);
         this._syncThemeNotice(s.overlay_in_use);
+        const ruleWarnings = Number(s.summary?.rule_warnings ?? 0);
+        if (Number.isFinite(ruleWarnings) && ruleWarnings > 0) {
+            this._ruleNotice.show(t('检测到 {count} 条图标规则已失效：源图或分类发生变化，相关图标已退回自动分类。',
+                {count: ruleWarnings}), {error: true});
+        } else {
+            this._ruleNotice.hide();
+        }
         const managed = s.summary?.managed_icons;
         this._badgeManaged.set_text(Number.isFinite(managed) ? t('{count} 个', {count: managed}) : '—');
         this._badgeAuto.set_text(automaticLabel(s));

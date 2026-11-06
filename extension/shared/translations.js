@@ -125,6 +125,7 @@ export const EN = {
     "已跳过该图标": "Icon skipped",
     "{name} · 效果预览": "{name} · Preview",
     "运行状态": "Runtime status",
+    "检测到 {count} 条图标规则已失效：源图或分类发生变化，相关图标已退回自动分类。": "Stale icon rules detected: {count}. The source artwork or class changed, so those icons fall back to automatic classification.",
     "后端版本": "Backend version",
     "图标主题": "Icon theme",
     "已管理图标": "Managed icons",
