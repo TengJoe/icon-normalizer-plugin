@@ -318,6 +318,24 @@ def op_doctor(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
     checks["gnome_shell_extension_dir"] = {
         "ok": (paths.home / ".local/share/gnome-shell/extensions").is_dir()
     }
+    # Rules audit: informational, so a stale rule never makes doctor fail.
+    try:
+        user_rules = _store_for(paths).load_rules().get("icons", {})
+    except Exception:
+        user_rules = {}
+    try:
+        reviewed = load_overrides(paths.libexec, paths.state_dir).get("icons", {})
+    except Exception:
+        reviewed = {}
+    last_run = read_json_file(paths.last_run_path)
+    warnings = last_run.get("rule_warnings") if isinstance(last_run, dict) else None
+    checks["rules"] = {
+        "ok": True,
+        "user_rules": len(user_rules),
+        "reviewed_overrides": len(reviewed),
+        "warnings": len(warnings or []),
+        "errors": [w.get("error") for w in (warnings or [])][:10],
+    }
     missing = [k for k, v in checks.items() if not v["ok"]]
     return {
         "ok_all": not missing,

@@ -42,5 +42,16 @@ class StatusRulesHealth(unittest.TestCase):
         self.assertEqual(health2["states"]["none"], 0)
 
 
+    def test_doctor_reports_rules_audit(self):
+        self.call("apply", {"expected_revision": self.call("status")["revision"],
+                            "activate": False})
+        doctor = self.call("doctor")
+        rules = doctor["checks"].get("rules")
+        self.assertIsNotNone(rules, doctor)
+        self.assertTrue(rules["ok"])
+        self.assertEqual(rules["warnings"], 0)
+        self.assertIsInstance(rules["user_rules"], int)
+        self.assertIsInstance(rules["reviewed_overrides"], int)
+
 if __name__ == "__main__":
     unittest.main()
