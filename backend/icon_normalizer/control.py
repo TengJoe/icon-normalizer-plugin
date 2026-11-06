@@ -215,7 +215,7 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         follows_theme = None
         follow_error = {"code": exc.code, "message": exc.message, "details": exc.details,
                         "operation": "theme.sync"}
-    rule_warnings = []
+    rule_warnings: list[dict[str, Any]] = []
     if isinstance(last_run, dict):
         rule_warnings = last_run.get("rule_warnings") or []
     rules_health = None
@@ -498,10 +498,10 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
                 return {"revision": ctx.revision, "rule": {"reset": True}}
             # The absence of a classification records that this rule exists
             # only to skip the icon; unskipping restores reviewed overrides.
-            entry: dict[str, Any] = {"skip": True}
+            skip_entry: dict[str, Any] = {"skip": True}
             if rule.get("keep_desktop_override"):
-                entry["keep_desktop_override"] = True
-            icons[icon_id] = entry
+                skip_entry["keep_desktop_override"] = True
+            icons[icon_id] = skip_entry
         elif not enabled and (previous == {"skip": True} or
                               previous == {"skip": True, "classification": "auto"}):
             # The second shape was created by the pre-3.1.6 frontend.

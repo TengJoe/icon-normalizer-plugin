@@ -2,6 +2,12 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.37 — 修复 4 个类型错误（后台 3.1.20 不变）
+
+发布日期：2026-11-06。
+
+- `mypy --strict` 抓到 4 个由近期改动引入的问题：`engine.py` 中 `current`（bytes）与 SHA 摘要（str）同名冲突、重复的 `isinstance` 分支被判不可达；`control.py` 中 `rule_warnings` 缺类型注解、`entry` 重复定义。
+- 全部修复后 `mypy` 恢复 `Success: no issues found in 27 source files`。
 ## 1.1.36 — 构建可复现 + 项目元数据纠错（后台 3.1.20 不变）
 
 发布日期：2026-11-06。

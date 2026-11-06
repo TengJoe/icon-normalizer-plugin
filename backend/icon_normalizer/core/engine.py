@@ -505,25 +505,23 @@ class Engine:
         # application replaces its artwork the override silently stops
         # applying; report it instead of hiding the visual regression.
         for icon, override in sorted(self.config.overrides.items()):
-            if not isinstance(override, dict):
-                continue
             expected = override.get("source_sha256")
             if not expected:
                 continue
             try:
-                current = sha_hex(resolve_source(icon, self.resolver).read_bytes())
+                current_digest = sha_hex(resolve_source(icon, self.resolver).read_bytes())
             except Exception:
                 # Portable overrides cover icons that may simply not be
                 # installed on this machine; their absence is not a warning.
                 continue
-            if current == expected:
+            if current_digest == expected:
                 continue
             rule_warnings.append({
                 "icon_name": icon,
                 "names": [],
                 "error": "OVERRIDE_STALE_SOURCE",
                 "rule_key": sha_hex(icon.encode()),
-                "detail": {"expected_sha256": expected, "actual_sha256": current},
+                "detail": {"expected_sha256": expected, "actual_sha256": current_digest},
             })
         summary = {
             "candidate_icons": len(grouped),
