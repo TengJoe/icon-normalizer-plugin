@@ -103,6 +103,19 @@ check_doc_versions() {
         echo "docs/README.md does not link RELEASE-$ver.md"
         rc=1
     fi
+    # Both READMEs are the project's front page: their download links must
+    # resolve to the current release, otherwise visitors install an old build.
+    for f in README.md README.en.md; do
+        [ -f "$f" ] || continue
+        if ! grep -q "releases/tag/v$ver" "$f"; then
+            echo "$f does not link releases/tag/v$ver"
+            rc=1
+        fi
+        if grep -q "releases/download/v[0-9]" "$f" && ! grep -q "releases/download/v$ver/" "$f"; then
+            echo "$f still downloads from an older release"
+            rc=1
+        fi
+    done
     return $rc
 }
 run Q16 "docs match the current version" check_doc_versions
