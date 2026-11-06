@@ -75,6 +75,9 @@ def build_tarball(target: Path, ver: str) -> None:
         item.uname = item.gname = ""
         # Fixed mtime keeps the tarball reproducible (gzip header is fixed too).
         item.mtime = 0
+        # Normalise permissions: git only tracks the executable bit, so a fresh
+        # clone would otherwise record different modes than a working tree.
+        item.mode = 0o755 if item.mode & 0o111 else 0o644
         for key in ("uid", "gid", "uname", "gname", "mtime", "atime", "ctime"):
             item.pax_headers.pop(key, None)
         return item
