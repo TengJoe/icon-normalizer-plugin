@@ -44,4 +44,6 @@ ADRs describe the context and tradeoffs at the time of each decision. Use the cu
 | [0003](adr/0003-frontend-esm-libadwaita.md) | 前端 ESM 与 Libadwaita；历史兼容范围 | 简体中文 |
 | [0004](adr/0004-build-and-lifecycle.md) | 打包、安装与生命周期 | 简体中文 |
 | [0005](adr/0005-icon-rule-model.md) | 图标规则模型：两套机制、匹配顺序、skip 语义与失效报告 | 简体中文 |
+| [0006](adr/0006-reliability-boundaries.md) | 轻量诊断、所有权冲突与维护健康状态 | 简体中文 |
+| [0007](adr/0007-ownership-preconditions.md) | 提交前置状态与持久配置故障 | 简体中文 |
 | [0005](adr/0005-profiles-and-theme-follow.md) | Named profiles and source-theme migration | English |
