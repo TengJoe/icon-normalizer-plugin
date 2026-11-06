@@ -127,6 +127,8 @@ export const EN = {
     "运行状态": "Runtime status",
     "上次运行处理": "Last run",
     "失效的图标规则": "Rules that no longer apply",
+    "图标规则需要处理": "Icon rules need attention",
+    "有 {count} 条规则不再匹配当前源图，可在「图标统一」设置中查看并重置。": "Rules no longer match the current artwork: {count}. Open Icon Normalizer settings to review and reset them.",
     "重置为自动": "Reset to automatic",
     "没有失效的图标规则。": "No stale icon rules.",
     "无法定位该规则。": "This rule cannot be located.",

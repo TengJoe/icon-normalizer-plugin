@@ -78,6 +78,7 @@ class ThemeSettings extends Signals {
 }
 const themeSettings = new ThemeSettings();
 const requests = [];
+const notifications = [];
 const status = {backend_version: '3.1.0', installed: true, automatic: 'on', revision: 'a'.repeat(64),
     overlay_in_use: true, summary: {managed_icons: 25}};
 let openedPreferences = 0;
@@ -100,7 +101,7 @@ const fakeModules = {
     'resource:///org/gnome/shell/ui/main.js': {panel: {addToStatusArea(role, button) {
         if (registry.has(role)) throw new Error('duplicate panel role');
         registry.set(role, button);
-    }}},
+    }}, notify: (...args) => notifications.push(args)},
     'resource:///org/gnome/shell/ui/panelMenu.js': {Button},
     'resource:///org/gnome/shell/ui/popupMenu.js': {
         PopupMenuItem: Item, PopupSwitchMenuItem: Switch, PopupSeparatorMenuItem: Item,
@@ -152,6 +153,17 @@ console.log('ok   enabled entry constructs and registers complete menu');
 requests.length = 0;
 extension._indicator.update(status, {ok: true});
 assert.equal(requests.length, 0);
+notifications.length = 0;
+extension._indicator.update({...status, rules_health: {warnings: 2}}, {ok: true});
+assert.equal(notifications.length, 1, 'first stale count notifies');
+extension._indicator.update({...status, rules_health: {warnings: 2}}, {ok: true});
+assert.equal(notifications.length, 1, 'same count is not repeated');
+extension._indicator.update({...status, rules_health: {warnings: 1}}, {ok: true});
+assert.equal(notifications.length, 2, 'a new count notifies again');
+extension._indicator.update({...status, rules_health: {warnings: 0}}, {ok: true});
+extension._indicator.update({...status, rules_health: {warnings: 1}}, {ok: true});
+assert.equal(notifications.length, 3, 'recurrence after a fix notifies again');
+console.log('ok   stale rules notify once per distinct warning count');
 extension._indicator._autoItem.setToggleState(false);
 await drain();
 assert.deepEqual(requests.map(r => r.operation), ['automation.set', 'status']);

@@ -19,6 +19,7 @@ export class Indicator {
         this._requestRefresh = requestRefresh;
         this._debounceId = 0;
         this._syncingAutomatic = false;
+        this._notifiedRuleWarnings = 0;
         this._indicator = new PanelMenu.Button(0.0, t('图标统一'));
         const file = Gio.File.new_for_uri(import.meta.url).get_parent()
             .resolve_relative_path('../icons/icon-normalizer-symbolic.svg');
@@ -120,6 +121,19 @@ export class Indicator {
         const busy = this._localBusy || status?.busy === true;
         const failed = envelope && !envelope.ok;
         const health = maintenanceHealth(status);
+        // Notify once per distinct warning count: a recurring problem should not
+        // spam the desktop, but a new count (or a recurrence after a fix) should.
+        const ruleWarnings = Number(status?.rules_health?.warnings ?? 0);
+        if (Number.isFinite(ruleWarnings) && ruleWarnings > 0) {
+            if (this._notifiedRuleWarnings !== ruleWarnings) {
+                this._notifiedRuleWarnings = ruleWarnings;
+                Main.notify(t('图标规则需要处理'),
+                    t('有 {count} 条规则不再匹配当前源图，可在「图标统一」设置中查看并重置。',
+                        {count: ruleWarnings}));
+            }
+        } else {
+            this._notifiedRuleWarnings = 0;
+        }
         let state = t('后台状态读取中…');
         let detail = '';
         if (failed) {
