@@ -2,6 +2,13 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.36 — 构建可复现 + 项目元数据纠错（后台 3.1.20 不变）
+
+发布日期：2026-11-06。
+
+- **真实 bug**：`pyproject.toml` 的 `version` 停在 3.1.6（只改了 `version.py`）。安装层测试 `test_project_metadata_matches_backend_version` 抓到了它 —— 此前只跑 backend 套件所以漏过。
+- **构建可复现**：ZIP 成员使用固定时间戳；tar 成员固定 mtime、清理 PAX 头中的 mtime/atime/ctime、按名字排序遍历；gzip 头去掉时间戳；成员权限按"可执行位 → 755，否则 644"规范化。
+- 结果：工作区与全新克隆构建出的 ZIP / tar **SHA-256 完全一致**。
 ## 1.1.35 — 发布验收清单更新（后台 3.1.20 不变）
 
 发布日期：2026-11-06。
