@@ -23,6 +23,17 @@
 
 [效果预览](#效果预览) · [功能](#功能) · [快速开始](#快速开始) · [使用说明](#使用说明) · [恢复与卸载](#恢复与卸载) · [开发文档](#开发文档)
 
+**一句话**：Dock 和应用程序网格里的图标，有的贴边、有的留白很大，看上去大小不一。Icon Normalizer 把每个图标的主体统一到同一占比（预设 83% / 88% / 92%），并为缺少底板的裸 Logo 补上底板 —— **不修改任何原图**。
+
+<details>
+<summary>和 Dash to Dock 有什么区别？</summary>
+
+两者互补，可以同时启用：Dash to Dock 管理 **Dock 本身**（位置、自动隐藏、外观、模糊），Icon Normalizer 管理 **图标内容**（主体占比、底板、16–512 px 九档尺寸）。
+
+Icon Normalizer 不改任何系统图标文件：它在专属主题 `DockNormalized` 里生成新图，原始图标只读，随时可还原。
+
+</details>
+
 ## 效果预览
 
 Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整应用图标的主体占比，为适合的裸 Logo 补充底板，并在应用或图标主题变化后维护生成结果。原始系统图标只读，生成文件与恢复记录保存在用户目录。
@@ -63,19 +74,33 @@ Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整�
 
 ## 快速开始
 
-**首次安装请选择完整发行包。** 单独的扩展 ZIP 不包含 Python 后台。
+需要 **GNOME Shell 51** 与下方列出的[运行依赖](#兼容与依赖)。
 
-1. 确认使用 **GNOME Shell 51**，并准备下方列出的[运行依赖](#兼容与依赖)。
-2. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS)，放在同一目录。
-3. 以普通用户执行以下命令。校验显示 `OK` 后再解压、安装。
+**一条命令安装（推荐）**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+```
+
+安装器会检查依赖、下载最新发行包、**校验 SHA-256** 后安装。**不使用 `sudo`**，扩展、后台与 systemd 用户单元全部位于你的主目录。先只检查依赖是否齐全：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
+```
+
+**或者手动安装**
+
+1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS)，放在同一目录。
+2. 校验后解压安装：
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-# 确认上方校验为 OK 后，继续执行：
 tar -xzf icon-normalizer-plugin-1.2.0.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
+
+> 单独的扩展 ZIP 只含前端，不包含 Python 后台；仅安装 ZIP 时界面会提示“后端未安装”。
 
 安装器会检查依赖、创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。从扩展管理器打开 **Icon Normalizer → 设置** 开始使用。
 

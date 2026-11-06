@@ -23,6 +23,17 @@ The current GitHub release is **1.2.0 / companion 3.1.20**: icon rules now repor
 
 [Preview](#preview) · [Features](#features) · [Quick start](#quick-start) · [Usage](#usage) · [Recovery and removal](#recovery-and-removal) · [Developer documentation](#developer-documentation)
 
+**In one sentence:** icons in the dock and the app grid come from different design systems, so some hug the edges while others carry a lot of padding. Icon Normalizer brings each icon body to the same coverage (presets 83% / 88% / 92%) and adds a backplate to bare glyphs that lack one — **without touching the original artwork**.
+
+<details>
+<summary>How does this relate to Dash to Dock?</summary>
+
+They complement each other and can run together. Dash to Dock manages **the dock itself** (position, autohide, appearance, blur); Icon Normalizer manages **the icon content** (coverage, backplate, nine sizes from 16 to 512 px).
+
+No system icon file is modified: new artwork is generated in a dedicated theme named `DockNormalized`, originals stay read-only, and everything can be reverted.
+
+</details>
+
 ## Preview
 
 Icon Normalizer combines a GNOME Shell extension with a user-level Python backend. It adjusts application icon coverage, adds backplates to suitable bare glyphs, and maintains generated artwork when applications or icon themes change. Original system artwork stays read-only; generated files and recovery records live in your home directory.
@@ -63,19 +74,33 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 
 ## Quick start
 
-**Use the complete package for a first installation.** The separate extension ZIP does not include the Python backend.
+Requires **GNOME Shell 51** and the [runtime dependencies](#compatibility-and-dependencies) listed below.
 
-1. Confirm that you use **GNOME Shell 51**, and prepare the [runtime dependencies](#compatibility-and-dependencies) listed below.
-2. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS) into the same directory.
-3. Run as your normal user. Confirm that verification reports `OK` before extracting and installing.
+**One command (recommended)**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+```
+
+The installer checks dependencies, downloads the latest release, **verifies its SHA-256** and installs it. **No `sudo`**: the extension, the backend and the systemd user units all live under your home directory. To check dependencies only:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
+```
+
+**Or install manually**
+
+1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/icon-normalizer-plugin-1.2.0.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.2.0/SHA256SUMS) into the same directory.
+2. Verify, extract and install:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-# Confirm that verification above reports OK, then continue:
 tar -xzf icon-normalizer-plugin-1.2.0.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
+
+> The extension ZIP alone contains only the frontend; the preferences window then reports that the backend is not installed.
 
 The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
 

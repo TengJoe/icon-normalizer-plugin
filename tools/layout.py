@@ -22,7 +22,7 @@ PACKAGE_EXCLUDE = frozenset({"schemas/gschemas.compiled"})
 PACKAGE_MEMBERS = (
     "backend", "extension", "tools", "contracts", "docs", "packaging", "tests",
     "README.md", "README.en.md", "CHANGELOG.md", "ARCHITECTURE.md", "PROTOCOL.md",
-    "pyproject.toml", "LICENSE", ".gitignore", "CONTRIBUTING.md",
+    "pyproject.toml", "LICENSE", ".gitignore", "CONTRIBUTING.md", "install.sh",
     "package.json", "package-lock.json", "eslint.config.mjs",
 )
 UNITS = ("icon-normalizer.service", "icon-normalizer.timer", "icon-normalizer.path")
