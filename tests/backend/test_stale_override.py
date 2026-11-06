@@ -46,5 +46,21 @@ class StaleOverrideIsReported(unittest.TestCase):
         self.assertEqual(self.call("status")["revision"], record["revision"])
 
 
+    def test_reset_to_automatic_clears_the_local_override(self):
+        from icon_normalizer.policy import sha_hex
+        self.write_override("f" * 64)
+        self.apply()
+        import json as _json
+        record = _json.loads((self.box.state / "last-run.json").read_text())
+        errors = [w["error"] for w in record.get("rule_warnings", [])]
+        self.assertIn("OVERRIDE_STALE_SOURCE", errors)
+
+        status = self.call("status")
+        self.call("rules.set", {"expected_revision": status["revision"],
+                                "icon_id": sha_hex(str(self.source).encode()),
+                                "rule": {"reset": True}})
+        overrides = _json.loads((self.box.state / "overrides.json").read_text())
+        self.assertEqual(overrides.get("icons"), {})
+
 if __name__ == "__main__":
     unittest.main()

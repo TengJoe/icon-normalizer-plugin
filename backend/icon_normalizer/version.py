@@ -1,6 +1,6 @@
 """Single source of truth for every version marker shipped by the backend."""
 
-BACKEND_VERSION = "3.1.16"
+BACKEND_VERSION = "3.1.17"
 API_VERSION = 1
 
 #: Bumped whenever the analyzer/renderer math or PNG encoding changes, so the

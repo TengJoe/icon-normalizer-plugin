@@ -458,6 +458,25 @@ def op_configure(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
     }
 
 
+def _prune_local_override(store: Any, icon_id: str) -> None:
+    """Reset-to-automatic must also release a machine-local reviewed override."""
+    path = Path(store.state_dir) / "overrides.json"
+    if not path.exists():
+        return
+    data = read_json_file(path) or {}
+    icons = data.get("icons")
+    if not isinstance(icons, dict) or not icons:
+        return
+    removed = [key for key in list(icons)
+               if key == icon_id
+               or hashlib.sha256(key.encode("utf-8")).hexdigest() == icon_id]
+    if not removed:
+        return
+    for key in removed:
+        icons.pop(key, None)
+    atomic_write(path, json.dumps(data, ensure_ascii=False).encode("utf-8"), 0o600)
+
+
 def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
     assert ctx is not None  # write/read ops always run under the lock
     if args["expected_revision"] != ctx.revision:
@@ -503,6 +522,9 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
             icons[icon_id] = updated
     elif rule.get("reset"):
         icons.pop(icon_id, None)
+        # A reviewed override for the same icon lives in the machine-local file;
+        # clearing the user rule alone would leave its warning behind forever.
+        _prune_local_override(ctx.store, icon_id)
     else:
         entry: dict[str, Any] = {"skip": rule["skip"], "classification": rule["classification"]}
         if rule.get("source_sha256"):
