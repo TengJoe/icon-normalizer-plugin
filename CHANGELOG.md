@@ -2,6 +2,14 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.14 — 失效覆盖规则可被发现（后台 3.1.12）
+
+发布日期：2026-11-06。完整说明见 [v1.1.14 发布说明](docs/RELEASE-1.1.14.md)。
+
+- 运行记录把"源图已变更、指纹不再匹配"的 **reviewed override** 记为 `rule_warnings`（`error = OVERRIDE_STALE_SOURCE`，含期望/实际指纹），维护页会同步显示告警。
+- 这是 DeepSeek 图标回归的真正源头：`overrides.json` 的条目绑定了旧指纹，应用更新图标后静默失效，插件退回自动分类。
+- 只报告"源图存在但指纹不符"的情况；随包发布、图标未安装的 portable 条目不产生噪音。
+- 新增 `tests/backend/test_stale_override.py`（2 项）。
 ## 1.1.13 — 失效规则在界面可见（后台 3.1.11）
 
 发布日期：2026-11-06。完整说明见 [v1.1.13 发布说明](docs/RELEASE-1.1.13.md)。

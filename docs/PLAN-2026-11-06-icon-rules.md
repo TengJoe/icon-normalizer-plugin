@@ -103,7 +103,7 @@
 
 ---
 
-### FIX-6（P2）失效覆盖的清理入口
+### FIX-6（P2）失效覆盖的清理入口 ✅ 已实现（报告部分：扩展 1.1.14 / 后台 3.1.12）
 
 **方案**：`overrides.json` 中 SHA 不匹配或源路径不存在的条目，不再静默保留，改为在规则页"已失效（N）"分组展示，提供「清理」与「按当前源图重新绑定」两个操作；清理走 `rules.set` 协议并记录 `rules_cleaned` 事件。
 **改动点**：`config_store.py`、`control.py`（新增 `rules.prune`）、`prefs/rulesPage.js`
