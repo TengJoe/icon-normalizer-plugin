@@ -99,6 +99,11 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     rowPath.set_tooltip_text(group.source_path ?? '—');
     rowPath.set_title_lines(1);
     rowPath.set_subtitle_lines(1);
+    const rowSuggest = new Adw.ActionRow({title: t('建议改为圆角底板'),
+        subtitle: t('该图标是满幅直角底板，在圆角图标网格中显得不协调。')});
+    const suggestButton = actionButton(t('改为圆角'), () => applyRounded(group));
+    rowSuggest.add_suffix(suggestButton);
+    details.add(rowSuggest);
     details.add(rowClass);
     details.add(rowAction);
     details.add(rowPath);
@@ -116,6 +121,8 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
             origin: group.classification_origin === 'user' ? t('用户指定') :
                 group.classification_origin === 'reviewed' ? t('已复核') : t('自动')}));
         rowAction.set_subtitle(actionText(group));
+        rowSuggest.set_visible(group.suggested_class === 'plate-rounded'
+            && group.classification !== 'plate-rounded');
     }
     syncDetails();
 
@@ -194,6 +201,37 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
                 : t('目标 {target}%', {target: (result.effective_policy.target * 100).toFixed(0)}),
         );
         return envelope;
+    }
+
+    async function applyRounded(g) {
+        suggestButton.set_sensitive(false);
+        try {
+            const statusEnvelope = await call(controlPath, 'status', {}, scope);
+            if (scope.closed) return;
+            if (!statusEnvelope.ok) {
+                toast(parent, actionLabel(statusEnvelope.error));
+                return;
+            }
+            const envelope = await call(controlPath, 'rules.set', {
+                expected_revision: statusEnvelope.result.revision,
+                icon_id: g.icon_id,
+                rule: {skip: false, classification: 'plate-rounded',
+                       source_sha256: g.source_sha256},
+            }, scope);
+            if (scope.closed) return;
+            if (!envelope.ok) {
+                toast(parent, actionLabel(envelope.error));
+                return;
+            }
+            toast(parent, t('已改为圆角底板'));
+            g.classification = 'plate-rounded';
+            g.suggested_class = null;
+            syncDetails();
+            await onRuleChanged?.();
+            if (!scope.closed) await fetchPreview();
+        } finally {
+            if (!scope.closed) suggestButton.set_sensitive(true);
+        }
     }
 
     async function toggleSkip(g) {

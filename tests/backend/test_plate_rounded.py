@@ -94,5 +94,24 @@ class RuleAcceptsPlateRounded(unittest.TestCase):
             box.close()
 
 
+class ScanSuggestsPlateRounded(unittest.TestCase):
+    def test_scan_reports_the_suggestion(self):
+        from harness import Sandbox, make_desktop
+        box = Sandbox()
+        try:
+            path = box.base / "256x256" / "apps" / "sharp.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((8, 8, 247, 247), fill=(245, 246, 248, 255))
+            draw.ellipse((96, 96, 160, 160), fill=(40, 44, 52, 255))
+            image.save(path)
+            make_desktop(box.system_apps / "sharp.desktop", "Sharp", "sharp")
+            rc, scan = box.call_cli("scan", None)
+            group = scan["result"]["groups"][0]
+            self.assertEqual(group.get("suggested_class"), "plate-rounded", group)
+        finally:
+            box.close()
+
 if __name__ == "__main__":
     unittest.main()

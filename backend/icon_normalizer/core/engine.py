@@ -34,7 +34,7 @@ from ..policy import Policy, canonical_json, compute_revision, sha_hex
 from ..fingerprints import policy_fingerprint
 from ..ownership import conflict, reject_conflicts
 from ..theme import MARKER, MANIFEST_VERSION, MARKER_FILE, ThemeDirectory, theme_index
-from .analyzer import IconMetrics, Plan, analyze, plan
+from .analyzer import IconMetrics, Plan, analyze, plan, suggest_class
 from .classification import (
     ALERT_RULE_STATES,
     classify_source,
@@ -374,6 +374,7 @@ class Engine:
                 "classification_confidence": confidence,
                 "auto_class": auto_class,
                 "source_ratio": metrics.source_ratio,
+                "suggested_class": suggest_class(metrics),
                 **decision.as_dict(),
             }
             raw_rule, rule_matched_by = lookup_rule_ex(

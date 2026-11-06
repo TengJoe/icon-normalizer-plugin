@@ -390,6 +390,7 @@ def _rows_to_groups(rows: list[dict[str, Any]], rules: dict[str, Any]) -> list[d
             "classification": cls,
             "classification_origin": origin,
             "classification_stale": stale,
+            "suggested_class": row.get("suggested_class"),
             "action": action,
             "reason": reason,
             "skipped": skipped,
