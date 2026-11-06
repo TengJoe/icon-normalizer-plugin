@@ -188,4 +188,4 @@ test('an icon already inside the dead band is kept', () => {
     }
 });
 
-report();
+await report();

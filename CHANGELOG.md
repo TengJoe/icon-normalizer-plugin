@@ -2,6 +2,33 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.3.1 — 纯 GJS 引擎加固与并发安全（2026-11-07）
+
+发布说明见 [v1.3.1 说明](docs/RELEASE-1.3.1.md)。独立代码审查后的修复与加固：
+
+- **P0 并发安全**：`recover()` 落实 PROTOCOL §5 的 `∈{before, after}` 校验——崩溃回滚不再覆盖
+  外部修改或误删用户新建文件；新增 `SyncLock`（flock 持有进程，与 Python worker 共用
+  `sync.lock`），Shell 进程、设置窗口与后台 worker 串行化，争用时返回可重试的 `BUSY`。
+- **P1 协议接缝**：纯 GJS `preview` 改为与 Python 端一致的协议形状（`original_png_base64` /
+  `proposed_png_base64` / `metrics` / `action`，含 `STALE_SOURCE` 校验与 draft 参数）；
+  写操作落实 `expected_revision`（不匹配 → `REVISION_CONFLICT`）；`apply {activate:true}`
+  现在会切换 icon-theme 并如实报告 `theme_activation`；存在未恢复日志时 `scan` 返回
+  `RECOVERY_REQUIRED`。
+- **P1 主线程防卡顿**：引擎分析/渲染阶段重构为生成器，宿主经 `syncAsync()` 用
+  `GLib.idle_add` 时间片驱动（Shell 与 Prefs 均已启用），批量运行不再冻结桌面；
+  `Engine.sync()` 保留同步语义供测试与工具使用。
+- **P1 其他**：stale 清理只删除引擎自有命名（manifest 记录/当前输出/内容寻址副本）的文件，
+  用户手工放入主题目录的文件保留并报告 `UNTRACKED_THEME_FILE`；单个 .desktop 解析失败
+  降级为 `DESKTOP_PARSE_ERROR` 警告而非整轮失败；in-process 后端随 disable() 清理，
+  enable 周期之外不再残留。
+- **修复（审查中新发现）**：`ICON_NORMALIZER_APPLICATION_DIRS` 未设置时 GJS scan/apply
+  收集不到任何应用（空数组为 truthy 覆盖了 XDG 根目录）；GJS 测试 harness 此前不等待
+  async 测试，断言失败被计为通过。
+- **P2**：高斯模糊边界改为边缘复制（对齐 PIL）；源图解码增加 4096px 上限防御；
+  `underRoot` 词法规范化 `..`；`rewriteIconLine` fatal 解码保 BOM；`rules_health` 按
+  图标自身规则计数；本地后端错误码透传（`ControlError`）；`REVIEWER-NOTE` 补充 UUID
+  来源与 1.3.0 架构更正。
+
 ## 1.3.0 — 纯 GJS 内嵌引擎与零外部依赖架构（2026-11-07）
 
 发布说明见 [v1.3.0 说明](docs/RELEASE-1.3.0.md)，架构决策见 [ADR-0008](docs/adr/0008-gjs-only-engine.md)。

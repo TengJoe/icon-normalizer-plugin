@@ -83,7 +83,8 @@ export function controlArgv(controlPath) {
     return ['/usr/bin/python3', controlPath, '--json'];
 }
 
-function fail(requestId, operation, code, message, retryable = false, timedOut = false) {
+function fail(requestId, operation, code, message, retryable = false, timedOut = false,
+    details = {}) {
     return {
         api_version: API_VERSION,
         request_id: requestId,
@@ -93,7 +94,7 @@ function fail(requestId, operation, code, message, retryable = false, timedOut =
             code,
             message,
             retryable: !!retryable,
-            details: timedOut ? {timed_out: true} : {},
+            details: {...(timedOut ? {timed_out: true} : {}), ...details},
         },
     };
 }
@@ -109,6 +110,14 @@ let localBackend = null;
  */
 export function setLocalBackend(handler) {
     localBackend = handler;
+}
+
+/**
+ * Remove the in-process backend again. The extension calls this from disable()
+ * so a local backend never outlives the enable() cycle that installed it.
+ */
+export function clearLocalBackend() {
+    localBackend = null;
 }
 
 /** @returns {boolean} true when an in-process backend is installed */
@@ -140,11 +149,19 @@ export function call(controlPath, operation, args, scope = null) {
                     ok: true,
                     result,
                 }),
-                error => resolve(fail(requestId, operation, 'BACKEND_ERROR',
-                    String(error && error.message || error))));
+                // Local engine errors duck-type the protocol shape: a
+                // ControlError/LockError carries .code/.retryable/.details and
+                // becomes the envelope verbatim; anything else is BACKEND_ERROR.
+                error => resolve(fail(requestId, operation,
+                    error && typeof error.code === 'string'
+                        ? error.code : 'BACKEND_ERROR',
+                    String(error && error.message || error),
+                    Boolean(error && error.retryable), false,
+                    (error && error.details) || {})));
             return;
         }
-        if (!Gio.File.new_for_path(controlPath).query_exists(null)) {
+        if (!controlPath ||
+            !Gio.File.new_for_path(controlPath).query_exists(null)) {
             resolve(fail(requestId, operation, 'NOT_INSTALLED', t('后台尚未安装，请安装配套服务。')));
             return;
         }

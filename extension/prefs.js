@@ -18,10 +18,15 @@ export default class IconNormalizerPrefs extends ExtensionPreferences {
             const desktopSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
             const control = new LocalControl({
                 home: GLib.get_home_dir(),
+                // Live main loop: cross-process lock + idle slicing, matching
+                // the Shell side, so prefs and Shell serialize on sync.lock.
+                locking: true,
+                slicing: true,
                 settings: {
                     desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
                     iconTheme: () => desktopSettings.get_string('icon-theme'),
                     automatic: () => null,
+                    setTheme: name => desktopSettings.set_string('icon-theme', name),
                 },
             });
             setLocalBackend((operation, args) => control.handle(operation, args));

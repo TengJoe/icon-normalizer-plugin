@@ -114,4 +114,4 @@ test('normalize clamps artwork that would overflow its shadow', () => {
     assertTrue(info.shadow_clamped, 'clamped');
 });
 
-report();
+await report();

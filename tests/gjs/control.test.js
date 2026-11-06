@@ -7,7 +7,7 @@ import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 import {LocalControl, DEFAULT_POLICY} from '../../extension/lib/control.js';
-import {readBytes} from '../../extension/lib/engine/transaction.js';
+import {SyncLock, readBytes, atomicWrite} from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
 function makeFixtureHome() {
@@ -97,13 +97,62 @@ test('rules.set stores and resets icon rules', async () => {
     }
 });
 
-test('preview renders a candidate base64 png', async () => {
+test('preview returns the protocol payload shape', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
         const control = new LocalControl({home});
         const preview = await control.handle('preview', {source_path: iconPath, size: 48});
-        assertTrue(typeof preview.candidate === 'string' && preview.candidate.length > 0, 'candidate base64');
+        assertTrue(typeof preview.action === 'string' && preview.action.length > 0,
+            'action present');
+        assertTrue(typeof preview.original_png_base64 === 'string'
+            && preview.original_png_base64.length > 0, 'original_png_base64');
+        assertTrue(typeof preview.proposed_png_base64 === 'string'
+            && preview.proposed_png_base64.length > 0, 'proposed_png_base64');
+        assertTrue(typeof preview.metrics.source_ratio === 'number', 'metrics.source_ratio');
+        assertEqual(preview.effective_policy.target, 0.83, 'effective policy target');
         assertTrue(typeof preview.saved_revision === 'string', 'saved_revision');
+        assertEqual(preview.source_sha256.length, 64, 'source_sha256');
+        assertEqual(preview.skipped, false, 'not skipped');
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('scan rejects while a recovery journal is pending', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        atomicWrite(GLib.build_filenamev([control.stateDir, 'pending.json']),
+            new TextEncoder().encode(JSON.stringify({ops: []})), 0o600);
+        let caught = null;
+        try {
+            await control.handle('scan');
+        } catch (error) {
+            caught = error;
+        }
+        assertTrue(caught !== null, 'scan refused');
+        assertEqual(caught.code, 'RECOVERY_REQUIRED', 'protocol code');
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('apply rejects a stale expected_revision', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        let caught = null;
+        try {
+            await control.handle('apply', {expected_revision: '0'.repeat(64)});
+        } catch (error) {
+            caught = error;
+        }
+        assertTrue(caught !== null, 'apply refused');
+        assertEqual(caught.code, 'REVISION_CONFLICT', 'protocol code');
+        assertEqual(caught.details.current_revision, control.revision(), 'current revision');
+        // A matching revision passes the gate.
+        const apply = await control.handle('apply', {expected_revision: control.revision()});
+        assertEqual(apply.applied, true, 'applied with fresh revision');
     } finally {
         removeTree(home);
     }
@@ -129,4 +178,46 @@ test('scan, apply and revert cycle through LocalControl', async () => {
     }
 });
 
-report();
+test('SyncLock serializes two controls on the same state dir', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home, locking: true});
+        const holder = new SyncLock(control.lockPath());
+        holder.acquire();
+        let caught = null;
+        try {
+            await control.handle('status'); // unlocked op: always fine
+            await control.handle('scan');
+        } catch (error) {
+            caught = error;
+        }
+        assertTrue(caught !== null, 'scan refused while locked');
+        assertEqual(caught.code, 'BUSY', 'busy code');
+        assertTrue(caught.retryable, 'busy is retryable');
+        holder.release();
+        const scan = await control.handle('scan');
+        assertTrue(Array.isArray(scan.groups), 'scan proceeds after release');
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('sliced scan completes across idle callbacks', async () => {
+    const {home, iconPath} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home, slicing: true});
+        const loop = GLib.MainLoop.new(null, false);
+        const outcome = {payload: null, error: null};
+        control.handle('scan').then(
+            payload => { outcome.payload = payload; loop.quit(); },
+            error => { outcome.error = error; loop.quit(); });
+        loop.run();
+        assertTrue(outcome.error === null, 'sliced scan ok: ' + outcome.error);
+        const found = outcome.payload.groups.find(g => g.icon_name === iconPath);
+        assertTrue(Boolean(found), 'fixture icon found in sliced scan');
+    } finally {
+        removeTree(home);
+    }
+});
+
+await report();

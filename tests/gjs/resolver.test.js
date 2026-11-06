@@ -85,4 +85,4 @@ test('parseThemeIndex reads Inherits and Directories', () => {
     }
 });
 
-report();
+await report();

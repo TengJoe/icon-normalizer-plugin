@@ -1,9 +1,10 @@
 // Overlay theme engine: collect, inspect, sync and revert.
 // Port of backend/icon_normalizer/core/engine.py.
 //
-// The caller holds the sync lock. Everything here is synchronous on purpose:
-// the Shell host slices work across idle callbacks at a higher level, so the
-// engine itself stays a plain function of its inputs.
+// The caller holds the sync lock (SyncLock in transaction.js). The heavy phases
+// of inspect() are exposed as a generator so a host can slice them across idle
+// callbacks (syncAsync); Engine.sync() drains the same generator synchronously
+// for tests and non-interactive callers.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import GLib from 'gi://GLib';
@@ -12,6 +13,7 @@ import {analyze, plan, suggestClass} from './analyze.js';
 import {ALERT_RULE_STATES, classifySourceEx, describeRule, lookupRuleEx} from './classification.js';
 import {
     collectDesktopEntries, readDesktopSection, rewriteIconLine,
+    safeReadDesktopSection, safeRewriteIconLine,
 } from './desktop.js';
 import {loadPixbuf} from './load.js';
 import {normalize} from './render.js';
@@ -45,6 +47,41 @@ function pngBytes(pixbuf) {
     const [ok, buffer] = pixbuf.save_to_bufferv('png', [], []);
     if (!ok) throw new Error('PNG encoding failed');
     return new Uint8Array(buffer);
+}
+
+/** Drain a generator synchronously, returning its final value. */
+function drainSync(generator) {
+    let next;
+    do { next = generator.next(); } while (!next.done);
+    return next.value;
+}
+
+/**
+ * Drive a generator across idle callbacks, processing units of work in
+ * time-boxed slices so the host main loop (gnome-shell) keeps painting.
+ *
+ * @param {Iterator} generator yields between units of work
+ * @param {number} sliceMs wall-clock budget per idle callback
+ * @param {number} [generation] cancel token: when the caller's generation
+ *   changes mid-run the driver keeps going but the caller discards the result.
+ * @returns {Promise<object>} the generator's final value
+ */
+export function driveSliced(generator, sliceMs = 20) {
+    return new Promise((resolve, reject) => {
+        const step = () => {
+            try {
+                const deadline = Date.now() + sliceMs;
+                let next = generator.next();
+                while (!next.done && Date.now() < deadline) next = generator.next();
+                if (next.done) { resolve(next.value); return GLib.SOURCE_REMOVE; }
+                return GLib.SOURCE_CONTINUE;
+            } catch (error) {
+                reject(error);
+                return GLib.SOURCE_REMOVE;
+            }
+        };
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, step);
+    });
 }
 
 export class Engine {
@@ -153,19 +190,26 @@ export class Engine {
      */
     entryTransform(managed) {
         return (path, entry) => {
-            const record = managed[path];
-            if (!record) return entry;
-            const data = readBytes(path);
-            if (!data || entry.Icon !== record.output_icon) return entry;
-            if (record.original_existed)
-                return readDesktopSection(new TextEncoder().encode(
-                    rewriteIconLine(data, record.source_icon)));
-            const source = record.source_desktop;
-            if (!readBytes(source)) return null;
-            if (shaHex(data) !== record.output_sha256)
-                return readDesktopSection(new TextEncoder().encode(
-                    rewriteIconLine(data, record.source_icon)));
-            return readDesktopSection(readBytes(source));
+            try {
+                const record = managed[path];
+                if (!record) return entry;
+                const data = readBytes(path);
+                if (!data || entry.Icon !== record.output_icon) return entry;
+                if (record.original_existed)
+                    return readDesktopSection(new TextEncoder().encode(
+                        rewriteIconLine(data, record.source_icon)));
+                const source = record.source_desktop;
+                if (!readBytes(source)) return null;
+                if (shaHex(data) !== record.output_sha256)
+                    return readDesktopSection(new TextEncoder().encode(
+                        rewriteIconLine(data, record.source_icon)));
+                return readDesktopSection(readBytes(source));
+            } catch {
+                // Unreadable or unparseable launcher: keep the current entry
+                // instead of failing the whole run (DESKTOP_PARSE_ERROR is
+                // reported separately by collect()).
+                return entry;
+            }
         };
     }
 
@@ -174,8 +218,11 @@ export class Engine {
      * @returns {object} collectDesktopEntries result
      */
     collect(old) {
+        // An empty applicationDirs list means "use the XDG roots"; passing it
+        // through would shadow every real directory with nothing.
         return collectDesktopEntries(this.config.desktop, this.config.home, {
-            applicationDirs: this.config.applicationDirs || undefined,
+            applicationDirs: (this.config.applicationDirs && this.config.applicationDirs.length)
+                ? this.config.applicationDirs : undefined,
             entryTransform: this.entryTransform(old.desktop_overrides || {}),
         });
     }
@@ -324,7 +371,8 @@ export class Engine {
                     original = GLib.base64_decode(previous.original_data);
                     existed = previous.original_existed;
                     origin = previous.source_desktop;
-                } else if ((readDesktopSection(current) || {}).Icon === previous.output_icon) {
+                } else if ((safeReadDesktopSection(current) || {}).Icon
+                    === previous.output_icon) {
                     if (previous.original_existed || shaHex(current) !== previous.output_sha256) {
                         original = new TextEncoder().encode(
                             rewriteIconLine(current, record.icon));
@@ -380,9 +428,9 @@ export class Engine {
             if (current === null) {
                 if (record.original_existed)
                     changes.set(target, GLib.base64_decode(record.original_data));
-            } else if ((readDesktopSection(current) || {}).Icon === record.output_icon) {
-                changes.set(target, new TextEncoder().encode(
-                    rewriteIconLine(current, record.source_icon)));
+            } else if ((safeReadDesktopSection(current) || {}).Icon === record.output_icon) {
+                const restored = safeRewriteIconLine(current, record.source_icon);
+                if (restored) changes.set(target, new TextEncoder().encode(restored));
             }
         }
         for (const key of Object.keys(desiredDesktops))
@@ -423,10 +471,15 @@ export class Engine {
     /**
      * Plan the whole run without touching disk.
      *
+     * Generator form: it yields between analysis and render jobs so a host can
+     * slice the run across idle callbacks (driveSliced). Engine.inspect()
+     * drains it synchronously for tests and tools.
+     *
+     * @yields {null} between per-icon units of work
      * @returns {{changes: Map<string, Uint8Array|null>, manifest: object,
      *            payload: object, expectedBefore: Map<string, string|null>}}
      */
-    inspect() {
+    *inspectGenerator() {
         const expected = new Map();
         for (const path of [
             GLib.build_filenamev([this.stateDir, 'manifest.json']),
@@ -445,15 +498,21 @@ export class Engine {
         }
         const owned = this.themedir.owned();
         const collected = this.collect(old);
-        if (collected.errors.length)
-            throw new Error('Desktop entries could not be parsed: '
-                + JSON.stringify(collected.errors));
 
         const items = {};
         const analysisCache = {};
         const rows = [];
         const unresolved = [];
         const ruleWarnings = [];
+        // A single unparseable .desktop must not disable the whole run: report
+        // it as a warning and process the rest (the file keeps its old state).
+        for (const failure of collected.errors) {
+            ruleWarnings.push({
+                icon_name: '', names: [], error: 'DESKTOP_PARSE_ERROR',
+                rule_key: shaHex(failure.desktop_path || ''),
+                detail: failure,
+            });
+        }
         const changes = new Map();
         const desiredDesktops = {};
         const usedOverrides = new Set();
@@ -482,6 +541,7 @@ export class Engine {
         // ---- phase A: exclusions, resolution, analysis-cache dispatch ----
         for (const [icon, refs] of Object.entries(collected.grouped).sort()) {
             order.push(icon);
+            yield null; // source digesting dominates this phase: one icon per unit
             if (!refs.some(ref => ref.visibility === 'visible')) {
                 rows.push({icon_name: icon, action: 'excluded',
                     names: refs.map(r => r.name), desktop_ids: refs.map(r => r.desktop_id)});
@@ -512,6 +572,7 @@ export class Engine {
             } catch (error) {
                 analysisFailures[job.icon] = String(error && error.message || error);
             }
+            yield null; // one analysis per unit
         }
 
         // ---- phase C: decisions, skips, render dispatch ----
@@ -604,10 +665,13 @@ export class Engine {
         }
         if (conflicts.length) throw new Error('conflicts: ' + conflicts.join(', '));
 
-        // ---- phase D: rendering ----
+        // ---- phase D: rendering (the heaviest phase) ----
         const renderOutputs = {};
-        for (const job of renderJobs)
-            renderOutputs[job.icon] = this.renderSizes(job.path, job.metrics, job.cls, job.sizes);
+        for (const job of renderJobs) {
+            renderOutputs[job.icon] = this.renderSizes(
+                job.path, job.metrics, job.cls, job.sizes);
+            yield null; // one full-icon render per unit
+        }
 
         // ---- phase E: materialize ----
         for (const icon of order) {
@@ -638,9 +702,10 @@ export class Engine {
             if (shaHex(current) === record.output_sha256) {
                 changes.set(p, record.original_existed
                     ? GLib.base64_decode(record.original_data) : null);
-            } else if ((readDesktopSection(current) || {}).Icon === record.output_icon) {
-                changes.set(p, new TextEncoder().encode(
-                    rewriteIconLine(current, record.source_icon)));
+            } else if ((safeReadDesktopSection(current) || {}).Icon === record.output_icon) {
+                const restored = safeRewriteIconLine(current, record.source_icon);
+                if (restored)
+                    changes.set(p, new TextEncoder().encode(restored));
             }
         }
         const manifest = {
@@ -651,8 +716,26 @@ export class Engine {
             items,
             desktop_overrides: desiredDesktops,
         };
+        // The sweep only removes files this engine plausibly generated: names
+        // tracked by the current or previous manifest, current output names,
+        // and content-addressed versioned copies. Anything else — a user's
+        // manual addition to the theme tree — is reported, not deleted.
+        const managedNames = new Set();
+        for (const item of [...Object.values(items), ...Object.values(oldItems)])
+            for (const p of Object.keys(item.files || {}))
+                managedNames.add(p.slice(p.lastIndexOf('/') + 1));
+        for (const record of Object.values(plans))
+            managedNames.add(record.outputName + '.png');
         for (const stale of this.themedir.pngs()) {
             if (wanted.has(stale)) continue;
+            const name = stale.slice(stale.lastIndexOf('/') + 1);
+            if (!managedNames.has(name) && !name.startsWith('docknormalized-')) {
+                ruleWarnings.push({
+                    icon_name: '', names: [], error: 'UNTRACKED_THEME_FILE',
+                    rule_key: shaHex(stale), detail: {path: stale},
+                });
+                continue;
+            }
             this.allowed(stale);
             this.rememberBefore(expected, stale, readBytes(stale));
             changes.set(stale, null);
@@ -716,16 +799,23 @@ export class Engine {
     }
 
     /**
-     * Apply the plan, or dry-run it.
+     * Plan the whole run without touching disk (synchronous drain).
      *
-     * @param {{apply?: boolean}} options
+     * @returns {{changes: Map<string, Uint8Array|null>, manifest: object,
+     *            payload: object, expectedBefore: Map<string, string|null>}}
+     */
+    inspect() {
+        return drainSync(this.inspectGenerator());
+    }
+
+    /**
+     * Write the planned changes, the manifest last.
+     *
+     * @param {object} result inspectGenerator() result
+     * @param {boolean} recovered whether a pending journal was replayed
      * @returns {object} payload
      */
-    sync(options = {}) {
-        const apply = Boolean(options.apply);
-        const recovered = apply ? this.recover() : false;
-        const result = this.inspect();
-        if (!apply) return result.payload;
+    #applyPlan(result, recovered) {
 
         if (!readBytes(GLib.build_filenamev([this.stateDir, 'baseline.json']))) {
             const baseline = {
@@ -781,6 +871,37 @@ export class Engine {
         if (!currentApps || shaHex(currentApps) !== shaHex(appsBlob))
             atomicWrite(appsPath, appsBlob, 0o600);
         return payload;
+    }
+
+    /**
+     * Apply the plan, or dry-run it, fully synchronous.
+     *
+     * @param {{apply?: boolean}} options
+     * @returns {object} payload
+     */
+    sync(options = {}) {
+        const apply = Boolean(options.apply);
+        const recovered = apply ? this.recover() : false;
+        const result = this.inspect();
+        if (!apply) return result.payload;
+        return this.#applyPlan(result, recovered);
+    }
+
+    /**
+     * Apply the plan, or dry-run it, slicing the heavy phases across idle
+     * callbacks. Same semantics as sync(); for hosts with a running main loop
+     * (gnome-shell, prefs window) so bulk work never blocks the UI thread.
+     *
+     * @param {{apply?: boolean}} options
+     * @param {number} [sliceMs] wall-clock budget per idle callback
+     * @returns {Promise<object>} payload
+     */
+    async syncAsync(options = {}, sliceMs = 20) {
+        const apply = Boolean(options.apply);
+        const recovered = apply ? this.recover() : false;
+        const result = await driveSliced(this.inspectGenerator(), sliceMs);
+        if (!apply) return result.payload;
+        return this.#applyPlan(result, recovered);
     }
 
     /**

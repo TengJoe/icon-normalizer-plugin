@@ -1,4 +1,4 @@
-# Reviewer note — Icon Normalizer (1.3.0)
+# Reviewer note — Icon Normalizer (1.3.1)
 
 Bilingual statement of facts for the GNOME Extensions review. Copy the English part
 into a review comment or the upload notes if a reviewer asks.
@@ -30,6 +30,18 @@ with a pointer to the release tarball. That is intended behaviour, not a broken 
 
 **Package contents.** The ZIP ships readable GJS, symbolic SVG, CSS, metadata, the
 GPLv3 licence and a compiled GSettings schema — no binaries, no minified code.
+
+**Extension UUID.** `icon-normalizer@joeydeng.local` is the published UUID; its
+suffix is derived from the author's local username, kept deliberately as a
+stable, non-email identifier. It contains no secrets and resolves nowhere.
+
+**Since 1.3.0 the engine is in-process.** The description of the companion
+backend above applies to releases up to 1.2.x. Since ADR-0008 the analysis,
+rendering and transaction layers are pure GJS inside the extension process
+(GdkPixbuf only — never Gtk/Gdk/Adw in the Shell process), and the engine's
+writers take an advisory flock on `~/.local/state/icon-normalizer/sync.lock`,
+the same lock file the optional Python worker uses, so the Shell process, the
+prefs window and any remaining worker serialize on one writer at a time.
 
 **Changes since 1.1.1 (all reviewed in this repository).**
 
@@ -71,6 +83,14 @@ PyPI 最新）只带 GNOME 49/50 的 API 数据，并把 `major > 50` 硬编码�
 
 **包内容。** ZIP 只含可读的 GJS、symbolic SVG、CSS、metadata、GPLv3 许可证与编译后的 GSettings schema，
 没有二进制、没有压缩混淆代码。
+
+**扩展 UUID。** 发布的 UUID 为 `icon-normalizer@joeydeng.local`；后缀源自作者的本地用户名，
+作为稳定、非邮箱的标识刻意保留。不含任何秘密，也不指向任何可解析地址。
+
+**自 1.3.0 起引擎为进程内实现。** 上述"配套后端"描述适用于 1.2.x 及更早版本。自 ADR-0008 起，
+分析、渲染与事务层全部为扩展进程内的纯 GJS（仅用 GdkPixbuf——Shell 进程绝不引入 Gtk/Gdk/Adw）。
+引擎的写操作通过 `~/.local/state/icon-normalizer/sync.lock` 上的咨询性 flock 串行化——与可选的
+Python worker 使用同一锁文件——因此 Shell 进程、设置窗口与后台 worker 任一时刻至多一个写者。
 
 **自 1.1.1 以来的变更（均在本仓库可查）。**
 

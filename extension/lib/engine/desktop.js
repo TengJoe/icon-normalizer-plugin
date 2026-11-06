@@ -138,7 +138,10 @@ export function readDesktopSection(bytes) {
 export function rewriteIconLine(bytes, icon) {
     if (icon.includes("\n") || icon.includes("\r"))
         throw new Error("Invalid icon field");
-    const text = new TextDecoder().decode(bytes);
+    // Byte-preserving rewrite: fatal decoding rejects non-UTF-8 files instead
+    // of silently rewriting them as U+FFFD mush; ignoreBOM keeps a leading BOM
+    // byte-for-byte so the rest of the file is untouched.
+    const text = new TextDecoder('utf-8', {fatal: true, ignoreBOM: true}).decode(bytes);
     const lines = text.split(/(?<=\n)/);
     let main = false;
     let found = false;
@@ -157,6 +160,26 @@ export function rewriteIconLine(bytes, icon) {
     }
     if (!found) throw new Error("Main desktop section has no Icon=");
     return lines.join("");
+}
+
+/**
+ * Lenient variants for restore paths: a launcher that cannot be parsed or
+ * rewritten keeps its current bytes instead of failing the whole run.
+ *
+ * @param {Uint8Array} bytes file content
+ * @returns {Record<string, string>|null} key/value pairs, or null
+ */
+export function safeReadDesktopSection(bytes) {
+    try { return readDesktopSection(bytes); } catch { return null; }
+}
+
+/**
+ * @param {Uint8Array} bytes file content
+ * @param {string} icon replacement icon name
+ * @returns {string|null} rewritten content, or null when not representable
+ */
+export function safeRewriteIconLine(bytes, icon) {
+    try { return rewriteIconLine(bytes, icon); } catch { return null; }
 }
 
 /**

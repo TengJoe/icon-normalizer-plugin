@@ -7,7 +7,8 @@ import Gio from 'gi://Gio';
 
 import {themeIndex} from '../../extension/lib/engine/theme.js';
 import {
-    TransactionStore, TransactionError, atomicWrite, readBytes, shaHex,
+    TransactionStore, TransactionError, SyncLock, atomicWrite, readBytes, shaHex,
+    underRoot,
 } from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
@@ -161,4 +162,97 @@ test('recover restores the previous bytes from the journal', () => {
     }
 });
 
-report();
+test('recover refuses to clobber an external edit', () => {
+    const root = tempDir();
+    try {
+        const path = GLib.build_filenamev([root, 'target.txt']);
+        const journalPath = GLib.build_filenamev([root, 'journal.json']);
+        // The transaction wrote 'broken'; afterwards the user saved 'theirs'.
+        atomicWrite(path, new TextEncoder().encode('theirs'));
+        const before = new TextEncoder().encode('original');
+        const journal = {ops: [{
+            path,
+            before: GLib.base64_encode(before),
+            before_sha: shaHex(before),
+            after_sha: shaHex('broken'),
+        }]};
+        atomicWrite(journalPath, new TextEncoder().encode(JSON.stringify(journal)), 0o600);
+        const store = new TransactionStore(journalPath, [{path: root, fileMode: 0o644}]);
+        assertTrue(store.recover(), 'journal consumed');
+        assertEqual(new TextDecoder().decode(readBytes(path)), 'theirs', 'edit survived');
+    } finally {
+        cleanup(root);
+    }
+});
+
+test('recover keeps a file created externally after a crashed create', () => {
+    const root = tempDir();
+    try {
+        const path = GLib.build_filenamev([root, 'created-by-transaction.txt']);
+        const journalPath = GLib.build_filenamev([root, 'journal.json']);
+        const created = new TextEncoder().encode('transaction output');
+        const journal = {ops: [{
+            path,
+            before: null,
+            before_sha: null,
+            after_sha: shaHex(created),
+        }]};
+        atomicWrite(journalPath, new TextEncoder().encode(JSON.stringify(journal)), 0o600);
+
+        // Transaction output still on disk: removal completes the rollback.
+        atomicWrite(path, created);
+        const store = new TransactionStore(journalPath, [{path: root, fileMode: 0o644}]);
+        assertTrue(store.recover(), 'repaired');
+        assertTrue(readBytes(path) === null, 'own output removed');
+
+        // A file the user put there instead: it must survive recovery.
+        atomicWrite(journalPath, new TextEncoder().encode(JSON.stringify(journal)), 0o600);
+        atomicWrite(path, new TextEncoder().encode('user file'));
+        const store2 = new TransactionStore(journalPath, [{path: root, fileMode: 0o644}]);
+        assertTrue(store2.recover(), 'repaired again');
+        assertEqual(new TextDecoder().decode(readBytes(path)), 'user file', 'user file kept');
+    } finally {
+        cleanup(root);
+    }
+});
+
+test('SyncLock excludes a second writer and releases cleanly', () => {
+    const root = tempDir();
+    try {
+        const lockPath = GLib.build_filenamev([root, 'sync.lock']);
+        const first = new SyncLock(lockPath);
+        first.acquire();
+        const second = new SyncLock(lockPath);
+        let threw = null;
+        try {
+            second.acquire();
+        } catch (error) {
+            threw = error;
+        }
+        assertTrue(threw !== null, 'second acquire refused');
+        assertEqual(threw.code, 'BUSY', 'busy code');
+        assertTrue(threw.retryable, 'busy retryable');
+        first.release();
+        const third = new SyncLock(lockPath);
+        third.acquire(); // must not throw after release
+        third.release();
+    } finally {
+        cleanup(root);
+    }
+});
+
+test('underRoot normalizes .. segments', () => {
+    const root = tempDir();
+    try {
+        const inside = GLib.build_filenamev([root, '16x16', 'apps', 'a.png']);
+        assertTrue(underRoot(inside, root), 'plain inside path');
+        assertTrue(underRoot(GLib.build_filenamev([root, '16x16', '..', 'apps', 'a.png']), root),
+            'dotdot stays inside when resolved');
+        const outside = GLib.build_filenamev([GLib.path_get_dirname(root), 'escape.png']);
+        assertTrue(!underRoot(outside, root), 'sibling path outside');
+    } finally {
+        cleanup(root);
+    }
+});
+
+await report();

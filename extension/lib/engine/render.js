@@ -75,8 +75,11 @@ function lanczosCoefficients(srcLen, dstLen) {
 /**
  * Separable Lanczos resize, matching PIL closely enough for parity.
  *
- * PIL resizes each RGBA channel independently (it does not premultiply), so
- * this does the same: colours and alpha are filtered separately.
+ * Colours are premultiplied before filtering and un-premultiplied afterwards,
+ * so translucent pixels cannot bleed colour into opaque neighbours. PIL filters
+ * each RGBA channel independently; for mostly-opaque icon artwork the two agree
+ * well within the parity thresholds (tools/parity.py), and premultiplication is
+ * strictly more correct at soft alpha edges.
  *
  * @param {object} pb source GdkPixbuf
  * @param {number} outWidth
@@ -248,8 +251,10 @@ export function blurAlpha(src, size, sigma) {
         for (let x = 0; x < size; x++) {
             let acc = 0;
             for (let k = -radius; k <= radius; k++) {
-                const xx = x + k;
-                if (xx >= 0 && xx < size) acc += src[y * size + xx] * kernel[k + radius];
+                // Edge replication, matching PIL's GaussianBlur border mode:
+                // zero padding would darken shadow alpha near the canvas edge.
+                const xx = Math.min(size - 1, Math.max(0, x + k));
+                acc += src[y * size + xx] * kernel[k + radius];
             }
             tmp[y * size + x] = acc;
         }
@@ -258,8 +263,8 @@ export function blurAlpha(src, size, sigma) {
         for (let x = 0; x < size; x++) {
             let acc = 0;
             for (let k = -radius; k <= radius; k++) {
-                const yy = y + k;
-                if (yy >= 0 && yy < size) acc += tmp[yy * size + x] * kernel[k + radius];
+                const yy = Math.min(size - 1, Math.max(0, y + k));
+                acc += tmp[yy * size + x] * kernel[k + radius];
             }
             out[y * size + x] = acc;
         }

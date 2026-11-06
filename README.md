@@ -8,16 +8,16 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
-[![Release 1.3.0](https://img.shields.io/badge/release-1.3.0-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.0)
+[![Release 1.3.0](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-2ec27e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[下载完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer-plugin-1.3.0.tar.gz) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[下载完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
-当前 GitHub 发行版为 **1.3.0 / 后台 3.1.20**：图标规则失效时会被报告并可一键重置，新增圆角底板类别、规则跨目录跟随与孤儿图标清理。发布内容见 [v1.3.0 说明](docs/RELEASE-1.3.0.md)，维护边界见 [维护指南](docs/MAINTENANCE.md)。GNOME 扩展网站的审核与 GitHub 发行是独立流程，商店上架需单独审核。
+当前 GitHub 发行版为 **1.3.1 / 后台 3.1.20**：纯 GJS 内嵌引擎的加固版——跨进程写入经 sync.lock flock 互斥、崩溃回滚不覆盖外部修改、批量渲染按 idle 时间片切片不再冻结桌面，预览/主题激活/崩溃恢复的协议接缝全部对齐。发布内容见 [v1.3.1 说明](docs/RELEASE-1.3.1.md)，维护边界见 [维护指南](docs/MAINTENANCE.md)。GNOME 扩展网站的审核与 GitHub 发行是独立流程，商店上架需单独审核。
 
 ---
 
@@ -82,7 +82,7 @@ Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整�
 
 在 GNOME 扩展网站（extensions.gnome.org）点「Install」—— 目前**审核中**，通过后即可一键安装。
 
-或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
+或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
@@ -104,19 +104,19 @@ curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main
 
 ### 或者：离线包一次装完
 
-1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer-plugin-1.3.0.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/SHA256SUMS)，放在同一目录。
+1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/SHA256SUMS)，放在同一目录。
 2. 校验后解压安装：
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf icon-normalizer-plugin-1.3.0.tar.gz
+tar -xzf icon-normalizer-plugin-1.3.1.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
 安装器会检查依赖、创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。从扩展管理器打开 **Icon Normalizer → 设置** 开始使用。
 
-> 当前 GitHub 发行版：扩展 **1.3.0**，后台 **3.1.20**。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。
+> 当前 GitHub 发行版：扩展 **1.3.1**，后台 **3.1.20**。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。
 
 <details>
 <summary>从源码安装</summary>
@@ -245,7 +245,7 @@ python3 tools/uninstall.py --keep-backend
 | [架构说明](ARCHITECTURE.md) | 模块职责、进程隔离、事务与数据流 |
 | [协议规范](PROTOCOL.md) | JSON 请求、错误码与并发控制 |
 | [发布验收](docs/CHECKLIST.md) | 自动检查、桌面验收与恢复步骤 |
-| [版本记录](CHANGELOG.md) | 未发布变更与历史版本；[v1.3.0 说明](docs/RELEASE-1.3.0.md) |
+| [版本记录](CHANGELOG.md) | 未发布变更与历史版本；[v1.3.1 说明](docs/RELEASE-1.3.1.md) |
 
 更多资料见[文档索引](docs/README.md)。报告问题时，请附系统与组件版本、复现步骤，并先去除日志或截图中的私人信息。
 

@@ -113,4 +113,4 @@ test('thresholds separate the core from the shadow halo', () => {
     assertTrue(metrics.source_ratio < 1.0, 'core smaller than canvas');
 });
 
-report();
+await report();

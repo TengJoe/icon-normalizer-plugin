@@ -116,7 +116,7 @@ const fakeModules = {
 };
 const clientUrl = new URL('shared/backendClient.js', extensionRoot).href;
 let delayedRequest = null;
-fakeModules[clientUrl] = {RequestScope: class {constructor() {this.closed = false;} close() {this.closed = true;}}, call: async (_path, operation, arguments_, scope) => {
+fakeModules[clientUrl] = {RequestScope: class {constructor() {this.closed = false;} close() {this.closed = true;}}, clearLocalBackend() {}, call: async (_path, operation, arguments_, scope) => {
     if (scope?.closed) return {ok: false, error: {code: 'TIMEOUT'}};
     requests.push({operation, arguments: arguments_});
     if (delayedRequest) {const pending = delayedRequest; delayedRequest = null; return await pending;}

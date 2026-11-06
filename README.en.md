@@ -8,16 +8,16 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.0](https://img.shields.io/badge/release-1.3.0-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.0)
+[![Release 1.3.0](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-2ec27e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer-plugin-1.3.0.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
-The current GitHub release is **1.3.0 / companion 3.1.20**: icon rules now report when they stop matching and can be reset from the UI, with a rounded-plate class, rule following across size directories, and stale artwork cleanup. See the [v1.3.0 notes](docs/RELEASE-1.3.0.md) and the [maintenance guide](docs/MAINTENANCE.md). GNOME Extensions review is separate from the GitHub release.
+The current GitHub release is **1.3.1 / companion 3.1.20**: the hardening release for the pure-GJS in-process engine — cross-process writes serialize on a sync.lock flock, crash rollback never clobbers external edits, bulk rendering is sliced across idle callbacks so the desktop never freezes, and the preview/activation/recovery protocol seams are fully aligned. See the [v1.3.1 notes](docs/RELEASE-1.3.1.md) and the [maintenance guide](docs/MAINTENANCE.md). GNOME Extensions review is separate from the GitHub release.
 
 ---
 
@@ -82,7 +82,7 @@ Installation has two parts: the **extension** installs the standard GNOME way, a
 
 On extensions.gnome.org, press **Install** — it is currently **under review**, after which this is a single click.
 
-Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer@joeydeng.local.zip) and install it the standard way:
+Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer@joeydeng.local.zip) and install it the standard way:
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
@@ -104,19 +104,19 @@ curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main
 
 ### Or: one offline package for both
 
-1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/icon-normalizer-plugin-1.3.0.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.0/SHA256SUMS) into the same directory.
+1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/SHA256SUMS) into the same directory.
 2. Verify, extract and install:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf icon-normalizer-plugin-1.3.0.tar.gz
+tar -xzf icon-normalizer-plugin-1.3.1.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
 The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
 
-> Current GitHub release: extension **1.3.0**, backend **3.1.20**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
+> Current GitHub release: extension **1.3.1**, backend **3.1.20**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
 
 <details>
 <summary>Install from source</summary>
@@ -245,7 +245,7 @@ Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, 
 | [Architecture](ARCHITECTURE.md) | Modules, process isolation, transactions, and data flow |
 | [Protocol](PROTOCOL.md) | JSON requests, error codes, and concurrency control |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance, and recovery procedures |
-| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.3.0 notes](docs/RELEASE-1.3.0.md) |
+| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.3.1 notes](docs/RELEASE-1.3.1.md) |
 
 See the [documentation index](docs/README.md) for more references. When reporting a problem, include system and component versions and reproduction steps, and remove private information from logs and screenshots first. Technical references currently use Chinese; installation and usage guides are available in both languages.
 

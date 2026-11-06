@@ -104,4 +104,4 @@ test('entryVisibility follows the freedesktop rules', () => {
     assertEqual(entryVisibility({DBusActivatable: 'true'}, 'GNOME'), 'visible', 'D-Bus only');
 });
 
-report();
+await report();

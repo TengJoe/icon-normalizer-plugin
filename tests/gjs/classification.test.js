@@ -115,4 +115,4 @@ test('a stale rule falls back to the automatic class and is reported', () => {
     assertEqual(result.state, RULE_STATE_STALE, 'state');
 });
 
-report();
+await report();

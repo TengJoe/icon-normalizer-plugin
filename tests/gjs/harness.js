@@ -7,17 +7,33 @@ import System from 'system';
 
 let passed = 0;
 let failed = 0;
+const pending = [];
 
 export function test(name, fn) {
+    let result;
     try {
-        fn();
-        passed++;
-        print('  ok   ' + name);
+        result = fn();
     } catch (error) {
         failed++;
         print('  FAIL ' + name);
         print('       ' + (error && error.message || error));
+        return;
     }
+    // Async tests settle here: without this, a rejected promise used to be
+    // counted as a pass and only surfaced as an unhandled-rejection warning.
+    if (result && typeof result.then === 'function') {
+        pending.push(result.then(() => {
+            passed++;
+            print('  ok   ' + name);
+        }, error => {
+            failed++;
+            print('  FAIL ' + name);
+            print('       ' + (error && error.message || error));
+        }));
+        return;
+    }
+    passed++;
+    print('  ok   ' + name);
 }
 
 export function assertEqual(actual, expected, what = 'value') {
@@ -61,7 +77,8 @@ export function pixbufFromAlpha(width, height, alphaOf) {
         GdkPixbuf.Colorspace.RGB, true, 8, width, height, width * 4);
 }
 
-export function report() {
+export async function report() {
+    await Promise.all(pending);
     const total = passed + failed;
     print(passed + '/' + total + ' passed');
     if (failed > 0) System.exit(1);

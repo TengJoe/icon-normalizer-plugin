@@ -5,7 +5,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {call, RequestScope} from './shared/backendClient.js';
+import {call, clearLocalBackend, RequestScope} from './shared/backendClient.js';
 import {runApplyFlow} from './shared/applyFlow.js';
 import {operationExitHint, supportsProfilesAndThemes} from './shared/stateModel.js';
 import {Indicator} from './shell/indicator.js';
@@ -100,20 +100,32 @@ export default class IconNormalizerExtension extends Extension {
         this._pending?.clear();
         this._lastStatus = null;
         this._controlPath = null;
+        // The module-level in-process backend must not outlive this enable()
+        // cycle: re-enable installs a fresh one (no stale LocalControl).
+        clearLocalBackend();
+        this._control = null;
     }
 
     async _setupLocalBackend() {
+        const generation = this._generation;
         try {
             const {setLocalBackend, hasLocalBackend} = await import('./shared/backendClient.js');
+            if (generation !== this._generation) return;
             if (hasLocalBackend()) return;
             const {LocalControl} = await import('./lib/control.js');
+            if (generation !== this._generation) return;
             const desktopSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
             const control = new LocalControl({
                 home: GLib.get_home_dir(),
+                // Live main loop: take the cross-process sync lock and slice
+                // engine phases across idle callbacks.
+                locking: true,
+                slicing: true,
                 settings: {
                     desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
                     iconTheme: () => desktopSettings.get_string('icon-theme'),
                     automatic: () => null,
+                    setTheme: name => desktopSettings.set_string('icon-theme', name),
                 },
             });
             this._control = control;
