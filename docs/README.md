@@ -8,7 +8,9 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.1.30 发布说明 / Latest release notes](RELEASE-1.1.30.md) | 当前版本：规则生命周期文档已写入 README / Current: rule lifecycle documented in the READMEs | 中文 / English |
+| [v1.1.51 发布说明 / Latest release notes](RELEASE-1.1.51.md) | 当前版本：索引与工具一致性 / Current: index and tooling consistency | 中文 / English |
+| [v1.1.50 发布说明](RELEASE-1.1.50.md) | 文档与工具一致性 / Documentation and tooling consistency | 中文 / English |
+| [v1.1.30 发布说明](RELEASE-1.1.30.md) | 规则生命周期文档写入 README / Rule lifecycle documented in the READMEs | 中文 / English |
 | [v1.1.29 发布说明](RELEASE-1.1.29.md) | 健康事件闭环（degraded → recovered） / Health events close the loop | 中文 / English |
 | [v1.1.27 发布说明](RELEASE-1.1.27.md) | 孤儿图标清理 / Stale artwork cleanup | 中文 / English |
 | [v1.1.8 发布说明](RELEASE-1.1.8.md) | 历史版本 / Previous release | 中文 / English |

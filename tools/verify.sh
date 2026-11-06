@@ -98,6 +98,11 @@ check_doc_versions() {
             rc=1
         fi
     done
+    # The documentation index must point its "latest release" row at this version.
+    if ! grep -q "RELEASE-$ver.md" docs/README.md; then
+        echo "docs/README.md does not link RELEASE-$ver.md"
+        rc=1
+    fi
     return $rc
 }
 run Q16 "docs match the current version" check_doc_versions
