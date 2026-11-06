@@ -9,6 +9,8 @@
 - 发布审计 `tools/release_audit.py --submission`：**14/14 检查通过、0 警告**。
 - 隐私审计 `tools/privacy_audit.py`：**0 findings**（当前 183 个文件与成员）。
 - 产出质量审计见 [AUDIT-2026-11-06.md](AUDIT-2026-11-06.md)：625 个 PNG，0 个偏心，2 个最小尺寸 1px 取整。
+- 隔离 Shell 验收（Q10）实测通过：`{"ok":true,"shell":"51.0","state":"ACTIVE","menu_items":7,"bilingual":true,"automation_guard":true,"scan":true,"apply":true,"disable_reenable":true,"theme_cycles":2,"custom_gtk_preserved":true}`，证据含中英文顶栏截图。
+- 运行时验收（Q8）实测通过 15 项；`responsive-smoke`、`health-smoke`、`about-smoke`、`profiles-smoke` 亦通过（调用方式见 [MAINTENANCE.md](MAINTENANCE.md)）。
 - 送审材料：`dist/icon-normalizer@joeydeng.local.zip` + [REVIEWER-NOTE.md](REVIEWER-NOTE.md)；上传需人工在浏览器完成，且**会驳回当前待审版本**。
 - 交接与已知限制见 [HANDOVER.md](HANDOVER.md)。
 
@@ -55,7 +57,7 @@
 | Q7 | 协议契约一致性 | `contracts/*.schema.json` vs `PROTOCOL.md` | v1 原 9 操作兼容，新增 5 操作；17 错误码与退出码保持兼容 |
 | Q8 | St 样式及 GJS/GTK4 设置与预览 | `python3 tests/frontend/test_runtime.py` | 当前全部测试 OK；中英文各六种窗口尺寸 × 三页、预览、参数回显/保存/冲突、切换语言保留草稿、方案管理、旧后台升级提示与关于页面 |
 | Q9 | 顶栏入口行为回归 | `node --experimental-vm-modules tests/frontend/indicator.test.mjs` | 15/15，图标、双语、状态/错误、路由、规则通知（含开关与去重）、销毁与重启、主题监听与旧后台守卫 |
-| Q10 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
+| Q11 | 发布与隐私审计 | `python3 tools/release_audit.py --submission` + `python3 tools/privacy_audit.py` | 检查全通过、0 警告、0 findings |
 | Q10 | 独立 GNOME Shell 51 验收 | `python3 tests/frontend/headless_shell.py` | ok=true；真实顶栏 API、检查/应用和生命周期 |
 | Q11 | 中英文目录与错误码 | `node tests/frontend/i18n.test.mjs` | 5/5；全部当前翻译、占位符、自动检测、17 错误码与回切 |
 | Q12 | 后端客户端与请求生命周期 | `node --experimental-vm-modules tests/frontend/backendClient.test.mjs` | 10/10；协议校验、缺失后台、信号退出、读取取消与写操作安全收尾 |
