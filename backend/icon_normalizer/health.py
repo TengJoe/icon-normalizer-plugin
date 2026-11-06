@@ -70,6 +70,11 @@ def _event(state: Path, kind: str, record: dict[str, Any]) -> None:
     write_json_file(state / "health-events.json", history[-EVENT_LIMIT:])
 
 
+def record_event(state: Path, kind: str, payload: dict[str, Any]) -> None:
+    """Record a non-error lifecycle event (e.g. degraded when a rule goes stale)."""
+    _event(state, kind, payload)
+
+
 def record_error(state: Path, exc: ProtocolError) -> None:
     persisted_config_failure = (exc.code == "INVALID_CONFIG" and
                                 exc.details.get("reason") == "PERSISTED_CONFIG_INVALID")

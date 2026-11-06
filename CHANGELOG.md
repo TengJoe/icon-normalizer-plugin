@@ -2,6 +2,15 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.9 — 规则失效可见化（后台 3.1.7）
+
+发布日期：2026-11-06。完整说明见 [v1.1.9 发布说明](docs/RELEASE-1.1.9.md)。
+
+- 新增规则状态 `rule_state`：区分 `active` / `stale_source` / `unbound` / `invalid` / `none`，不再把"规则存在但未生效"混同为"没有规则"。
+- 运行记录新增 `rule_warnings`（`summary.rule_warnings` 计数 + `last-run.json` 明细），列出指纹失配、源图不可读或类别非法的规则及期望/实际指纹。
+- 应用成功后写入 `degraded` / `RULE_STALE` 健康事件，供维护页与外部监控读取。
+- 读取规则时接受 `class` 作为 `classification` 的别名（兼容 `overrides.json` 的字段名），消除两套 schema 的歧义。
+- 新增 `tests/backend/test_rule_staleness.py`（10 项：单元级规则状态 + 引擎级运行记录断言）。
 ## 1.1.8 — 规则保留与状态回报（后台 3.1.6）
 
 发布日期：2026-11-03。完整说明见 [v1.1.8 发布说明](docs/RELEASE-1.1.8.md)。GNOME 扩展网站的审核状态与 GitHub 发行独立。

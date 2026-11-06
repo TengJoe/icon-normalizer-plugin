@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .. import gsettings
+from .. import gsettings, health
 from ..config_store import atomic_write, read_json_file
 from ..desktop import (
     DesktopRef,
@@ -35,7 +35,13 @@ from ..fingerprints import policy_fingerprint
 from ..ownership import conflict, reject_conflicts
 from ..theme import MARKER, MANIFEST_VERSION, MARKER_FILE, ThemeDirectory, theme_index
 from .analyzer import IconMetrics, Plan, analyze, plan
-from .classification import classify_source, lookup_rule, resolve_rule
+from .classification import (
+    ALERT_RULE_STATES,
+    classify_source,
+    describe_rule,
+    lookup_rule,
+    resolve_rule,
+)
 from .renderer import normalize
 from .resolver import IconResolver, load_image, resolve_source
 from .transaction import ProtectedRoot, TransactionStore
@@ -257,6 +263,7 @@ class Engine:
         analysis_cache: dict[str, dict[str, Any]] = {}
         rows: list[dict[str, Any]] = []
         unresolved: list[dict[str, str]] = []
+        rule_warnings: list[dict[str, Any]] = []
         changes: dict[Path, bytes | None] = {}
         desired_desktops: dict[str, dict[str, Any]] = {}
         used_overrides: set[str] = set()
@@ -358,6 +365,17 @@ class Engine:
                 **decision.as_dict(),
             }
             raw_rule = lookup_rule(self.config.user_rules, icon)
+            _rule_decision, rule_state, rule_detail = describe_rule(raw_rule, digest)
+            row["rule_state"] = rule_state
+            if rule_detail:
+                row["rule_detail"] = rule_detail
+            if rule_state in ALERT_RULE_STATES:
+                rule_warnings.append({
+                    "icon_name": icon,
+                    "names": names,
+                    "error": "RULE_" + rule_state.upper(),
+                    "detail": rule_detail,
+                })
             if raw_rule and raw_rule.get("skip"):
                 row["action"] = "skipped"
                 row["reason"] = "user_skip"
@@ -461,6 +479,7 @@ class Engine:
             "managed_icons": len(items),
             "managed_desktop_overrides": len(desired_desktops),
             "unresolved": unresolved,
+            "rule_warnings": len(rule_warnings),
             "planned_file_changes": len(changes),
             "cache_valid": self.cache_valid(),
             "source_theme": self.base_theme,
@@ -469,7 +488,8 @@ class Engine:
         return InspectResult(
             changes=changes,
             manifest=new,
-            payload={"ok": True, "summary": summary, "warnings": unresolved, "apps": rows},
+            payload={"ok": True, "summary": summary, "warnings": unresolved,
+                     "rule_warnings": rule_warnings, "apps": rows},
             expected_before=expected_before,
         )
 
@@ -792,6 +812,12 @@ class Engine:
         payload["summary"]["cache_valid"] = self.cache_valid()
         payload["summary"]["active_theme"] = gsettings.current_icon_theme(self.config.settings)
         payload["summary"]["theme_active"] = payload["summary"]["active_theme"] == self.theme_name
+        if payload.get("rule_warnings"):
+            health.record_event(self.state_dir, "degraded", {
+                "code": "RULE_STALE",
+                "operation": "sync",
+                "count": len(payload["rule_warnings"]),
+            })
         record = {key: value for key, value in payload.items() if key != "apps"}
         previous = self.state_dir / "last-run.json"
         previous_run = read_json_file(previous) or {}
