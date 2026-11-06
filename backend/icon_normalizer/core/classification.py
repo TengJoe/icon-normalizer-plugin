@@ -75,6 +75,13 @@ def describe_rule(
         return {"skip": True, "class": None}, RULE_STATE_ACTIVE, {"mode": "skip"}
     # "class" is accepted as an alias for the portable override schema.
     cls = rule.get("classification") or rule.get("class")
+    if rule.get("classification") and rule.get("class") \
+            and rule["classification"] != rule["class"]:
+        return None, RULE_STATE_INVALID, {
+            "classification": rule["classification"],
+            "class": rule["class"],
+            "reason": "conflicting_alias",
+        }
     if cls == "auto":
         return {"skip": False, "class": None, "drop_manual": True}, RULE_STATE_ACTIVE, {"mode": "auto"}
     if cls not in CLASSES:

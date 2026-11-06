@@ -46,6 +46,12 @@ class DescribeRule(unittest.TestCase):
         self.assertIsNone(decision)
         self.assertEqual(state, RULE_STATE_INVALID)
 
+    def test_conflicting_class_alias_is_invalid(self):
+        decision, state, detail = describe_rule(
+            {"classification": "glyph", "class": "artwork"}, "a" * 64)
+        self.assertIsNone(decision)
+        self.assertEqual(state, RULE_STATE_INVALID)
+        self.assertEqual(detail["reason"], "conflicting_alias")
     def test_skip_rule_stays_active(self):
         decision, state, detail = describe_rule({"skip": True}, "a" * 64)
         self.assertEqual((state, decision["skip"], detail["mode"]),

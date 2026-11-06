@@ -2,6 +2,13 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.15 — 规则模型定稿（后台 3.1.13）
+
+发布日期：2026-11-06。完整说明见 [v1.1.15 发布说明](docs/RELEASE-1.1.15.md)。
+
+- `class` 与 `classification` 同时出现且取值不同时判为 `invalid`（原因 `conflicting_alias`），不再静默择一。
+- 新增 [ADR-0005 图标规则模型](docs/adr/0005-icon-rule-model.md)，记录两套机制的边界、匹配顺序、skip 语义与失效报告规则。
+- 新增别名冲突测试（`test_rule_staleness.py` 增至 11 项）。
 ## 1.1.14 — 失效覆盖规则可被发现（后台 3.1.12）
 
 发布日期：2026-11-06。完整说明见 [v1.1.14 发布说明](docs/RELEASE-1.1.14.md)。

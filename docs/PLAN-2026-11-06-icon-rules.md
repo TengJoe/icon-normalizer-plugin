@@ -57,7 +57,7 @@
 
 ---
 
-### FIX-3（P2）统一两套配置的字段名
+### FIX-3（P2）统一两套配置的字段名 ✅ 已实现（扩展 1.1.15 / 后台 3.1.13，含 ADR-0005）
 
 **现状**：`overrides.json` 用 `class`，`user-rules.json` 用 `classification`，极易写错。
 
