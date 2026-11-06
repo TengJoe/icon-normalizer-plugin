@@ -31,6 +31,7 @@
 | [验收清单 / Release checklist](CHECKLIST.md) | 自动检查、手动验收与恢复步骤 | 简体中文 |
 | [规则可靠性计划 / Rule reliability plan](PLAN-2026-11-06-icon-rules.md) | FIX-1…6 与 OPT-1…5 的问题、方案与验收 | 简体中文 |
 | [产出质量审计 / Output quality audit](AUDIT-2026-11-06.md) | 625 个产出 PNG 的占比、居中度与圆角审计 | 简体中文 |
+| [GJS 影像可行性 / GJS imaging feasibility](PROTOTYPE-gjs-imaging.md) | 移植到 GJS 的实测数据：几何一致、性能可接受 | 简体中文 |
 | [GNOME Extensions 提交说明 / Submission notes](SUBMISSION.md) | Companion architecture, review boundaries, and submission checks | English |
 | [发布记录 / Changelog](../CHANGELOG.md) | 版本变更与开发历史 | 简体中文 |
 
