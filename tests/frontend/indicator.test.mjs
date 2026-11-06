@@ -68,6 +68,8 @@ class Settings extends Signals {
     get_boolean() { return this.show; }
     get_string() { return this.language ?? 'system'; }
     set_string(_key, value) { this.language = value; this.emit('changed::ui-language'); }
+    get_int(key) { return this.ints?.[key] ?? 0; }
+    set_int(key, value) { (this.ints ??= {})[key] = value; return true; }
 }
 const settings = new Settings();
 class ThemeSettings extends Signals {
@@ -163,6 +165,7 @@ assert.equal(notifications.length, 2, 'a new count notifies again');
 extension._indicator.update({...status, rules_health: {warnings: 0}}, {ok: true});
 extension._indicator.update({...status, rules_health: {warnings: 1}}, {ok: true});
 assert.equal(notifications.length, 3, 'recurrence after a fix notifies again');
+assert.equal(settings.get_int('notified-rule-warnings'), 1, 'the notified count is persisted');
 console.log('ok   stale rules notify once per distinct warning count');
 const realSettings = extension._indicator._settings;
 extension._indicator._settings = {get_boolean: () => false};

@@ -32,5 +32,10 @@
       <summary>Notify when icon rules stop matching</summary>
       <description>Send one desktop notification per distinct warning count when rules no longer match the current artwork.</description>
     </key>
+    <key name="notified-rule-warnings" type="i">
+      <default>0</default>
+      <summary>Last warning count that was notified</summary>
+      <description>Persisted so a shell restart does not repeat a notification for the same problem.</description>
+    </key>
   </schema>
 </schemalist>

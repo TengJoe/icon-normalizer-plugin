@@ -20,7 +20,6 @@ export class Indicator {
         this._requestRefresh = requestRefresh;
         this._debounceId = 0;
         this._syncingAutomatic = false;
-        this._notifiedRuleWarnings = 0;
         this._indicator = new PanelMenu.Button(0.0, t('图标统一'));
         const file = Gio.File.new_for_uri(import.meta.url).get_parent()
             .resolve_relative_path('../icons/icon-normalizer-symbolic.svg');
@@ -116,6 +115,22 @@ export class Indicator {
         this.update(this._status, this._envelope);
     }
 
+    _notifiedWarnings() {
+        try {
+            return this._settings?.get_int('notified-rule-warnings') ?? 0;
+        } catch {
+            return 0;
+        }
+    }
+
+    _setNotifiedWarnings(value) {
+        try {
+            this._settings?.set_int('notified-rule-warnings', value);
+        } catch {
+            // Settings unavailable: fall back to the in-session behaviour.
+        }
+    }
+
     _notifyEnabled() {
         try {
             return this._settings?.get_boolean('notify-rule-warnings') ?? true;
@@ -134,14 +149,14 @@ export class Indicator {
         // spam the desktop, but a new count (or a recurrence after a fix) should.
         const ruleWarnings = Number(status?.rules_health?.warnings ?? 0);
         if (Number.isFinite(ruleWarnings) && ruleWarnings > 0 && this._notifyEnabled()) {
-            if (this._notifiedRuleWarnings !== ruleWarnings) {
-                this._notifiedRuleWarnings = ruleWarnings;
+            if (this._notifiedWarnings() !== ruleWarnings) {
+                this._setNotifiedWarnings(ruleWarnings);
                 Main.notify(t('图标规则需要处理'),
                     t('有 {count} 条规则不再匹配当前源图，可在「图标统一」设置中查看并重置。',
                         {count: ruleWarnings}));
             }
-        } else {
-            this._notifiedRuleWarnings = 0;
+        } else if (!ruleWarnings) {
+            this._setNotifiedWarnings(0);
         }
         let state = t('后台状态读取中…');
         let detail = '';
