@@ -2,6 +2,13 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.1.49 — 文档版本对齐 + Q16 门（后台 3.1.20 不变）
+
+发布日期：2026-11-06。
+
+- 发现 `docs/HANDOVER.md` 写着 1.1.33、`docs/CHECKLIST.md` 写着 1.1.34，而实际版本已是 1.1.48 —— 长期迭代中这类"文档头部版本"最容易漂移。
+- 两者已对齐到当前版本；`docs/REVIEWER-NOTE.md` 同步。
+- `tools/verify.sh` 新增 **Q16「文档头部版本与 metadata.json 一致」**：检查 HANDOVER / CHECKLIST / REVIEWER-NOTE 前 6 行是否出现当前版本号。
 ## 1.1.48 — 上架说明版本号对齐（后台 3.1.20 不变）
 
 发布日期：2026-11-06。

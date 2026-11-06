@@ -52,6 +52,21 @@ run Q11 "i18n catalogue"     node --experimental-vm-modules tests/frontend/i18n.
 run Q12 "backend client"     node --experimental-vm-modules tests/frontend/backendClient.test.mjs
 run Q13 "release + privacy"  bash -c "python3 tools/release_audit.py --submission >/dev/null && python3 tools/privacy_audit.py >/dev/null"
 
+# Q16 catches the "docs still claim an older version" drift.
+check_doc_versions() {
+    local ver rc=0
+    ver=$(python3 -c "import json;print(json.load(open('extension/metadata.json'))['version-name'])")
+    for doc in docs/HANDOVER.md docs/CHECKLIST.md docs/REVIEWER-NOTE.md; do
+        [ -f "$doc" ] || continue
+        if ! head -6 "$doc" | grep -q "\b$ver\b"; then
+            echo "$doc does not mention the current version $ver in its header"
+            rc=1
+        fi
+    done
+    return $rc
+}
+run Q16 "docs match the current version" check_doc_versions
+
 # Q14 keeps the installed tree honest: a code change that is never installed
 # leaves the desktop running older code under the same version number.
 if [ -d "$HOME/.local/libexec/icon-normalizer/icon_normalizer" ]; then
