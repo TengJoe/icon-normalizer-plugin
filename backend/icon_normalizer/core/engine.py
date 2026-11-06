@@ -482,6 +482,16 @@ class Engine:
             "items": items,
             "desktop_overrides": desired_desktops,
         }
+        # The plugin owns its theme directory: remove PNGs that no item claims
+        # any more (renamed icons, changed policy, abandoned sources) so stale
+        # artwork cannot linger next to current output.
+        wanted = {str(p) for item in items.values() for p in item.get("files", {})}
+        for stale in sorted(self.theme_dir.glob("*/apps/*.png")):
+            if str(stale) in wanted:
+                continue
+            self.allowed(stale)
+            self._remember_before(expected_before, stale, stale.read_bytes())
+            changes[stale] = None
         index = theme_index(self.theme_name, self.base_theme, sizes)
         index_path = self.theme_dir / "index.theme"
         if not index_path.exists() or index_path.read_bytes() != index:
