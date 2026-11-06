@@ -67,8 +67,23 @@ if [ -d "$HOME/.local/libexec/icon-normalizer/icon_normalizer" ]; then
         return $rc
     }
     run Q14 "installed tree matches repo" check_drift
+
+    # The extension tree is copied verbatim except for the version string and
+    # the compiled schema that gnome-extensions generates on install.
+    check_extension_drift() {
+        local inst="$HOME/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local"
+        local out
+        out=$(diff -r -x metadata.json -x gschemas.compiled extension/ "$inst/" 2>&1)
+        if [ -n "$out" ]; then
+            echo "$out" | head -6
+            return 1
+        fi
+        return 0
+    }
+    run Q15 "installed extension matches repo" check_extension_drift
 else
     skip Q14 "installed tree matches repo" "not installed"
+    skip Q15 "installed extension matches repo" "not installed"
 fi
 
 echo
