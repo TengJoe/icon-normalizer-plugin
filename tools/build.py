@@ -46,6 +46,9 @@ def compile_schemas() -> None:
 
 
 def build_zip(target: Path) -> None:
+    # Fixed member timestamps keep the archive byte-identical between machines
+    # and runs, so a published SHA-256 can be reproduced from the source tree.
+    fixed = (1980, 1, 1, 0, 0, 0)
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
         for path in sorted((PROJECT / "extension").rglob("*")):
             if not path.is_file() or "__pycache__" in path.parts:
@@ -53,10 +56,14 @@ def build_zip(target: Path) -> None:
             name = path.relative_to(PROJECT / "extension").as_posix()
             if name in PACKAGE_EXCLUDE:
                 continue
-            archive.write(path, name)
+            info = zipfile.ZipInfo(name, date_time=fixed)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = (0o644 & 0xFFFF) << 16
+            archive.writestr(info, path.read_bytes())
 
 
 def build_tarball(target: Path, ver: str) -> None:
+    import gzip
     import tarfile
 
     def public_member(item: tarfile.TarInfo) -> tarfile.TarInfo | None:
@@ -66,15 +73,20 @@ def build_tarball(target: Path, ver: str) -> None:
         # Do not disclose them through tar headers or extended PAX metadata.
         item.uid = item.gid = 0
         item.uname = item.gname = ""
+        # Fixed mtime keeps the tarball reproducible (gzip header is fixed too).
+        item.mtime = 0
         for key in ("uid", "gid", "uname", "gname"):
             item.pax_headers.pop(key, None)
         return item
 
-    with tarfile.open(target, "w:gz") as tar:
-        for name in PACKAGE_MEMBERS:
-            path = PROJECT / name
-            if path.exists():
-                tar.add(path, arcname=f"icon-normalizer-plugin/{name}", filter=public_member)
+    with open(target, "wb") as raw:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
+            with tarfile.open(fileobj=gz, mode="w") as tar:
+                for name in PACKAGE_MEMBERS:
+                    path = PROJECT / name
+                    if path.exists():
+                        tar.add(path, arcname=f"icon-normalizer-plugin/{name}",
+                                filter=public_member)
 
 
 def build(staging: Path) -> dict[str, Any]:
