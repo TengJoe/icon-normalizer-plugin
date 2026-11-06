@@ -1,4 +1,4 @@
-# Reviewer note — Icon Normalizer (1.1.32)
+# Reviewer note — Icon Normalizer (1.1.48)
 
 Bilingual statement of facts for the GNOME Extensions review. Copy the English part
 into a review comment or the upload notes if a reviewer asks.
