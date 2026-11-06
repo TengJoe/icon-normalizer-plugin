@@ -70,6 +70,8 @@ def load_image(path: str | Path, vector_size: int = 1024) -> tuple[Image.Image, 
     """Load raster or SVG artwork into a PIL RGBA image."""
     suffix = Path(path).suffix.lower()
     if suffix in {".svg", ".svgz"}:
+        import gi
+        gi.require_version("GdkPixbuf", "2.0")
         from gi.repository import GdkPixbuf
 
         pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(path), vector_size, vector_size, True)

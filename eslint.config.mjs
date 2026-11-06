@@ -3,7 +3,7 @@ export default [{
     languageOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
-        globals: {logError: 'readonly', TextDecoder: 'readonly'},
+        globals: {logError: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly'},
     },
     rules: {
         'no-undef': 'error',

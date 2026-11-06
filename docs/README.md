@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.2.0 发布说明 / Latest release notes](RELEASE-1.2.0.md) | 当前版本：规则可靠性（自 1.1.8 以来首个用户发布）/ Current: rule reliability, first user release since 1.1.8 | 中文 / English |
+| [v1.3.0 发布说明 / Latest release notes](RELEASE-1.3.0.md) | 当前版本：纯 GJS 内嵌引擎与零外部依赖 / Current: pure GJS in-process engine | 中文 / English |
+| [v1.2.0 发布说明](RELEASE-1.2.0.md) | 规则可靠性 / Rule reliability | 中文 / English |
 | [v1.1.51 发布说明](RELEASE-1.1.51.md) | 开发过程版本（未公开发布）/ Development-only version | 中文 / English |
 | [v1.1.50 发布说明](RELEASE-1.1.50.md) | 文档与工具一致性 / Documentation and tooling consistency | 中文 / English |
 | [v1.1.30 发布说明](RELEASE-1.1.30.md) | 规则生命周期文档写入 README / Rule lifecycle documented in the READMEs | 中文 / English |
@@ -50,4 +51,5 @@ ADRs describe the context and tradeoffs at the time of each decision. Use the cu
 | [0005](adr/0005-icon-rule-model.md) | 图标规则模型：两套机制、匹配顺序、skip 语义与失效报告 | 简体中文 |
 | [0006](adr/0006-reliability-boundaries.md) | 轻量诊断、所有权冲突与维护健康状态 | 简体中文 |
 | [0007](adr/0007-ownership-preconditions.md) | 提交前置状态与持久配置故障 | 简体中文 |
+| [0008](adr/0008-gjs-only-engine.md) | 纯 GJS 内嵌引擎与零外部依赖架构 | 简体中文 |
 | [0005](adr/0005-profiles-and-theme-follow.md) | Named profiles and source-theme migration | English |

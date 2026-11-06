@@ -12,7 +12,6 @@ import {Indicator} from './shell/indicator.js';
 import {initLanguage} from './shared/i18n.js';
 import {syncGtkTheme} from './shell/themeSync.js';
 
-const CONTROL_PATH_PARTS = ['.local', 'libexec', 'icon-normalizer', 'control.py'];
 const PANEL_KEY = 'show-panel-indicator';
 
 export default class IconNormalizerExtension extends Extension {
@@ -26,7 +25,8 @@ export default class IconNormalizerExtension extends Extension {
         this._requests = new RequestScope();
         this._settings = this.getSettings();
         initLanguage(this._settings, GLib.get_language_names());
-        this._controlPath = GLib.build_filenamev([GLib.get_home_dir(), ...CONTROL_PATH_PARTS]);
+        this._controlPath = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'libexec', 'icon-normalizer', 'control.py']);
+        this._setupLocalBackend();
         this._pending = new Set();
         this._lastStatus = null;
         this._indicator = null;
@@ -100,6 +100,27 @@ export default class IconNormalizerExtension extends Extension {
         this._pending?.clear();
         this._lastStatus = null;
         this._controlPath = null;
+    }
+
+    async _setupLocalBackend() {
+        try {
+            const {setLocalBackend, hasLocalBackend} = await import('./shared/backendClient.js');
+            if (hasLocalBackend()) return;
+            const {LocalControl} = await import('./lib/control.js');
+            const desktopSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+            const control = new LocalControl({
+                home: GLib.get_home_dir(),
+                settings: {
+                    desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
+                    iconTheme: () => desktopSettings.get_string('icon-theme'),
+                    automatic: () => null,
+                },
+            });
+            this._control = control;
+            setLocalBackend((operation, args) => control.handle(operation, args));
+        } catch {
+            // Running in an environment without backend support or during tests: keep controlPath.
+        }
     }
 
     _syncIndicator() {

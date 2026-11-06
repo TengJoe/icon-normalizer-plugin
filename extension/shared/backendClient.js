@@ -98,6 +98,24 @@ function fail(requestId, operation, code, message, retryable = false, timedOut =
     };
 }
 
+/** When set, requests are dispatched in-process instead of spawning a backend. */
+let localBackend = null;
+
+/**
+ * Install an in-process backend. Once installed, call() no longer spawns a
+ * child process: the extension runs the engine itself.
+ *
+ * @param {(operation: string, args: object) => Promise<object>} handler
+ */
+export function setLocalBackend(handler) {
+    localBackend = handler;
+}
+
+/** @returns {boolean} true when an in-process backend is installed */
+export function hasLocalBackend() {
+    return localBackend !== null;
+}
+
 /**
  * Run one protocol request against the backend control CLI.
  *
@@ -111,6 +129,19 @@ export function call(controlPath, operation, args, scope = null) {
         const requestId = `ui-${GLib.uuid_string_random()}`;
         if (scope?.closed) {
             resolve(fail(requestId, operation, 'TIMEOUT', t('窗口已关闭')));
+            return;
+        }
+        if (localBackend) {
+            localBackend(operation, args || {}).then(
+                result => resolve({
+                    api_version: API_VERSION,
+                    request_id: requestId,
+                    operation,
+                    ok: true,
+                    result,
+                }),
+                error => resolve(fail(requestId, operation, 'BACKEND_ERROR',
+                    String(error && error.message || error))));
             return;
         }
         if (!Gio.File.new_for_path(controlPath).query_exists(null)) {

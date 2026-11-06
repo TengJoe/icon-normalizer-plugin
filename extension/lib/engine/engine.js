@@ -7,7 +7,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import GLib from 'gi://GLib';
-import Gio from 'gi://Gio';
 
 import {analyze, plan, suggestClass} from './analyze.js';
 import {ALERT_RULE_STATES, classifySourceEx, describeRule, lookupRuleEx} from './classification.js';
@@ -19,7 +18,7 @@ import {normalize} from './render.js';
 import {resolveSource} from './resolver.js';
 import {MARKER, MARKER_FILE, MANIFEST_VERSION, ThemeDirectory, themeIndex} from './theme.js';
 import {
-    TransactionStore, atomicWrite, durableUnlink, readBytes, shaHex, underRoot,
+    TransactionStore, atomicWrite, readBytes, shaHex, underRoot,
 } from './transaction.js';
 
 /** Base64 of a byte array, or null. */

@@ -1,15 +1,15 @@
 # 发布验收清单
 
-## 1.2.0 / 3.1.20 发布验收（2026-11-06）
+## 1.3.0 / 3.1.20 发布验收（2026-11-07）
 
-当前组件版本为 **1.2.0 / 3.1.20**（渲染核心 3）；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
+当前组件版本为 **1.3.0 / 3.1.20**（渲染核心 3）；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
 
 - 后端全量 **253 项**、前端 **5 组套件**（逻辑 13/13 ×2、指示器 15/15、维护页 11/11、状态模型 17/17、i18n 5/5）全部通过。
 - `npm run lint` 零告警；`glib-compile-schemas --strict` 通过。
 - 发布审计 `tools/release_audit.py --submission`：**14/14 检查通过、0 警告**。
 - 隐私审计 `tools/privacy_audit.py`：**0 findings**（当前 183 个文件与成员）。
 - 产出质量审计见 [AUDIT-2026-11-06.md](AUDIT-2026-11-06.md)：625 个 PNG，0 个偏心，2 个最小尺寸 1px 取整。
-- 一键验证脚本 `bash tools/verify.sh` 实测 **16/16 通过**（`--quick` 跳过需要显示服务的 Q8/Q10，为 **14/14**）。
+- 一键验证脚本 `bash tools/verify.sh` 实测 **19/19 通过**（`--quick` 跳过需要显示服务的 Q8/Q10，为 **17/17**）。
 - 隔离 Shell 验收（Q10）实测通过：`{"ok":true,"shell":"51.0","state":"ACTIVE","menu_items":7,"bilingual":true,"automation_guard":true,"scan":true,"apply":true,"disable_reenable":true,"theme_cycles":2,"custom_gtk_preserved":true}`，证据含中英文顶栏截图。
 - 运行时验收（Q8）实测通过 15 项；`responsive-smoke`、`health-smoke`、`about-smoke`、`profiles-smoke` 亦通过（调用方式见 [MAINTENANCE.md](MAINTENANCE.md)）。
 - 送审材料：`dist/icon-normalizer@joeydeng.local.zip` + [REVIEWER-NOTE.md](REVIEWER-NOTE.md)；上传需人工在浏览器完成，且**会驳回当前待审版本**。
@@ -65,6 +65,9 @@
 | Q14 | 已安装后台与仓库一致 | `cmp` 逐文件比较（`tools/verify.sh`） | 全部一致；版本号相同但代码不同也算失败 |
 | Q15 | 已安装扩展与仓库一致 | `diff -r -x metadata.json -x gschemas.compiled`（`tools/verify.sh`） | 无差异；忽略版本号与编译后 schema |
 | Q16 | 文档头部版本一致 | `tools/verify.sh` | HANDOVER / CHECKLIST / REVIEWER-NOTE 前 6 行含当前版本号 |
+| Q17 | patch 递增纪律 | `tools/verify.sh` | 无代码变更不得单纯递增 patch 版本号 |
+| Q18 | GJS 内嵌引擎单测 | `gjs -m tests/gjs/*.test.js` | 8 个测试模块 61 项单测全部通过 |
+| Q19 | GJS 与 Python 渲染等价性 | `python3 tools/parity.py` | 144 组对比占比偏差 0.00 px，平均像素差 ≤ 8/255 |
 
 Q2/Q5 的 CLI 使用 tests/isolation.py：私有 runtime、不可达 session bus、
 GSettings memory 后端、只记录 fixture 状态的 systemctl；临时 HOME 本身不提供会话隔离。

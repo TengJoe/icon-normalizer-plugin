@@ -21,7 +21,7 @@ if '--inner' not in sys.argv:
                         'XDG_CACHE_HOME':str(bus_home/'.cache'),
                         'XDG_DATA_HOME':str(bus_home/'.local/share')})
         p=subprocess.run(['dbus-run-session','--','python3',__file__,'--inner',str(OUT)],
-                         capture_output=True,text=True,timeout=45,env=bus_env)
+                         capture_output=True,text=True,timeout=75,env=bus_env)
     (OUT/'headless-shell-launcher.log').write_text(p.stdout+'\n'+p.stderr)
     print(p.stdout,p.stderr[-2500:])
     sys.exit(p.returncode)

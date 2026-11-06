@@ -5,8 +5,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import GdkPixbuf from 'gi://GdkPixbuf';
-import Gdk from 'gi://Gdk?version=3.0';
-import cairo from 'gi://cairo';
 import GLib from 'gi://GLib';
 
 import {analyze} from './analyze.js';
@@ -269,21 +267,24 @@ export function blurAlpha(src, size, sigma) {
 }
 
 /**
- * Cairo surface holding one pixbuf, cleared then painted.
+ * Alpha-composite one pixbuf over another at destination coordinates (x, y).
  *
- * @param {object} pb GdkPixbuf
- * @param {number} size surface edge
- * @returns {object} cairo.ImageSurface
+ * @param {object} src source GdkPixbuf
+ * @param {object} dst destination GdkPixbuf
+ * @param {number} x target x offset
+ * @param {number} y target y offset
  */
-export function surfaceFromPixbuf(pb, size) {
-    const surface = new cairo.ImageSurface(cairo.Format.ARGB32, size, size);
-    const ctx = new cairo.Context(surface);
-    ctx.setOperator(cairo.Operator.CLEAR);
-    ctx.paint();
-    ctx.setOperator(cairo.Operator.OVER);
-    Gdk.cairo_set_source_pixbuf(ctx, pb, 0, 0);
-    ctx.paint();
-    return surface;
+export function pastePixbuf(src, dst, x, y) {
+    const sw = src.get_width(), sh = src.get_height();
+    const dw = dst.get_width(), dh = dst.get_height();
+    const x0 = Math.max(0, x);
+    const y0 = Math.max(0, y);
+    const x1 = Math.min(dw, x + sw);
+    const y1 = Math.min(dh, y + sh);
+    const w = x1 - x0;
+    const h = y1 - y0;
+    if (w <= 0 || h <= 0) return;
+    src.composite(dst, x0, y0, w, h, x, y, 1, 1, GdkPixbuf.InterpType.NEAREST, 255);
 }
 
 /**
@@ -342,7 +343,7 @@ export function squircleMaskFor(width, height) {
  * @param {number} platePx plate edge
  * @param {number} origin plate offset
  * @param {number} dy shadow vertical offset
- * @returns {object} cairo surface
+ * @returns {object} GdkPixbuf with shadow alpha
  */
 function buildShadow(size, platePx, origin, dy) {
     const mask = superellipseAlpha(platePx);
@@ -361,7 +362,7 @@ function buildShadow(size, platePx, origin, dy) {
     const buf = new Uint8Array(size * size * 4);
     for (let i = 0; i < size * size; i++)
         buf[i * 4 + 3] = Math.min(255, pyRound(blurred[i] * SHADOW_ALPHA));
-    return surfaceFromPixbuf(pixbufFromRGBA(buf, size, size), size);
+    return pixbufFromRGBA(buf, size, size);
 }
 
 /**
@@ -393,16 +394,13 @@ export function normalize(source, metrics, cls, options = {}) {
     scale = Math.min(scale, safe);
 
     let crop = source.new_subpixbuf(full[0], full[1], full[2] - full[0], full[3] - full[1]);
-    let plateKind = null;
-    let plateSurface = null;
-    let shadowSurface = null;
+    let plate = null;
+    let shadow = null;
     let origin = 0;
     if (cls === "glyph") {
-        const plate = makePlate(targetPx, source);
-        plateKind = plate.kind;
-        plateSurface = surfaceFromPixbuf(plate.pixbuf, targetPx);
+        plate = makePlate(targetPx, source);
         origin = Math.floor((size - targetPx) / 2);
-        shadowSurface = buildShadow(size, targetPx, origin, Math.max(1, pyRound(size * 0.01)));
+        shadow = buildShadow(size, targetPx, origin, Math.max(1, pyRound(size * 0.01)));
     }
     if (cls === "plate-rounded") {
         // Keep the artwork but replace its silhouette with a squircle.
@@ -421,43 +419,35 @@ export function normalize(source, metrics, cls, options = {}) {
 
         // Measure the glyph-only layer: the plate dominates source_ratio and
         // would send the correction loop the wrong way.
-        const layer = new cairo.ImageSurface(cairo.Format.ARGB32, size, size);
-        const lctx = new cairo.Context(layer);
-        lctx.setOperator(cairo.Operator.CLEAR);
-        lctx.paint();
-        lctx.setOperator(cairo.Operator.OVER);
-        Gdk.cairo_set_source_pixbuf(lctx, scaled, offsetX, offsetY);
-        lctx.paint();
+        const layer = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, true, 8, size, size);
+        layer.fill(0);
+        pastePixbuf(scaled, layer, offsetX, offsetY);
 
-        const layerPixbuf = Gdk.pixbuf_get_from_surface(layer, 0, 0, size, size);
         let measured = 0;
         try {
-            measured = pyRound(analyze(layerPixbuf).source_ratio * size);
+            measured = pyRound(analyze(layer).source_ratio * size);
         } catch {
             measured = 0;
         }
         const error = Math.abs(measured - desired);
-        if (!best || error < best.error) best = {error, layer, scale, measured};
+        if (!best || error < best.error)
+            best = {error, scaled, offsetX, offsetY, scale, measured};
         if (error === 0 || measured === 0) break;
         const proposed = Math.min(scale * desired / measured, safe);
         if (Math.abs(proposed - scale) < 1e-12) break;
         scale = proposed;
     }
 
-    const out = new cairo.ImageSurface(cairo.Format.ARGB32, size, size);
-    const octx = new cairo.Context(out);
-    octx.setOperator(cairo.Operator.CLEAR);
-    octx.paint();
-    octx.setOperator(cairo.Operator.OVER);
-    if (shadowSurface) { octx.setSourceSurface(shadowSurface, 0, 0); octx.paint(); }
-    if (plateSurface) { octx.setSourceSurface(plateSurface, origin, origin); octx.paint(); }
-    octx.setSourceSurface(best.layer, 0, 0);
-    octx.paint();
+    const out = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, true, 8, size, size);
+    out.fill(0);
+    if (shadow) pastePixbuf(shadow, out, 0, 0);
+    if (plate) pastePixbuf(plate.pixbuf, out, origin, origin);
+    pastePixbuf(best.scaled, out, best.offsetX, best.offsetY);
 
     return {
-        pixbuf: Gdk.pixbuf_get_from_surface(out, 0, 0, size, size),
+        pixbuf: out,
         info: {
-            plate_color: plateKind,
+            plate_color: plate ? plate.kind : null,
             shadow_clamped: clamped,
             effective_scale_native: best.scale,
             crop_bbox: full.slice(),

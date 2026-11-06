@@ -154,6 +154,25 @@ check_version_bump_discipline() {
 }
 run Q17 "no patch bump without code" check_version_bump_discipline
 
+# Q18 runs the 8 in-process GJS engine unit tests (61 assertions).
+check_gjs_units() {
+    local f
+    for f in analyze render desktop transaction resolver classification engine control; do
+        if ! gjs -m "tests/gjs/${f}.test.js" >/dev/null; then
+            echo "GJS unit test failed: tests/gjs/${f}.test.js"
+            return 1
+        fi
+    done
+    return 0
+}
+run Q18 "GJS engine unit tests" check_gjs_units
+
+# Q19 verifies exact parity between GJS engine outputs and Python reference.
+check_gjs_parity() {
+    python3 tools/parity.py analyze >/dev/null && python3 tools/parity.py render >/dev/null
+}
+run Q19 "GJS vs Python parity" check_gjs_parity
+
 echo
 echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"
 [ "$FAIL" -eq 0 ] || exit 1
