@@ -109,6 +109,7 @@ export default class IconNormalizerExtension extends Extension {
                 actionLabel: operationExitHint,
                 onOpenSettings: () => this.openPreferences(),
                 requestRefresh: (kind, arg) => this._request(kind, arg),
+                settings: this._settings,
             });
             this._request('status');
         } else if (!show && this._indicator) {

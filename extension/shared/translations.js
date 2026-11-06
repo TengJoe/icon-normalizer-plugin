@@ -128,6 +128,8 @@ export const EN = {
     "上次运行处理": "Last run",
     "失效的图标规则": "Rules that no longer apply",
     "图标规则需要处理": "Icon rules need attention",
+    "规则失效时通知我": "Notify me when rules stop matching",
+    "顶栏指示器发现规则不再匹配源图时发送一次桌面通知。": "Send one desktop notification when the indicator notices that rules no longer match the artwork.",
     "有 {count} 条规则不再匹配当前源图，可在「图标统一」设置中查看并重置。": "Rules no longer match the current artwork: {count}. Open Icon Normalizer settings to review and reset them.",
     "重置为自动": "Reset to automatic",
     "没有失效的图标规则。": "No stale icon rules.",

@@ -27,5 +27,10 @@
       <summary>Show the top bar indicator</summary>
       <description>When off (default) the extension provides only its preferences window; the background maintenance is unaffected.</description>
     </key>
+    <key name="notify-rule-warnings" type="b">
+      <default>true</default>
+      <summary>Notify when icon rules stop matching</summary>
+      <description>Send one desktop notification per distinct warning count when rules no longer match the current artwork.</description>
+    </key>
   </schema>
 </schemalist>

@@ -13,8 +13,9 @@ import {automaticLabel, maintenanceHealth} from '../shared/stateModel.js';
 const STATE_DIR_PARTS = ['.local', 'state', 'icon-normalizer'];
 
 export class Indicator {
-    constructor({actionLabel, onOpenSettings, requestRefresh}) {
+    constructor({actionLabel, onOpenSettings, requestRefresh, settings}) {
         this._actionLabelFn = actionLabel;
+        this._settings = settings ?? null;
         this._onOpenSettings = onOpenSettings;
         this._requestRefresh = requestRefresh;
         this._debounceId = 0;
@@ -115,6 +116,14 @@ export class Indicator {
         this.update(this._status, this._envelope);
     }
 
+    _notifyEnabled() {
+        try {
+            return this._settings?.get_boolean('notify-rule-warnings') ?? true;
+        } catch {
+            return true;
+        }
+    }
+
     update(status, envelope) {
         this._status = status;
         this._envelope = envelope;
@@ -124,7 +133,7 @@ export class Indicator {
         // Notify once per distinct warning count: a recurring problem should not
         // spam the desktop, but a new count (or a recurrence after a fix) should.
         const ruleWarnings = Number(status?.rules_health?.warnings ?? 0);
-        if (Number.isFinite(ruleWarnings) && ruleWarnings > 0) {
+        if (Number.isFinite(ruleWarnings) && ruleWarnings > 0 && this._notifyEnabled()) {
             if (this._notifiedRuleWarnings !== ruleWarnings) {
                 this._notifiedRuleWarnings = ruleWarnings;
                 Main.notify(t('图标规则需要处理'),

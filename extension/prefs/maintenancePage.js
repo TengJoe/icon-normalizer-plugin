@@ -109,6 +109,12 @@ export class MaintenancePage {
         });
         this._setPanel(this._settings.get_boolean('show-panel-indicator'));
         integration.add(this._panelRow);
+        this._notifyRow = new Adw.SwitchRow({title: t('规则失效时通知我'),
+            subtitle: t('顶栏指示器发现规则不再匹配源图时发送一次桌面通知。')});
+        this._setNotify = bindSwitch(this._notifyRow, active =>
+            this._settings.set_boolean('notify-rule-warnings', active));
+        this._setNotify(this._settings.get_boolean('notify-rule-warnings'));
+        integration.add(this._notifyRow);
         this._languageRow = new Adw.ComboRow({title: t('界面语言'),
             use_subtitle: true,
             tooltip_text: t('切换顶栏与设置界面的语言。'),
