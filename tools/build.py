@@ -75,9 +75,16 @@ def build_tarball(target: Path, ver: str) -> None:
         item.uname = item.gname = ""
         # Fixed mtime keeps the tarball reproducible (gzip header is fixed too).
         item.mtime = 0
-        for key in ("uid", "gid", "uname", "gname"):
+        for key in ("uid", "gid", "uname", "gname", "mtime", "atime", "ctime"):
             item.pax_headers.pop(key, None)
         return item
+
+    def add_tree(tar: tarfile.TarFile, path: Path, arcname: str) -> None:
+        # Add entries in sorted order so the archive layout is deterministic.
+        tar.add(path, arcname=arcname, recursive=False, filter=public_member)
+        if path.is_dir():
+            for child in sorted(path.iterdir()):
+                add_tree(tar, child, f"{arcname}/{child.name}")
 
     with open(target, "wb") as raw:
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
@@ -85,8 +92,7 @@ def build_tarball(target: Path, ver: str) -> None:
                 for name in PACKAGE_MEMBERS:
                     path = PROJECT / name
                     if path.exists():
-                        tar.add(path, arcname=f"icon-normalizer-plugin/{name}",
-                                filter=public_member)
+                        add_tree(tar, path, f"icon-normalizer-plugin/{name}")
 
 
 def build(staging: Path) -> dict[str, Any]:
