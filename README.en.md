@@ -8,20 +8,15 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.0](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
+[![Release 1.3.1](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
-[![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-2ec27e?style=flat-square)](README.md)
+[![Pure GJS engine](https://img.shields.io/badge/engine-pure_GJS_in--process-2ec27e?style=flat-square)](#architecture)
+[![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
-
-The current GitHub release is **1.3.1 / companion 3.1.20**: the hardening release for the pure-GJS in-process engine — cross-process writes serialize on a sync.lock flock, crash rollback never clobbers external edits, bulk rendering is sliced across idle callbacks so the desktop never freezes, and the preview/activation/recovery protocol seams are fully aligned. See the [v1.3.1 notes](docs/RELEASE-1.3.1.md) and the [maintenance guide](docs/MAINTENANCE.md). GNOME Extensions review is separate from the GitHub release.
-
----
-
-[Preview](#preview) · [Features](#features) · [Quick start](#quick-start) · [Usage](#usage) · [Recovery and removal](#recovery-and-removal) · [Developer documentation](#developer-documentation)
 
 **In one sentence:** icons in the dock and the app grid come from different design systems, so some hug the edges while others carry a lot of padding. Icon Normalizer brings each icon body to the same coverage (presets 83% / 88% / 92%) and adds a backplate to bare glyphs that lack one — **without touching the original artwork**.
 
@@ -34,20 +29,40 @@ No system icon file is modified: new artwork is generated in a dedicated theme n
 
 </details>
 
+## Architecture
+
+Since 1.3.0 the entire pipeline runs as a **pure-GJS engine inside the extension process** — one ZIP installs everything, with no Python, Pillow, NumPy or systemd services required:
+
+```text
+┌─ GNOME Shell process ──────────────────────┐      ┌─ Prefs window (separate) ──┐
+│  Panel indicator · pure-GJS engine          │      │  Gtk4 / Libadwaita          │
+│  XDG resolve → analyze → Lanczos3 → commit  │      │  rules · preview · profiles │
+└──────────────┬──────────────────────────────┘      └──────────┬─────────────────┘
+               │      one shared sync.lock (flock)              │
+               ▼                                                ▼
+   ~/.local/share/icons/DockNormalized/        ~/.local/share/applications/*.desktop
+   ~/.local/state/icon-normalizer/ (manifest · journal · backups · cache)
+               ▲
+   (optional) systemd user units: maintenance worker, sharing the same lock
+```
+
+- **Zero external dependencies**: decoding uses the GdkPixbuf that gnome-shell already links; resampling is a hand-written GJS Lanczos3 (premultiplied alpha) verified against the reference implementation with 144 pixel-level comparisons.
+- **Transactions and rollback**: every write is an atomic tmp+rename guarded by digests; an interrupted transaction is rolled back from its journal, and external edits are strictly refused, never clobbered.
+- **Single-writer mutual exclusion**: Shell, prefs window and the optional worker serialize on one `sync.lock` (flock); contention surfaces as a retryable BUSY.
+- **The main loop never freezes**: bulk analysis/rendering is sliced across idle callbacks, so the desktop stays interactive.
+
 ## Preview
 
-Icon Normalizer combines a GNOME Shell extension with a user-level Python backend. It adjusts application icon coverage, adds backplates to suitable bare glyphs, and maintains generated artwork when applications or icon themes change. Original system artwork stays read-only; generated files and recovery records live in your home directory.
+![Icon Normalizer preview: ChatGPT, Cursor, Discord, Telegram, Chrome and Firefox on equal canvases, original versus normalized, plus four common actions](docs/assets/icon-normalizer-overview-actual.png)
 
-![Actual Icon Normalizer previews: ChatGPT, Cursor, Discord, Telegram, Chrome, and Firefox on equal-sized canvases, plus four common features](docs/assets/icon-normalizer-overview-actual.png)
-
-*Actual backend PNGs, without AI redrawing. Shown with the Standard preset: 88% target coverage, ±2 percentage points of tolerance, and 72% inner logo coverage.*
+*Real PNG layout, no AI re-rendering. Standard preset: 88% target coverage, ±2 percentage points deadband, 72% glyph inner coverage.*
 
 <details>
-<summary>Why can circular and square icons still look different in size?</summary>
+<summary>Why can circles and squares still look different in size after normalization?</summary>
 
-The current algorithm normalizes the **longest visible core edge relative to the canvas**. It does not guarantee equal perceptual area or visual weight across shapes. Internal padding in existing icon tiles is also preserved.
+The algorithm normalizes the **longest edge of the icon body as a share of the canvas**; it does not promise equal visual area or visual weight for every shape. Inner padding inside existing backplates is preserved.
 
-Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox shrink. Telegram and Chrome are already within tolerance and stay unchanged. Application icons and trademarks belong to their respective owners; their inclusion does not imply endorsement.
+Both rows in the image use the same canvas size. ChatGPT and Cursor are enlarged, Discord and Firefox are shrunk; Telegram and Chrome are already within the deadband and stay as-is. Application icons and trademarks belong to their respective owners and do not imply endorsement.
 
 </details>
 
@@ -55,54 +70,47 @@ Both rows use equal-sized canvases. ChatGPT and Cursor grow; Discord and Firefox
 
 <table>
 <tr>
-<td width="50%" valign="top"><strong>Icon normalization</strong><br>Adjust coverage, add backplates where appropriate, and generate nine sizes from 16 to 512 px.</td>
-<td width="50%" valign="top"><strong>Custom profiles</strong><br>Tune target, tolerance, and inner logo settings; save up to 50 named profiles.</td>
+<td width="50%" valign="top"><strong>Icon normalization</strong><br>Adjusts body coverage, adds backplates (including rounded plates), and generates nine sizes from 16 to 512 px.</td>
+<td width="50%" valign="top"><strong>Custom profiles</strong><br>Tune target, deadband and inner coverage; store up to 50 named profiles.</td>
 </tr>
 <tr>
-<td valign="top"><strong>Per-app management</strong><br>Search, filter, compare previews, and skip individual icons.</td>
-<td valign="top"><strong>Maintenance and theme following</strong><br>Detect launcher changes and retain settings and per-icon rules when changing source themes.</td>
+<td valign="top"><strong>Per-app management</strong><br>Search, filter, compare previews, and set skip or classification rules per icon.</td>
+<td valign="top"><strong>Automatic maintenance and theme following</strong><br>Detects desktop entry changes; keeps parameters and per-icon rules when the source theme changes.</td>
 </tr>
 <tr>
-<td valign="top"><strong>Adaptive bilingual interface</strong><br>Use wide or narrow windows and switch languages while keeping your page, search, and unsaved draft.</td>
-<td valign="top"><strong>Health diagnostics and safe recovery</strong><br>Show backend faults with bilingual details; restore managed changes and stop before overwriting external edits.</td>
+<td valign="top"><strong>Visible, repairable rule states</strong><br>Every icon reports its classification origin (automatic / user rule / reviewed); stale rules raise warnings and reset in one click, and rules follow apps across size directories.</td>
+<td valign="top"><strong>Concurrency safety and responsiveness</strong><br>Cross-process flock serialization plus journal-based safe rollback; bulk rendering is idle-sliced so the desktop never freezes.</td>
 </tr>
 <tr>
-<td valign="top"><strong>Visible, fixable rules</strong><br>Every icon shows where its class came from (automatic, user rule, reviewed). When a rule stops matching, Maintenance warns you, the panel can notify you, and one click resets it.</td>
-<td valign="top"><strong>Keeps up with app updates</strong><br>Rules follow artwork that moves to another size directory; square-cornered plates can switch to a rounded plate; stale artwork is cleaned from the theme.</td>
+<td valign="top"><strong>Health diagnostics and safe recovery</strong><br>Shows faults with localized details; restores managed changes and stops rather than overwriting external edits.</td>
+<td valign="top"><strong>Adaptive Chinese/English UI</strong><br>Fits narrow and wide windows; switching language keeps the page, search and unsaved drafts.</td>
 </tr>
 </table>
 
 ## Quick start
 
-Requires **GNOME Shell 51** and the [runtime dependencies](#compatibility-and-dependencies) listed below.
+Requires **GNOME Shell 51**. The extension has zero dependencies — one ZIP is all it takes.
 
-Installation has two parts: the **extension** installs the standard GNOME way, and the **backend** is a companion program that needs one extra step.
+### Option 1: install the extension (recommended)
 
-### 1. Install the extension
-
-On extensions.gnome.org, press **Install** — it is currently **under review**, after which this is a single click.
+Click "Install" on GNOME Extensions (extensions.gnome.org) — **under review** at the moment; one-click install will be available once approved.
 
 Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer@joeydeng.local.zip) and install it the standard way:
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
+gnome-extensions enable icon-normalizer@joeydeng.local
 ```
 
-### 2. Install the backend
+ZIPs built from source need the schema compiled first (release packages and the installer do this automatically):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
 ```
 
-The installer checks dependencies, downloads the latest release, **verifies its SHA-256**, then installs the backend and the systemd user units and brings the extension to the same version. **No `sudo`**: everything lives under your home directory. To check dependencies only:
+Then open **Icon Normalizer → Settings** from Extensions and click "Apply" to generate and activate the normalized theme.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
-```
-
-> With only the extension installed, the preferences window reports that the backend is missing.
-
-### Or: one offline package for both
+### Option 2: offline complete package
 
 1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/SHA256SUMS) into the same directory.
 2. Verify, extract and install:
@@ -114,9 +122,17 @@ cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-The installer checks dependencies, takes a snapshot, stages and validates files, replaces the code, and checks the backend. Failed upgrades restore the snapshot. Open **Icon Normalizer → Preferences** from your extensions manager to get started.
+The installer snapshots, stages and validates files, swaps the code and probes the service; a failed upgrade restores the snapshot. **No `sudo` is used** — everything lives in your home directory.
 
-> Current GitHub release: extension **1.3.1**, backend **3.1.20**. `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope.
+### Optional: automated maintenance worker
+
+Without the worker the extension is fully functional. Installing the optional companion adds **systemd-grade automation** — watching application directories and refreshing on a timer — sharing the same lock with the extension:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+```
+
+Dependency check only: `... | bash -s -- --check`.
 
 <details>
 <summary>Install from source</summary>
@@ -128,129 +144,116 @@ python3 tools/build.py
 python3 tools/install.py
 ```
 
-Build outputs live in `dist/`: the extension ZIP, complete source package, and `DIST_MANIFEST.json`. Development checks are in the [contribution guide](CONTRIBUTING.md).
+Build outputs land in `dist/`: the extension ZIP, the complete source package and `DIST_MANIFEST.json`. See the [contributing guide](CONTRIBUTING.md) for development checks.
 
 </details>
 
-<details>
-<summary>Update only the extension frontend when the backend is already installed</summary>
-
-The release asset `icon-normalizer@joeydeng.local.zip` contains only the frontend. Custom profiles and theme following require backend **3.1.0 or newer**; safe skipping requires backend **3.1.6 or newer**. Older backends display an upgrade hint.
-
-Complete Yaru accent and dark/light synchronization requires backend **3.1.4 or newer**. Use the complete package to upgrade both components.
-
-ZIPs built from the current source omit `schemas/gschemas.compiled`. After manually installing a ZIP with `gnome-extensions install`, run:
-
-```bash
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
-```
-
-The complete-package and source installers compile the schema automatically; this extra step is unnecessary with those installers.
-
-</details>
-
-After a top bar code upgrade, save your work and log out and back in to refresh GNOME Shell's module cache. Closing and reopening Preferences loads its updates. The installer does not end your desktop session.
+> Current GitHub release: extension **1.3.1** (companion **3.1.20**, optional). `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope. After a panel-code upgrade, log out and back in to refresh the GNOME Shell module cache.
 
 ## Usage
 
-| Page | Common actions |
+| Page | What you can do |
 | --- | --- |
-| **Rules** | Adjust settings, choose a preset or named profile, and review or edit per-icon rules (change class or reset to automatic) |
-| **App Icons** | Search, filter (including **With rules**), compare original and proposed artwork, and manage per-icon skip rules |
-| **Maintenance** | View status, check or apply icons, activate the theme, and configure maintenance, theme following, language, and the top bar button |
+| **Rules** | Tune parameters, pick presets or named profiles; view and edit per-icon rules (change class / reset to automatic) |
+| **App icons** | Search, filter (including "has rule"), compare original and candidate previews, manage per-icon skip rules |
+| **Maintenance** | Check status, apply and activate now, toggle automatic maintenance, theme following, language and the panel button |
 
-**Suggested flow: preview → adjust settings → save and apply.** The Standard preset is **88% / ±2 percentage points / 72%**, with output sizes of `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`.
+**Suggested order: preview → tune → save and apply.** The standard preset is **88% / ±2 points / 72%**, with output sizes `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`.
 
 <details>
-<summary>When do custom profiles take effect?</summary>
+<summary>How do custom profiles take effect?</summary>
 
-**Save as custom profile** stores the current parameters. **Use profile** only fills the draft. **Save only** or **Save and apply** makes those parameters active. Named profiles are independent of the icon theme.
+"Save as custom profile" stores the current parameters; "Use profile" only fills the draft. Parameters become the effective configuration only after "Save" or "Save and apply". Named profiles are not bound to an icon theme.
 
 </details>
 
 <details>
-<summary>What happens when I change themes, install apps, or close Preferences?</summary>
+<summary>What happens when I switch themes, install apps, or close the window?</summary>
 
-**Maintenance → Follow icon theme** is enabled by default. With automatic maintenance also enabled, selecting another installed source theme regenerates `DockNormalized` while keeping settings and per-icon rules. The latest source theme becomes the restore target. Failed migrations restore the previous icons, configuration, and recovery records.
+"Maintenance → Follow icon theme" is on by default. Switching to another installed source theme regenerates `DockNormalized`, keeping parameters and per-icon rules.
 
-While the extension is enabled, standard Yaru GTK themes follow the system color scheme and accent; custom GTK themes keep the manual selection. Ubuntu’s `default` preference becomes explicit `prefer-light` so applications following system colors receive a light preference. When `DockNormalized`, theme following and automatic maintenance are active, standard Yaru icon sources also follow the accent and color scheme, using installed variants only.
+While the extension is enabled, the standard Yaru GTK theme follows the system light/dark style and accent color; custom GTK themes stay manual. When `DockNormalized` is active with theme following enabled, the standard Yaru icon source follows the accent color and light/dark style too, choosing only installed variants.
 
-Changing the GTK or GNOME Shell appearance theme keeps your visual settings. Selecting the current source theme does not force overlay activation; choose **Apply and activate** to enable the normalized theme again.
-
-User-level `path` monitoring detects launcher changes; a `timer` checks every minute as a fallback. Completion time depends on the events and number of icons. Closing Preferences or locking the screen does not stop maintenance.
+Automatic maintenance detects desktop entry changes and refreshes incrementally; regeneration only touches icons that changed, reusing everything already generated.
 
 </details>
 
 <details>
-<summary>An app changed its icon — do my rules still apply?</summary>
+<summary>An app changed its icon and my rule went stale — now what?</summary>
 
-Rules bind to the source fingerprint. When an app replaces its artwork the fingerprint changes and the rule stops applying, falling back to automatic classification. This is no longer silent:
+Rules are bound to the source artwork fingerprint. When an app updates its icon, the rule goes stale and falls back to automatic classification — **never silently**:
 
-- Maintenance shows “N icon rules no longer apply”; **Details** lists each app, error code and current fingerprint, with a one-click **Reset to automatic**;
-- the panel indicator (when enabled) sends a single desktop notification, which you can turn off under **Maintenance → Notify me when rules stop matching** — the same problem is not reported twice;
-- the **Rules** page lists per-icon rules with a class dropdown and a **Reset** button;
-- artwork that only moved to another size directory is matched automatically by file name;
-- square-cornered plates can switch to `plate-rounded` (the preview dialog suggests it).
+- The maintenance page shows "N icon rules have gone stale", with per-icon details and a one-click reset to automatic;
+- The panel indicator (when enabled) sends one desktop notification, controllable via "Notify me about stale rules"; the same issue is not repeated;
+- Apps that merely moved their artwork to another size directory keep their rules automatically;
+- Square full-bleed plates can be switched to `plate-rounded` (the preview dialog suggests it).
 
-Command line: `status.rules_health` and `doctor.checks.rules`; see [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
+Command-line checks: `rules_health` in `status`, `checks.rules` in `doctor`; see [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
 
 </details>
 
 <details>
-<summary>Where are language settings and the top bar entry?</summary>
+<summary>Where are the UI language and panel entry?</summary>
 
-In **Maintenance → Interface language**, choose **Follow system**, **简体中文**, or **English**. The top bar and Preferences share this setting and update immediately.
+Pick "Follow system", "简体中文" or "English" under "Maintenance → UI language". The panel and settings share the language preference; switching updates both immediately.
 
-The top bar button is disabled by default. Enable **Maintenance → Show top bar icon** to view status, check or apply icons, and open Preferences through the symbolic panel icon.
+The panel button is off by default. Enable "Show panel button" under "Maintenance" to check status, apply icons and open settings from a monochrome icon.
 
 </details>
 
 ## Compatibility and dependencies
 
-Support is declared only for **GNOME Shell 51**, verified by runtime acceptance tests. Other versions need separate validation. The installer checks dependencies; install missing distribution packages separately.
+Only **GNOME Shell 51** is declared, as runtime-verified; other versions need separate validation.
 
-| Purpose | Dependencies |
+| Component | Dependencies |
 | --- | --- |
-| Preferences | GJS, GTK 4, Libadwaita, and their GI typelibs |
-| Image processing | Python 3.10+, Python GI, GTK 3, GdkPixbuf, Pillow, NumPy |
-| Installation and maintenance | A systemd user session, `gtk-update-icon-cache`, `glib-compile-schemas` |
+| Extension (engine + panel) | None beyond GNOME 51 itself: GJS and GdkPixbuf ship with it |
+| Settings window | GTK 4, Libadwaita and their GI typelibs |
+| Optional maintenance worker | Python 3.10+, a systemd user session |
+| Build and install | `gtk-update-icon-cache`, `glib-compile-schemas` |
 
-The GTK 3 backend and GTK 4 preferences run in separate processes.
+- Tray/AppIndicator icons, and window icons drawn or loaded directly by apps, may bypass icon themes.
+- A non-default `XDG_DATA_HOME` is not supported; the install check refuses that environment.
+- Downloading from GitHub or installing locally does not imply GNOME Extensions approval; the review scope is described in [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
-- Tray and AppIndicator icons, and window icons drawn directly by apps or loaded from files, may bypass icon themes.
-- Non-default `XDG_DATA_HOME` is currently unsupported and is rejected during installation checks.
-- GitHub availability and local installation do not imply GNOME store approval; see the [submission scope](docs/SUBMISSION.md).
+## Quality and safety
+
+- **19 quality gates** in one command (`bash tools/verify.sh`): 253 backend tests, 5 frontend suites, **69 GJS engine unit tests**, and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
+- **No network, no telemetry**: the tree contains no networking code; release artifacts are readable GJS/SVG/CSS — no binaries, no minification.
+- **Privacy audit**: `tools/privacy_audit.py` pattern-scans the release allowlist (secrets, personal paths, emails, image metadata, tar headers) with zero findings.
+- **Reproducible builds**: fixed timestamps and permissions; consecutive builds are byte-identical to the published assets.
 
 ## Recovery and removal
 
-In **Maintenance → Restore desktop icons**, select **Restore** and confirm to restore managed changes and the latest source theme. Managed launchers without external edits are restored byte for byte. Conflicts preserve external edits and report failure.
+Click "Restore" under "Maintenance → Restore desktop icons" and confirm to revert managed changes and the most recently selected source theme. Managed launchers untouched by external edits are restored byte-for-byte; on conflict the external change is kept and the failure reported.
 
-Run from the complete package or source directory:
+From the complete package or a source checkout:
 
 ```bash
-# Restore managed changes, then remove the extension and backend.
+# Restore managed changes first, then remove the extension and the worker.
 python3 tools/uninstall.py
 
-# Remove only the extension, keeping the backend and maintenance.
+# Remove only the extension, keep the worker and automation.
 python3 tools/uninstall.py --keep-backend
 ```
 
-Backups remain in `~/.local/state/icon-normalizer/backups/`. If recovery fails, retain state files and managed directories, then follow the [acceptance and recovery guide](docs/CHECKLIST.md).
+Backups are kept in `~/.local/state/icon-normalizer/backups/`. If a restore fails, state files and managed directories are preserved; follow the [acceptance and recovery notes](docs/CHECKLIST.md).
 
 ## Developer documentation
 
 | Document | Contents |
 | --- | --- |
-| [Contribution guide](CONTRIBUTING.md) | Development checks, issue reporting, and bilingual writing conventions |
-| [Architecture](ARCHITECTURE.md) | Modules, process isolation, transactions, and data flow |
-| [Protocol](PROTOCOL.md) | JSON requests, error codes, and concurrency control |
-| [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance, and recovery procedures |
-| [Changelog](CHANGELOG.md) | Unreleased changes and version history; [v1.3.1 notes](docs/RELEASE-1.3.1.md) |
+| [Architecture](ARCHITECTURE.md) | Module responsibilities, process isolation, transactions and data flow |
+| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | The pure-GJS in-process engine: decision and trade-offs |
+| [Protocol](PROTOCOL.md) | JSON requests, error codes and concurrency control |
+| [Contributing](CONTRIBUTING.md) | Development checks, feedback requirements, bilingual writing rules |
+| [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance and recovery steps |
+| [Changelog](CHANGELOG.md) | Version history; [v1.3.1 notes](docs/RELEASE-1.3.1.md) |
 
-See the [documentation index](docs/README.md) for more references. When reporting a problem, include system and component versions and reproduction steps, and remove private information from logs and screenshots first. Technical references currently use Chinese; installation and usage guides are available in both languages.
+More material is indexed in the [documentation index](docs/README.md). When reporting an issue, include system and component versions and reproduction steps, and strip private information from logs and screenshots first.
 
 ## Author
 
-Developed by **[TengJoe](https://github.com/TengJoe)** under [GPL-3.0-or-later](LICENSE). All features are free to use.
+Developed by **[TengJoe](https://github.com/TengJoe)** under the [GPL-3.0-or-later](LICENSE) license. All features are free to use.
 
-[Report a problem](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Contribute](CONTRIBUTING.md)
+[Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues) · [Contribute](CONTRIBUTING.md)

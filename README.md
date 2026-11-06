@@ -8,20 +8,15 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
-[![Release 1.3.0](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
+[![Release 1.3.1](https://img.shields.io/badge/release-1.3.1-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.1)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
-[![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-2ec27e?style=flat-square)](README.en.md)
+[![纯 GJS 内嵌引擎](https://img.shields.io/badge/引擎-纯%20GJS%20内嵌-2ec27e?style=flat-square)](#架构)
+[![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-813e9e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[下载完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[下载扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer@joeydeng.local.zip) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
-
-当前 GitHub 发行版为 **1.3.1 / 后台 3.1.20**：纯 GJS 内嵌引擎的加固版——跨进程写入经 sync.lock flock 互斥、崩溃回滚不覆盖外部修改、批量渲染按 idle 时间片切片不再冻结桌面，预览/主题激活/崩溃恢复的协议接缝全部对齐。发布内容见 [v1.3.1 说明](docs/RELEASE-1.3.1.md)，维护边界见 [维护指南](docs/MAINTENANCE.md)。GNOME 扩展网站的审核与 GitHub 发行是独立流程，商店上架需单独审核。
-
----
-
-[效果预览](#效果预览) · [功能](#功能) · [快速开始](#快速开始) · [使用说明](#使用说明) · [恢复与卸载](#恢复与卸载) · [开发文档](#开发文档)
 
 **一句话**：Dock 和应用程序网格里的图标，有的贴边、有的留白很大，看上去大小不一。Icon Normalizer 把每个图标的主体统一到同一占比（预设 83% / 88% / 92%），并为缺少底板的裸 Logo 补上底板 —— **不修改任何原图**。
 
@@ -34,9 +29,29 @@ Icon Normalizer 不改任何系统图标文件：它在专属主题 `DockNormali
 
 </details>
 
-## 效果预览
+## 架构
 
-Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整应用图标的主体占比，为适合的裸 Logo 补充底板，并在应用或图标主题变化后维护生成结果。原始系统图标只读，生成文件与恢复记录保存在用户目录。
+自 1.3.0 起，全部工作由 **扩展进程内的纯 GJS 引擎** 完成 —— 一个 ZIP 装完即用，无需 Python、Pillow、NumPy 或 systemd 服务：
+
+```text
+┌─ GNOME Shell 进程 ─────────────────────────┐      ┌─ 设置窗口（独立进程）─┐
+│  顶栏指示器 · 纯 GJS 引擎                    │      │  Gtk4 / Libadwaita    │
+│  XDG 解析 → 分析 → Lanczos3 渲染 → 事务落盘  │      │  规则 · 预览 · 方案    │
+└──────────────┬─────────────────────────────┘      └──────────┬────────────┘
+               │        共用一把 sync.lock（flock 互斥）         │
+               ▼                                               ▼
+   ~/.local/share/icons/DockNormalized/        ~/.local/share/applications/*.desktop
+   ~/.local/state/icon-normalizer/（manifest · 事务日志 · 备份 · 缓存）
+               ▲
+   （可选）systemd 用户单元：自动维护 worker，与应用目录监视共用同一把锁
+```
+
+- **零外部依赖**：图标解码交给 GNOME 自带的 GdkPixbuf，重采样为自研 GJS Lanczos3（alpha 预乘），与参考实现经 144 组逐像素对拍验证。
+- **事务与回滚**：所有写入走 tmp+rename 原子替换与摘要守卫；中断事务按日志回滚，且严格拒绝覆盖外部修改。
+- **单写者互斥**：Shell、设置窗口与可选后台共用一把 `sync.lock`（flock），争用时返回可重试的 BUSY。
+- **主线程不冻结**：批量分析/渲染按 idle 时间片切片，桌面始终保持可交互。
+
+## 效果预览
 
 ![Icon Normalizer 真实预览：ChatGPT、Cursor、Discord、Telegram、Chrome 和 Firefox 在等大画布上的原始与归一化输出，以及四项常用功能](docs/assets/icon-normalizer-overview-actual.png)
 
@@ -55,30 +70,28 @@ Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整�
 
 <table>
 <tr>
-<td width="50%" valign="top"><strong>图标归一化</strong><br>调整主体占比，按需补充底板，生成 16–512 px 九档图标。</td>
+<td width="50%" valign="top"><strong>图标归一化</strong><br>调整主体占比，按需补充底板（含圆角底板），生成 16–512 px 九档图标。</td>
 <td width="50%" valign="top"><strong>自定义方案</strong><br>调整目标、容差和内层参数，保存最多 50 套命名方案。</td>
 </tr>
 <tr>
-<td valign="top"><strong>逐应用管理</strong><br>搜索、筛选、查看对比预览，为单个图标设置跳过规则。</td>
+<td valign="top"><strong>逐应用管理</strong><br>搜索、筛选、查看对比预览，为单个图标设置跳过或分类规则。</td>
 <td valign="top"><strong>自动维护与主题跟随</strong><br>检测应用入口变化；更换素材主题时保留参数与逐图标规则。</td>
 </tr>
 <tr>
-<td valign="top"><strong>自适应中英文界面</strong><br>适配宽窄窗口，即时切换语言并保留页面、搜索与未保存草稿。</td>
-<td valign="top"><strong>健康诊断与安全恢复</strong><br>显示后台故障与中英文详情；还原托管修改，遇到外部编辑时停止覆盖。</td>
+<td valign="top"><strong>规则状态可见可修</strong><br>每个图标标注分类来源（自动 / 用户规则 / 已复核）；规则失效时告警并可一键重置，跨尺寸目录自动接续。</td>
+<td valign="top"><strong>并发安全与防冻结</strong><br>跨进程 flock 互斥 + 事务日志安全回滚；批量渲染按 idle 时间片切片，桌面不冻结。</td>
 </tr>
 <tr>
-<td valign="top"><strong>规则状态可见可修</strong><br>每个图标标注分类来源（自动 / 用户规则 / 已复核）；规则失效时维护页告警、顶栏可通知，并可在弹窗或规则页一键重置。</td>
-<td valign="top"><strong>跟随应用更新</strong><br>应用换图标后按文件名自动接续规则；满幅直角底板可一键改为圆角；主题内的过期产物自动清理。</td>
+<td valign="top"><strong>健康诊断与安全恢复</strong><br>显示故障与中英文详情；还原托管修改，遇到外部编辑时停止覆盖。</td>
+<td valign="top"><strong>自适应中英文界面</strong><br>适配宽窄窗口，即时切换语言并保留页面、搜索与未保存草稿。</td>
 </tr>
 </table>
 
 ## 快速开始
 
-需要 **GNOME Shell 51** 与下方列出的[运行依赖](#兼容与依赖)。
+需要 **GNOME Shell 51**。扩展零依赖，一个 ZIP 装完即用。
 
-安装分两部分：**扩展**按 GNOME 的标准方式安装，**后端**是本项目的配套程序，需要单独装一次。
-
-### 1. 安装扩展
+### 方式一：安装扩展（推荐）
 
 在 GNOME 扩展网站（extensions.gnome.org）点「Install」—— 目前**审核中**，通过后即可一键安装。
 
@@ -86,23 +99,18 @@ Icon Normalizer 由 GNOME Shell 扩展和用户级 Python 后台组成：调整�
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
+gnome-extensions enable icon-normalizer@joeydeng.local
 ```
 
-### 2. 安装后端
+源码构建的 ZIP 需先编译 schema（完整发行包和安装器会自动处理）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
 ```
 
-安装器会检查依赖、下载最新发行包、**校验 SHA-256** 后安装后端与 systemd 用户单元，并把扩展更新到同一版本。**不使用 `sudo`**，所有文件都在你的主目录。只检查依赖：
+安装后从扩展管理器打开 **Icon Normalizer → 设置**，点「立即应用」即可生成并激活归一化主题。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash -s -- --check
-```
-
-> 只装扩展、没装后端时，设置界面会提示「后端未安装」。
-
-### 或者：离线包一次装完
+### 方式二：离线完整包
 
 1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/icon-normalizer-plugin-1.3.1.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.1/SHA256SUMS)，放在同一目录。
 2. 校验后解压安装：
@@ -114,9 +122,17 @@ cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-安装器会检查依赖、创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。从扩展管理器打开 **Icon Normalizer → 设置** 开始使用。
+安装器会创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。**不使用 `sudo`**，所有文件都在你的主目录。
 
-> 当前 GitHub 发行版：扩展 **1.3.1**，后台 **3.1.20**。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。
+### 可选：自动维护后台
+
+不装后台，扩展照常完整工作；安装可选后台可获得 **systemd 级自动维护**——监视应用目录变化、定时兜底刷新，与扩展共用同一把锁：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
+```
+
+只检查依赖：`... | bash -s -- --check`。
 
 <details>
 <summary>从源码安装</summary>
@@ -132,24 +148,7 @@ python3 tools/install.py
 
 </details>
 
-<details>
-<summary>已有后台，仅更新扩展前端</summary>
-
-发行页中的 `icon-normalizer@joeydeng.local.zip` 仅包含前端。自定义方案与主题跟随需要后台 **3.1.0 或更新版本**；安全跳过需要后台 **3.1.6 或更新版本**。旧后台会提示升级。
-
-完整 Yaru 强调色和深浅色联动需要后台 **3.1.4 或更新版本**，请使用完整发行包一并升级。
-
-当前源码构建的 ZIP 不附带 `schemas/gschemas.compiled`。手动使用 `gnome-extensions install` 安装 ZIP 后，执行：
-
-```bash
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
-```
-
-完整发行包和源码安装器会自动编译 schema，无需补做该步骤。
-
-</details>
-
-顶栏代码升级后，需要保存工作并注销、重新登录以刷新 GNOME Shell 模块缓存；设置窗口关闭后重开即可加载更新。安装器不会自动结束桌面会话。
+> 当前 GitHub 发行版：扩展 **1.3.1**（后台 **3.1.20**，可选）。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。顶栏代码升级后需要注销、重新登录以刷新 GNOME Shell 模块缓存。
 
 ## 使用说明
 
@@ -157,7 +156,7 @@ glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeyd
 | --- | --- |
 | **规则** | 调整参数、选择预设或命名方案；查看并编辑逐图标规则（改类别 / 重置为自动） |
 | **应用图标** | 搜索、筛选（含“有规则”）、查看原始与候选预览，管理逐图标跳过规则 |
-| **维护** | 查看状态、立即检查或应用、激活主题，设置自动维护、主题跟随、语言与顶栏按钮 |
+| **维护** | 查看状态、立即检查或应用并激活主题，设置自动维护、主题跟随、语言与顶栏按钮 |
 
 **建议顺序：查看预览 → 调整参数 → 保存并应用。** 标准预设为 **88% / ±2 个百分点 / 72%**，输出尺寸为 `16 / 24 / 32 / 48 / 64 / 96 / 128 / 256 / 512 px`。
 
@@ -171,24 +170,21 @@ glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeyd
 <details>
 <summary>换主题、新装应用或关闭窗口后会怎样？</summary>
 
-“维护 → 跟随图标主题”默认开启。自动维护也开启时，切换到另一个已安装的素材主题会重新生成 `DockNormalized`，保留参数与逐图标规则。最近选择的素材主题成为还原目标；迁移失败时恢复原有图标、配置与还原记录。
+“维护 → 跟随图标主题”默认开启。切换到另一个已安装的素材主题会重新生成 `DockNormalized`，保留参数与逐图标规则。
 
-扩展启用时，标准 Yaru GTK 主题跟随系统深浅色和强调色，自定义 GTK 主题保持手动选择。Ubuntu 的 `default` 会明确设为 `prefer-light`，让使用系统颜色偏好的应用收到浅色信号。`DockNormalized` 激活且主题跟随、自动维护均开启时，标准 Yaru 图标来源也跟随强调色与深浅色，只选择已安装变体。
+扩展启用时，标准 Yaru GTK 主题跟随系统深浅色和强调色，自定义 GTK 主题保持手动选择。`DockNormalized` 激活且主题跟随开启时，标准 Yaru 图标来源也跟随强调色与深浅色，只选择已安装变体。
 
-切换 GTK 或 GNOME Shell 外观主题不改变视觉参数。重新选择当前素材主题不会强制激活归一化主题；需要重新启用效果时，点击“应用并激活”。
-
-自动维护通过用户级 `path` 检测应用入口变化，并由 `timer` 每分钟检查兜底。完成时间取决于事件与图标数量；关闭设置窗口或锁屏不会停止后台维护。
+自动维护（扩展内置或可选后台）检测应用入口变化后增量刷新；重新生成只处理有变化的图标，已生成的直接复用。
 
 </details>
 
 <details>
 <summary>应用换了图标，我之前设的规则失效了怎么办？</summary>
 
-规则按源图指纹绑定。应用更新图标后指纹变化，规则会失效并退回自动分类 —— 现在这件事**不再静默**：
+规则按源图指纹绑定。应用更新图标后指纹变化，规则会失效并退回自动分类 —— 这件事**不静默**：
 
-- 维护页顶部出现“检测到 N 条图标规则已失效”提示，点“查看详情”可逐条看到应用名、错误码与当前指纹，并**一键重置为自动**；
+- 维护页顶部出现“检测到 N 条图标规则已失效”提示，可逐条查看并**一键重置为自动**；
 - 顶栏指示器（开启时）发送一次桌面通知，可在“维护 → 规则失效时通知我”关闭，同一问题不会重复提醒；
-- 规则页的“逐图标规则”分组可直接用下拉框改类别，或点“重置”；
 - 只是换尺寸目录的情况会自动按文件名接续，无需处理；
 - 满幅直角底板可改为 `plate-rounded`（预览弹窗会给出建议）。
 
@@ -207,19 +203,25 @@ glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeyd
 
 ## 兼容与依赖
 
-仅声明经过运行时验收的 **GNOME Shell 51**；其他版本需要单独验证。安装器会检查依赖，缺失的软件包需按发行版说明安装。
+仅声明经过运行时验收的 **GNOME Shell 51**；其他版本需要单独验证。
 
-| 用途 | 依赖 |
+| 组件 | 依赖 |
 | --- | --- |
-| 设置窗口 | GJS、GTK 4、Libadwaita 及对应 GI 类型库 |
-| 图标处理 | Python 3.10+、Python GI、GTK 3、GdkPixbuf、Pillow、NumPy |
-| 安装与维护 | systemd 用户会话、`gtk-update-icon-cache`、`glib-compile-schemas` |
-
-后台使用 GTK 3，设置窗口使用 GTK 4，分别在独立进程中运行。
+| 扩展（引擎 + 顶栏） | 无额外依赖：GJS、GdkPixbuf 均为 GNOME 51 自带 |
+| 设置窗口 | GTK 4、Libadwaita 及对应 GI 类型库 |
+| 可选自动维护后台 | Python 3.10+、systemd 用户会话 |
+| 构建与安装 | `gtk-update-icon-cache`、`glib-compile-schemas` |
 
 - 托盘、AppIndicator，以及应用直接绘制或从文件加载的窗口图标，可能绕过图标主题。
 - 非默认 `XDG_DATA_HOME` 暂不支持，安装检查会拒绝该环境。
 - GitHub 下载与本地安装不代表 GNOME 商店审核通过；审核范围见[提交说明](docs/SUBMISSION.md)。
+
+## 质量与安全
+
+- **19 道质量门**一条命令全量回归（`bash tools/verify.sh`）：后端 253 项测试、前端 5 组套件、**69 项 GJS 引擎单测**、**144 组渲染 + 69 组分析**的 GJS vs Python 跨实现逐像素对拍。
+- **无网络、无遥测**：全仓不含任何网络请求代码；发布物为可读 GJS/SVG/CSS，无二进制、无压缩混淆。
+- **隐私审计**：`tools/privacy_audit.py` 对发布允许清单做模式扫描（密钥、个人路径、邮箱、图片元数据、tar 头账号信息），0 发现。
+- **构建可复现**：固定时间戳与权限的构建脚本，两次构建与发布资产逐字节一致。
 
 ## 恢复与卸载
 
@@ -241,11 +243,12 @@ python3 tools/uninstall.py --keep-backend
 
 | 文档 | 内容 |
 | --- | --- |
-| [贡献指南](CONTRIBUTING.md) | 开发检查、反馈要求与双语写作规范 |
 | [架构说明](ARCHITECTURE.md) | 模块职责、进程隔离、事务与数据流 |
+| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | 纯 GJS 内嵌引擎的架构决策与取舍 |
 | [协议规范](PROTOCOL.md) | JSON 请求、错误码与并发控制 |
+| [贡献指南](CONTRIBUTING.md) | 开发检查、反馈要求与双语写作规范 |
 | [发布验收](docs/CHECKLIST.md) | 自动检查、桌面验收与恢复步骤 |
-| [版本记录](CHANGELOG.md) | 未发布变更与历史版本；[v1.3.1 说明](docs/RELEASE-1.3.1.md) |
+| [版本记录](CHANGELOG.md) | 历史版本；[v1.3.1 说明](docs/RELEASE-1.3.1.md) |
 
 更多资料见[文档索引](docs/README.md)。报告问题时，请附系统与组件版本、复现步骤，并先去除日志或截图中的私人信息。
 

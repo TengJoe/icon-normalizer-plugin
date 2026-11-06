@@ -1,7 +1,7 @@
 {
   "uuid": "icon-normalizer@joeydeng.local",
   "name": "Icon Normalizer",
-  "description": "Control a separately installed application icon normalization backend. Provides status, automatic maintenance controls and preferences.",
+  "description": "Normalize application icon coverage on GNOME with a pure-GJS in-process engine: per-icon rules, live previews, theme following and transactional rollback. One ZIP, zero external dependencies.",
   "shell-version": [
     "51"
   ],
