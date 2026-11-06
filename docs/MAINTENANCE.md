@@ -91,3 +91,25 @@ python3 -c "import json,pathlib;d=json.loads(pathlib.Path.home().joinpath('.loca
 4. 自备图标时使用 `{"skip": true, "keep_desktop_override": true}`，插件只释放记录、不改写启动器。
 
 **案例**：DeepSeek Harness（Chrome PWA）在 2026-10 更新图标，源图从「透明底白鲸鱼」变为「白底黑鲸鱼」，路径由 `hicolor/256x256/...` 迁到 `512x512/...`，旧 override 因指纹与路径双重失配而失效，图标退化为尖角白方块。最终以「透明底鲸鱼源图 + 不绑定指纹的 `glyph` 规则」修复。
+
+## 运行时与冒烟测试怎么跑 / Running the runtime and smoke tests
+
+2026-11-06 实测，按"是否需要额外夹具"分成两类：
+
+**可直接运行（需要显示服务）**
+
+```sh
+export XDG_RUNTIME_DIR=/run/user/$(id -u) WAYLAND_DISPLAY=wayland-0 DISPLAY=:0
+
+python3 tests/frontend/test_runtime.py                       # Q8：真实 GTK 设置窗口，15 项
+gjs -m tests/frontend/responsive-smoke.mjs "$PWD/extension" /tmp/icon-normalizer-ui readonly zh
+for f in health-smoke about-smoke profiles-smoke; do
+  gjs -m tests/frontend/$f.mjs "$PWD/extension"
+done
+```
+
+注意 **所有冒烟脚本的第一个参数都是扩展目录**（`$PWD/extension`）；漏传会看到 `undefined/schemas/gschemas.compiled` 之类的报错。
+
+**需要专用夹具（当前未文档化）**
+
+`dialogs-smoke`、`lifecycle-smoke`、`language-smoke`、`profiles-compat-smoke`、`preferences-loader-smoke`、`shell-css-smoke` 依赖各自的夹具（临时 HOME、假后端或测试库），直接运行会失败。需要时参照脚本内的 `ARGV` 使用与 `fixtures` 说明补齐，或先用 Q8 与上面三个冒烟覆盖主要路径。
