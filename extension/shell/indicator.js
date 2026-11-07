@@ -12,6 +12,12 @@ import {automaticLabel, maintenanceHealth} from '../shared/stateModel.js';
 
 const STATE_DIR_PARTS = ['.local', 'state', 'icon-normalizer'];
 
+/** State files whose change the panel renders; everything else is ignored. */
+const STATE_WATCH_FILES = new Set([
+    'last-run.json', 'last-run-apps.json', 'last-scan.json', 'user-rules.json',
+    'config.json', 'pending.json', 'maintenance-heartbeat.json', 'last-error.json',
+]);
+
 export class Indicator {
     constructor({actionLabel, onOpenSettings, requestRefresh, settings}) {
         this._actionLabelFn = actionLabel;
@@ -197,7 +203,12 @@ export class Indicator {
             const dir = Gio.File.new_for_path(GLib.build_filenamev([
                 GLib.get_home_dir(), ...STATE_DIR_PARTS]));
             this._monitor = dir.monitor_directory(Gio.FileMonitorFlags.NONE, null);
-            this._monitorId = this._monitor.connect('changed', () => {
+            this._monitorId = this._monitor.connect('changed', (_monitor, file, _other, _event) => {
+                // Only state files the UI renders matter. Creating the state
+                // directory itself (first run of the in-process engine) or a
+                // transient file must not queue a refresh.
+                const name = file ? file.get_basename() : null;
+                if (!name || !STATE_WATCH_FILES.has(name)) return;
                 if (this._debounceId) GLib.source_remove(this._debounceId);
                 this._debounceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
                     this._debounceId = 0; this._requestRefresh('status');

@@ -78,19 +78,23 @@ export default class Acceptance extends Extension {
         check(Main.panel.statusArea['icon-normalizer']===indicator._indicator,'panel role missing');
         check(indicator.menu._getMenuItems().length===7,'incomplete menu');
         check(indicator._icon instanceof St.Icon,'top bar did not use a symbolic icon');
+        // Startup bookkeeping writes state files, and the panel refreshes 600 ms
+        // after any such change. Drain that window first so the assertions below
+        // describe the action under test, not leftover startup traffic.
+        await wait(900);
         const calls=[];
         const request=extension._request.bind(extension);
-        extension._request=(...args)=>{calls.push(args);return request(...args);};
+        extension._request=(...args)=>{calls.push([...args,(new Error().stack||'').split('\n').slice(1,5).join(' | ')]);return request(...args);};
         const status={installed:true,automatic:'on',revision:'a'.repeat(64),overlay_in_use:true,
             active_theme:'DockNormalized',last_apply_at:'2026-10-04T04:00:00+08:00',summary:{managed_icons:1}};
         indicator.update(status,{ok:true,result:status});
-        check(calls.length===0,'programmatic refresh sent an automation request');
+        check(calls.length===0,'programmatic refresh sent an automation request: '+JSON.stringify(calls));
         const capture=async language=>{
             extension._settings.set_string('ui-language',language);
             await wait(100);
             check(indicator._nameLabel.text===(language==='en'?'Icon Normalizer':'图标统一'),
                   'menu did not switch languages');
-            check(calls.length===0,'language change sent a backend request');
+            check(calls.length===0,'language change sent a backend request: '+JSON.stringify(calls));
             indicator.menu.open();
             await wait(350);
             const [content]=await new Shell.Screenshot().screenshot_stage_to_content();

@@ -222,7 +222,11 @@ extension._indicator.update(status, {ok: true});
 console.log('ok   missing backend, busy, recovery and failure render distinct states');
 
 const monitor = monitors.at(-1);
-monitor.emit('changed');
+// Real Gio passes the changed file; only watched state files may refresh.
+const stateFile = name => ({get_basename: () => name});
+monitor.emit('changed', stateFile('unrelated.tmp'), null, 1);
+assert.equal(timers.size, 1); // ignored: not a state file the panel renders
+monitor.emit('changed', stateFile('last-run.json'), null, 1);
 assert.equal(timers.size, 2); // indicator refresh plus startup theme reconciliation
 extension.disable();
 assert.equal(registry.size, 0);
