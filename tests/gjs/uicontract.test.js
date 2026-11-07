@@ -11,6 +11,7 @@ import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 import {LocalControl} from '../../extension/lib/control.js';
+import {supportsProfilesAndThemes, supportsSafeSkip} from '../../extension/shared/stateModel.js';
 import {readBytes, shaHex} from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
@@ -63,6 +64,12 @@ test('status {} — panel refresh (indicator.js)', async () => {
         const status = await control.handle('status', {});
         assertEqual(status.installed, true, 'installed');
         assertTrue(typeof status.revision === 'string', 'revision');
+        // The UI gates named profiles and safe skip on backend_version; the
+        // in-process backend ships both, so its status must pass the gates
+        // the prefs pages actually draw (the 1.3.2 field report: a false
+        // "requires backend 3.1.0" banner on the rules page).
+        assertTrue(supportsProfilesAndThemes(status), 'profiles gate passes');
+        assertTrue(supportsSafeSkip(status), 'safe-skip gate passes');
     } finally {
         removeTree(home);
     }

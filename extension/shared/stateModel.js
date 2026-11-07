@@ -3,18 +3,31 @@
 // The backend is the single source of truth — this module only renders its output.
 import {t} from './i18n.js';
 
+/**
+ * Parse the backend identity for capability gates. The in-process GJS backend
+ * reports "gjs-<n>" and ships every capability the version gates exist for —
+ * the gates only ever distinguished old Python companions. Returning Infinity
+ * makes every ">= x.y.z" comparison pass for it.
+ *
+ * @param {object} status payload
+ * @returns {number[]|null} [major, minor, patch] or null when unknown
+ */
+function capabilityVersion(status) {
+    const raw = typeof status?.backend_version === 'string' ? status.backend_version : '';
+    if (raw.startsWith('gjs-')) return [Infinity, Infinity, Infinity];
+    const match = raw.match(/^(\d+)\.(\d+)\.(\d+)$/);
+    return match ? match.slice(1).map(Number) : null;
+}
+
 export function supportsProfilesAndThemes(status) {
-    const version = typeof status?.backend_version === 'string'
-        ? status.backend_version.match(/^(\d+)\.(\d+)\.(\d+)$/) : null;
-    return Boolean(version && (Number(version[1]) > 3 ||
-        Number(version[1]) === 3 && Number(version[2]) >= 1));
+    const [major, minor] = capabilityVersion(status) || [];
+    return Boolean(major !== undefined && (major > 3 ||
+        major === 3 && minor >= 1));
 }
 
 export function supportsSafeSkip(status) {
-    const match = typeof status?.backend_version === 'string'
-        ? status.backend_version.match(/^(\d+)\.(\d+)\.(\d+)$/) : null;
-    if (!match) return false;
-    const [major, minor, patch] = match.slice(1).map(Number);
+    const [major, minor, patch] = capabilityVersion(status) || [];
+    if (major === undefined) return false;
     return major > 3 || major === 3 && (minor > 1 || minor === 1 && patch >= 6);
 }
 

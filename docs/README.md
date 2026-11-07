@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.3.2 发布说明 / Latest release notes](RELEASE-1.3.2.md) | 当前版本：控制层协议接缝补齐 / Current: control-layer protocol seams completed | 中文 / English |
+| [v1.3.3 发布说明 / Latest release notes](RELEASE-1.3.3.md) | 当前版本：控制层协议接缝补齐 / Current: control-layer protocol seams completed | 中文 / English |
 | [v1.3.1 发布说明](RELEASE-1.3.1.md) | 引擎加固——并发互斥、安全回滚、idle 分片 / Engine hardening | 中文 / English |
 | [v1.3.0 发布说明](RELEASE-1.3.0.md) | 纯 GJS 内嵌引擎与零外部依赖 / Pure GJS in-process engine | 中文 / English |
 | [v1.2.0 发布说明](RELEASE-1.2.0.md) | 规则可靠性 / Rule reliability | 中文 / English |

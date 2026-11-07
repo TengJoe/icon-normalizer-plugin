@@ -105,6 +105,9 @@ test('backend version gates profile and theme operations', () => {
     for (const [version, expected] of [['3.0.2',false],['3.1.0',true],['3.2.0',true],['4.0.0',true],['invalid',false],[null,false]])
         assert.equal(m.supportsProfilesAndThemes({backend_version:version}),expected);
     assert.equal(m.supportsProfilesAndThemes(null),false);
+    // The in-process GJS backend reports "gjs-<n>": it ships every capability
+    // the version gates exist for.
+    assert.equal(m.supportsProfilesAndThemes({backend_version:'gjs-1'}),true);
 });
 
 test('safe skip is refused for older or unrecognized companions', () => {
@@ -112,6 +115,7 @@ test('safe skip is refused for older or unrecognized companions', () => {
         ['4.0.0', true], ['2.9.9', false], ['invalid', false], [null, false]])
         assert.equal(m.supportsSafeSkip({backend_version: version}), expected);
     assert.equal(m.supportsSafeSkip(null), false);
+    assert.equal(m.supportsSafeSkip({backend_version: 'gjs-1'}), true);
 });
 
 let failed = 0;
