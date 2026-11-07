@@ -229,9 +229,36 @@ def compare_render(verbose: bool) -> int:
     print(f"  OK: {comparisons} comparisons, worst mean abs diff {worst_mean:.2f}/255 ({worst_name})")
     return 0
 
+def compare_fingerprint(verbose: bool) -> int:
+    """The GJS and Python engines must derive byte-identical policy
+    fingerprints, or the Shell scheduler and the Python worker take turns
+    invalidating each other's manifest (full re-render on every run)."""
+    strategy = {"base_theme": "Yaru", "target": 0.83, "deadband": 0.02,
+                "inner": 0.7, "sizes": [16, 24, 32, 48, 64, 96, 128, 256, 512]}
+    proc = subprocess.run(
+        ["gjs", "-m", str(PROJECT / "tests/gjs/dump-fingerprint.js"),
+         json.dumps(strategy)],
+        capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise SystemExit("gjs fingerprint failed:\n" + proc.stderr[-2000:])
+    gjs_fp = proc.stdout.strip().splitlines()[-1]
+    from icon_normalizer.fingerprints import policy_fingerprint
+    from icon_normalizer.policy import Policy
+    policy = Policy(target=strategy["target"], deadband=strategy["deadband"],
+                    inner=strategy["inner"], sizes=strategy["sizes"],
+                    base_theme=strategy["base_theme"])
+    py_fp = policy_fingerprint(policy)
+    ok = gjs_fp == py_fp
+    if verbose:
+        print(f"  gjs:   {gjs_fp}")
+        print(f"  python: {py_fp}")
+    print(f"  {'OK' if ok else 'MISMATCH'}: policy fingerprint across engines")
+    return 0 if ok else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("analyze", "render"))
+    parser.add_argument("mode", choices=("analyze", "render", "fingerprint"))
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -239,6 +266,8 @@ def main() -> int:
         return compare_analyze(args.limit, args.verbose)
     if args.mode == "render":
         return compare_render(args.verbose)
+    if args.mode == "fingerprint":
+        return compare_fingerprint(args.verbose)
     return 2
 
 

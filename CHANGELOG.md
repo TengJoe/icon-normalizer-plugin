@@ -4,6 +4,14 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 
 ## 未发布（1.3.2 之后）
 
+- **修复双写者互踩（真机发现）**：systemd 触发器（Python worker）与 Shell 内置调度器共存时，
+  两引擎对同一策略给出不同的 policy 指纹（Python 掺入核心源码哈希，GJS 哈希裸 JSON），
+  每次运行都判定"全部图标已变化"并全量重渲染。**根因已修**：两引擎的 policy 指纹统一为
+  同一公式——canonical JSON 策略 + 共享 `CORE_VERSION`（Python `fingerprints.py` 弃用源码
+  哈希，GJS `engine.js` 弃用裸 `JSON.stringify`），`tools/parity.py fingerprint` 对拍字节级
+  一致并纳入 Q19；同时安装器在扩展 ≥1.3.3 的新装/升级中退役 timer/path 触发器（调度器已
+  内置，`systemctl --user enable --now icon-normalizer.timer` 可手动恢复且不再引发互踩）。
+
 - **Q20「UI payload contract」质量门**：界面调用的每个操作都必须有一条契约用例，
   且用例按**界面真实发送的载荷**编写（而不是按实现编写）。覆盖层用 awk 整行精确匹配，
   shell 的 grep 包装无法削弱它。这道门针对的正是 1.3.0–1.3.2 反复出现的失效模式：

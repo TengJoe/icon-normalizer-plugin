@@ -103,12 +103,12 @@ runpy.run_module('icon_normalizer',run_name='__main__')
         with patch.object(dependencies.importlib,'import_module',side_effect=injected),self.assertRaises(ModuleNotFoundError):
             dependencies.require_image_runtime()
 
-    def test_fingerprint_remains_byte_identical(self):
+    def test_fingerprint_matches_gjs_shared_formula(self):
         from icon_normalizer.config_store import ConfigStore
+        from icon_normalizer.version import CORE_VERSION
+        from icon_normalizer.fingerprints import _numeric_canonical
         policy=ConfigStore(self.box.state).load_policy()
-        core=BACKEND_DIR/'icon_normalizer/core'
-        expected=sha_hex((canonical_json(policy.strategy_dict())+sha_hex((core/'analyzer.py').read_bytes())+
-                          sha_hex((core/'renderer.py').read_bytes())).encode())
+        expected=sha_hex((canonical_json(_numeric_canonical(policy.strategy_dict()))+CORE_VERSION).encode())
         self.assertEqual(policy_fingerprint(policy),expected)
 
     def test_conflicts_are_aggregated_and_outputs_preserved(self):

@@ -84,6 +84,42 @@ export function driveSliced(generator, sliceMs = 20) {
     });
 }
 
+// Shared rendering-core version; must match backend version.py CORE_VERSION.
+// tools/parity.py asserts the two engines derive identical fingerprints.
+const CORE_VERSION = '3';
+
+/** Sort keys and join compactly, matching Python json.dumps(sort_keys=True,
+ * ensure_ascii=False, separators=(",", ":")). */
+function canonicalJson(value) {
+    if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+    if (value !== null && typeof value === 'object') {
+        return '{' + Object.keys(value).sort()
+            .map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}';
+    }
+    return JSON.stringify(value);
+}
+
+/**
+ * Engine-agnostic policy fingerprint, byte-identical to the Python engine's
+ * policy_fingerprint (backend/icon_normalizer/fingerprints.py): the strategy
+ * keys only, canonically serialized, plus the shared core version. The Shell
+ * scheduler and the optional Python worker both write the manifest — a
+ * fingerprint only one engine can derive would make every run re-render
+ * everything.
+ *
+ * @param {object} policy strategy {target, deadband, inner, sizes, base_theme}
+ * @returns {string} hex sha-256
+ */
+export function policyFingerprint(policy) {
+    return shaHex(canonicalJson({
+        base_theme: policy.base_theme,
+        deadband: policy.deadband,
+        inner: policy.inner,
+        sizes: policy.sizes,
+        target: policy.target,
+    }) + CORE_VERSION);
+}
+
 export class Engine {
     /**
      * @param {object} config engine configuration
@@ -107,7 +143,7 @@ export class Engine {
                 {path: this.appsDir, fileMode: 0o644},
             ],
             changed => this.finalizeCache(changed));
-        this.policySha = shaHex(JSON.stringify(config.policy));
+        this.policySha = policyFingerprint(config.policy);
         this.analysisPolicy = shaHex(this.policySha
             + JSON.stringify(config.overrides || {})
             + JSON.stringify(config.userRules || {}));
