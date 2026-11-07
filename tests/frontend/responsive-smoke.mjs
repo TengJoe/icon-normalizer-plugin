@@ -196,9 +196,17 @@ async function run() {
         await pages.rules.refresh(null, {discard: true});
         check(pages.rules._targetSpin.get_value() === 92, 'Reopening did not retain saved policy');
         const revision = pages.rules._loadedRevision;
-        const external = await call(controlPath, 'configure', {expected_revision: revision,
-            patch: {target: 0.83, inner: 0.70}});
-        check(external.ok, 'External fixture update failed');
+        // BUSY is retryable by protocol: another writer (the machine's own
+        // timer, or a previous fixture) can hold sync.lock for a moment.
+        let external = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            external = await call(controlPath, 'configure', {expected_revision: revision,
+                patch: {target: 0.83, inner: 0.70}});
+            if (external.ok || !external.error?.retryable) break;
+            await delay(300);
+        }
+        check(external.ok, 'External fixture update failed: '
+            + JSON.stringify(external.error ?? external));
         await pages.rules._save(false);
         check(pages.rules._notice.row.get_visible(), 'Conflict was not surfaced');
         check(pages.rules._notice.row.get_title().includes(language === 'en' ? 'Reload' : '重新读取'), 'Conflict prompt is missing');

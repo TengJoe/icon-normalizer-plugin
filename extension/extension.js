@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// GNOME Shell entry (GNOME 51 ESM). Desktop theme notifications live here;
-// background icon maintenance runs separately in systemd user units.
+// GNOME Shell entry (GNOME 51 ESM). The engine runs in-process (ADR-0008),
+// so this file also owns the periodic maintenance pass: a GLib timer runs the
+// sliced sync and records a heartbeat the preferences window can display.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -13,6 +14,10 @@ import {initLanguage} from './shared/i18n.js';
 import {syncGtkTheme} from './shell/themeSync.js';
 
 const PANEL_KEY = 'show-panel-indicator';
+/** Seconds between automatic maintenance passes (15 minutes). */
+const MAINTENANCE_INTERVAL_SECONDS = 900;
+/** Delay before the first pass after login, so startup is not contended. */
+const MAINTENANCE_START_DELAY_MS = 90 * 1000;
 
 export default class IconNormalizerExtension extends Extension {
     enable() {
@@ -26,6 +31,8 @@ export default class IconNormalizerExtension extends Extension {
         this._settings = this.getSettings();
         initLanguage(this._settings, GLib.get_language_names());
         this._controlPath = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'libexec', 'icon-normalizer', 'control.py']);
+        this._maintenanceTimer = 0;
+        this._maintenanceStartId = 0;
         this._setupLocalBackend();
         this._pending = new Set();
         this._lastStatus = null;
@@ -99,6 +106,14 @@ export default class IconNormalizerExtension extends Extension {
         }
         this._pending?.clear();
         this._lastStatus = null;
+        if (this._maintenanceTimer) {
+            GLib.source_remove(this._maintenanceTimer);
+            this._maintenanceTimer = 0;
+        }
+        if (this._maintenanceStartId) {
+            GLib.source_remove(this._maintenanceStartId);
+            this._maintenanceStartId = 0;
+        }
         this._controlPath = null;
         // The module-level in-process backend must not outlive this enable()
         // cycle: re-enable installs a fresh one (no stale LocalControl).
@@ -130,8 +145,57 @@ export default class IconNormalizerExtension extends Extension {
             });
             this._control = control;
             setLocalBackend((operation, args) => control.handle(operation, args));
+            if (generation === this._generation) this._scheduleMaintenance();
         } catch {
             // Running in an environment without backend support or during tests: keep controlPath.
+        }
+    }
+
+    /**
+     * Arm the periodic maintenance pass when the preference is on.
+     *
+     * The timer re-arms itself so a disable() always wins: the callback checks
+     * the generation before touching anything.
+     */
+    _scheduleMaintenance() {
+        if (this._maintenanceTimer) return;
+        const control = this._control;
+        if (!control || !control.automationEnabled()) return;
+        // A short lead-in so login finishes first, then a slow cadence: the
+        // engine only rewrites files whose content actually changed.
+        this._maintenanceStartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+            MAINTENANCE_START_DELAY_MS, () => {
+                this._maintenanceStartId = 0;
+                this._runMaintenance();
+                return GLib.SOURCE_REMOVE;
+            });
+        this._maintenanceTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
+            MAINTENANCE_INTERVAL_SECONDS * 1000, () => {
+                this._runMaintenance();
+                return GLib.SOURCE_CONTINUE;
+            });
+    }
+
+    /** Run one maintenance pass and record its heartbeat. */
+    async _runMaintenance() {
+        const generation = this._generation;
+        const control = this._control;
+        if (!control || !control.automationEnabled()) return;
+        // A user-triggered apply is already in flight: skip this slot rather
+        // than queue behind it.
+        if (this._pending.has('apply') || this._pending.has('status')) return;
+        this._pending.add('maintenance');
+        try {
+            const envelope = await call(this._controlPath, 'apply',
+                {expected_revision: null, activate: false}, this._requests);
+            if (generation !== this._generation) return;
+            control.recordHeartbeat(Boolean(envelope.ok),
+                envelope.ok ? null : (envelope.error?.code ?? 'UNKNOWN'));
+        } catch (error) {
+            logError(error, 'icon-normalizer: maintenance pass failed');
+            control.recordHeartbeat(false, String(error));
+        } finally {
+            this._pending.delete('maintenance');
         }
     }
 

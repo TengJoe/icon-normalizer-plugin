@@ -2,6 +2,15 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.3.2 — 控制层协议接缝补齐（2026-11-07）
+
+发布说明见 [v1.3.2 说明](docs/RELEASE-1.3.2.md)。
+
+- **`configure` 现在真的生效**：界面发送的是 `patch`，此前实现只读 `policy`，导致规则页保存静默无效。
+- **命名方案真的落盘**：`profiles.list/save/delete` 由空壳改为真实存储（`profiles.json`，含重名、50 套上限与 `REVISION_CONFLICT`）。
+- **`theme.follow` / `automation.set` 持久化**，`status` 如实反映。
+- **扩展自带周期维护**：启用后约 90 秒首跑、此后每 15 分钟一次，切片执行并写心跳；「维护」页可区分 on / unknown / off，失败会显示 `automatic_error`。
+- 测试：Q18 新增 4 组按**界面真实载荷**编写的用例；修正了原先按实现（而非协议）编写的 `configure` 用例。
 ## 1.3.1 — 纯 GJS 引擎加固与并发安全（2026-11-07）
 
 发布说明见 [v1.3.1 说明](docs/RELEASE-1.3.1.md)。独立代码审查后的修复与加固：

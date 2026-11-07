@@ -15,6 +15,7 @@ import {analyze, plan, CLASSES} from './engine/analyze.js';
 import {normalize} from './engine/render.js';
 import {classifySourceEx, lookupRuleEx, describeRule} from './engine/classification.js';
 import {SyncLock, readBytes, shaHex, atomicWrite} from './engine/transaction.js';
+import {applyPatch, ProfilesStore, ThemeFollowStore} from './stores.js';
 import {XdgIconResolver} from './engine/resolver.js';
 
 /** Default policy when the state directory has none yet. */
@@ -264,9 +265,11 @@ export class LocalControl {
             last_error: null,
             recovery_pending: readBytes(this.pendingPath()) !== null,
             summary: lastRun.summary || null,
-            automatic: this.settings ? this.settings.automatic() : null,
-            units: [],
-            theme_follow: true,
+            automatic: this.unitsStatus().automatic,
+            // A failed pass is a real fault the maintenance page must show.
+            automatic_error: this.maintenanceError(),
+            units: this.unitsStatus(),
+            theme_follow: this.themeFollowStore.enabled(),
             source_theme: this.policy().base_theme,
             active_theme: activeTheme,
             overlay_in_use: activeTheme === 'DockNormalized',
@@ -484,11 +487,19 @@ export class LocalControl {
     async configure(args = {}) {
         return this.#locked(async () => {
             this.#requireRevision(args);
-            const policy = {...this.policy(), ...(args.policy || {})};
-            writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
-                {policy, theme_name: 'DockNormalized', theme_dir: this.themeDir,
-                    state_dir: this.stateDir, user_applications: this.appsDir});
-            return {revision: this.revision(), effective_policy: policy};
+            // The protocol (and every caller in prefs/) sends a *patch*, not a
+            // whole policy: merge it onto the current values before validating.
+            const current = this.policy();
+            const policy = applyPatch(current, args.patch);
+            const changed = policy.target !== current.target
+                || policy.deadband !== current.deadband
+                || policy.inner !== current.inner;
+            if (changed) {
+                writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
+                    {policy, theme_name: 'DockNormalized', theme_dir: this.themeDir,
+                        state_dir: this.stateDir, user_applications: this.appsDir});
+            }
+            return {revision: this.revision(), effective_policy: policy, changed};
         });
     }
 
@@ -510,6 +521,126 @@ export class LocalControl {
         return this.#locked(() => this.engine().revert());
     }
 
+    /** @returns {ProfilesStore} named profile catalogue */
+    get profiles() {
+        return new ProfilesStore(this.stateDir);
+    }
+
+    /** @returns {ThemeFollowStore} theme-follow flag */
+    get themeFollowStore() {
+        return new ThemeFollowStore(this.stateDir);
+    }
+
+    /**
+     * Mark the selected source theme as followed.
+     *
+     * @param {{enabled?: boolean}} args
+     * @returns {Promise<object>}
+     */
+    async themeFollow(args = {}) {
+        return this.#locked(() => {
+            this.themeFollowStore.setEnabled(Boolean(args.enabled));
+            return {ok: true, enabled: Boolean(args.enabled),
+                theme_follow: Boolean(args.enabled)};
+        });
+    }
+
+    /**
+     * Re-apply the overlay after the source theme changed.
+     *
+     * @returns {Promise<object>}
+     */
+    async themeSync() {
+        if (!this.themeFollowStore.enabled())
+            return {ok: true, changed: false, synced: false,
+                source_theme: this.policy().base_theme};
+        // apply() takes the lock itself: do not wrap this call in #locked.
+        const payload = await this.apply({activate: false});
+        return {ok: true, changed: (payload.file_operations || 0) > 0, synced: true,
+            revision: this.revision(), source_theme: this.policy().base_theme};
+    }
+
+    /**
+     * Persist the automatic-maintenance preference.
+     *
+     * The in-process engine has no systemd units: the Shell extension runs the
+     * periodic pass itself and reports liveness through a heartbeat file, so the
+     * UI can tell 'on' from 'on but stale'.
+     *
+     * @param {{enabled?: boolean}} args
+     * @returns {Promise<object>}
+     */
+    async automationSet(args = {}) {
+        const enabled = Boolean(args.enabled);
+        return this.#locked(() => {
+            writeJson(GLib.build_filenamev([this.stateDir, 'automation.json']),
+                {schema_version: 1, enabled});
+            return {ok: true, enabled, units: this.unitsStatus()};
+        });
+    }
+
+    /**
+     * Record that a maintenance pass just finished.
+     *
+     * @param {boolean} ok whether the pass committed cleanly
+     * @param {string|null} code protocol error code when it did not
+     */
+    recordHeartbeat(ok, code = null) {
+        writeJson(GLib.build_filenamev([this.stateDir, 'maintenance-heartbeat.json']),
+            {schema_version: 1, ok: Boolean(ok), code, at_unix: Date.now() / 1000});
+    }
+
+    /** @returns {string|null} error code of the last failed pass, if any */
+    maintenanceError() {
+        const heartbeat = readJson(
+            GLib.build_filenamev([this.stateDir, 'maintenance-heartbeat.json']));
+        if (!heartbeat || heartbeat.ok !== false) return null;
+        return heartbeat.code || 'UNKNOWN';
+    }
+
+    /** @returns {boolean} persisted automatic-maintenance preference */
+    automationEnabled() {
+        const raw = readJson(GLib.build_filenamev([this.stateDir, 'automation.json']));
+        if (!raw || typeof raw.enabled !== 'boolean') return false;
+        return raw.enabled;
+    }
+
+    /**
+     * Units-shaped status for the maintenance page.
+     *
+     * @returns {object} automatic plus per-trigger detail
+     */
+    unitsStatus() {
+        const enabled = this.automationEnabled();
+        const heartbeat = readJson(
+            GLib.build_filenamev([this.stateDir, 'maintenance-heartbeat.json']));
+        const ageHours = heartbeat && heartbeat.at_unix
+            ? (Date.now() / 1000 - heartbeat.at_unix) / 3600 : null;
+        // A Shell that never ran a pass is 'unknown'; one that ran recently is on.
+        const automatic = !enabled ? 'off' : (ageHours === null ? 'unknown' : 'on');
+        return {automatic, enabled, last_pass_hours_ago: ageHours};
+    }
+
+    /**
+     * Save a named profile (protocol operation profiles.save).
+     *
+     * @param {object} args
+     * @returns {Promise<object>}
+     */
+    async profilesListSave(args = {}) {
+        return this.#locked(() => this.profiles.save(args));
+    }
+
+    /**
+     * Delete a named profile (protocol operation profiles.delete).
+     *
+     * @param {object} args
+     * @returns {Promise<object>}
+     */
+    async profilesListDelete(args = {}) {
+        return this.#locked(() => this.profiles.delete(args));
+    }
+
     /**
      * Dispatch one protocol operation.
      *
@@ -527,13 +658,12 @@ export class LocalControl {
         case 'configure': return this.configure(args);
         case 'doctor': return this.doctor();
         case 'revert': return this.revert();
-        case 'theme.sync': return {ok: true, synced: false};
-        case 'theme.follow': return {ok: true, theme_follow: true};
-        case 'automation.set': return {ok: true, automatic: this.settings
-            ? this.settings.automatic() : null};
-        case 'profiles.list': return {profiles: []};
-        case 'profiles.save': return {ok: true};
-        case 'profiles.delete': return {ok: true};
+        case 'theme.sync': return this.themeSync();
+        case 'theme.follow': return this.themeFollow(args);
+        case 'automation.set': return this.automationSet(args);
+        case 'profiles.list': return this.profiles.catalog();
+        case 'profiles.save': return this.profilesListSave(args);
+        case 'profiles.delete': return this.profilesListDelete(args);
         default: throw new Error('unsupported operation: ' + operation);
         }
     }

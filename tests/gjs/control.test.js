@@ -62,14 +62,16 @@ test('status reports installed true and valid revision', async () => {
     }
 });
 
-test('configure persists policy changes', async () => {
+test('configure persists a partial patch', async () => {
     const {home} = makeFixtureHome();
     try {
         const control = new LocalControl({home});
-        const configured = await control.handle('configure', {policy: {target: 0.85}});
+        const configured = await control.handle('configure', {patch: {target: 0.85}});
         assertEqual(configured.effective_policy.target, 0.85, 'target updated');
         const policy = control.policy();
         assertEqual(policy.target, 0.85, 'persisted target');
+        // A patch that names only one key must leave the others alone.
+        assertEqual(policy.inner, DEFAULT_POLICY.inner, 'inner untouched');
     } finally {
         removeTree(home);
     }
@@ -220,4 +222,109 @@ test('sliced scan completes across idle callbacks', async () => {
     }
 });
 
-await report();
+await 
+// The four protocol seams below are exercised with the exact payload shape the
+// preferences UI sends. They used to be silent no-ops: configure ignored a
+// patch, profiles.* were empty stubs and theme.follow/automation.set only
+// echoed their arguments, so saving in the UI lost the change without saying so.
+
+test('configure applies the patch shape the rules page sends', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        const before = control.revision();
+        const result = await control.handle('configure', {
+            expected_revision: before,
+            patch: {target: 0.92, deadband: 0.02, inner: 0.75},
+        });
+        assertEqual(result.effective_policy.target, 0.92, 'returned target');
+        assertEqual(control.policy().target, 0.92, 'persisted target');
+        assertEqual(control.policy().inner, 0.75, 'persisted inner');
+        assertTrue(control.revision() !== before, 'revision moved');
+        assertEqual(result.changed, true, 'changed flag');
+        // Unpatched keys keep their previous value.
+        assertEqual(result.effective_policy.deadband, 0.02, 'deadband preserved');
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('configure rejects an out-of-range or cross-field patch', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        for (const patch of [{target: 0.99}, {target: 0.95, deadband: 0.10},
+            {target: 0.83, inner: 1.2}]) {
+            let caught = null;
+            try {
+                await control.handle('configure', {patch});
+            } catch (error) {
+                caught = error;
+            }
+            assertTrue(caught !== null, 'rejected ' + JSON.stringify(patch));
+            assertEqual(caught.code, 'INVALID_CONFIG', 'protocol code');
+        }
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('profiles survive a save/list/delete round trip with OCC', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        const empty = await control.handle('profiles.list');
+        assertEqual(empty.profiles.length, 0, 'starts empty');
+        const saved = await control.handle('profiles.save', {
+            expected_profiles_revision: empty.profiles_revision,
+            name: 'compact',
+            parameters: {target: 0.83, deadband: 0.02, inner: 0.70},
+        });
+        assertTrue(Boolean(saved.profile && saved.profile.id), 'profile id');
+        const listed = await control.handle('profiles.list');
+        assertEqual(listed.profiles.length, 1, 'persisted');
+        assertEqual(listed.profiles[0].name, 'compact', 'name');
+        assertTrue(listed.profiles_revision !== empty.profiles_revision, 'revision moved');
+        // Stale revision is refused rather than silently merged.
+        let caught = null;
+        try {
+            await control.handle('profiles.save', {
+                expected_profiles_revision: empty.profiles_revision,
+                name: 'other',
+                parameters: {target: 0.83, deadband: 0.02, inner: 0.70},
+            });
+        } catch (error) {
+            caught = error;
+        }
+        assertEqual(caught && caught.code, 'REVISION_CONFLICT', 'stale revision refused');
+        const removed = await control.handle('profiles.delete', {profile_id: saved.profile.id});
+        assertEqual(removed.profiles.length, 0, 'deleted');
+    } finally {
+        removeTree(home);
+    }
+});
+
+test('theme.follow and automation.set persist and reach status', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        await control.handle('theme.follow', {enabled: false});
+        assertEqual((await control.handle('status')).theme_follow, false, 'follow off');
+        await control.handle('theme.follow', {enabled: true});
+        assertEqual((await control.handle('status')).theme_follow, true, 'follow on');
+
+        await control.handle('automation.set', {enabled: true});
+        const on = await control.handle('status');
+        assertEqual(on.units.enabled, true, 'automation persisted');
+        assertEqual(on.automatic, 'unknown', 'no heartbeat yet reads as unknown');
+        control.recordHeartbeat(true);
+        assertEqual((await control.handle('status')).automatic, 'on', 'heartbeat makes it on');
+        control.recordHeartbeat(false, 'BUSY');
+        assertEqual((await control.handle('status')).automatic_error, 'BUSY', 'failure surfaced');
+        await control.handle('automation.set', {enabled: false});
+        assertEqual((await control.handle('status')).automatic, 'off', 'off after disabling');
+    } finally {
+        removeTree(home);
+    }
+});
+report();
