@@ -14,12 +14,12 @@ python3 tools/install.py --assume-yes     # 安装扩展 + 后台 + systemd 用�
 python3 tools/build.py                    # 构建 dist/ 产物（ZIP + tar.gz + 清单）
 python3 tools/release_audit.py --submission && python3 tools/privacy_audit.py
 
-# 一条命令跑完全部 13 个质量门（--quick 跳过需要显示服务的 Q8/Q10）
+# 一条命令跑完全部 20 个质量门（--quick 跳过需要显示服务的 Q8/Q10）
 bash tools/verify.sh
 bash tools/verify.sh --quick
 ```
 
-脚本会打印每道门的结果并统计，任一失败即返回非零。2026-11-06 实测：完整模式 **19/19 通过**、`--quick` **17/17 通过**；在**全新克隆**里执行 `npm ci --ignore-scripts && bash tools/verify.sh --quick` 同样全绿（仓库自包含，无遗漏文件）。
+脚本会打印每道门的结果并统计，任一失败即返回非零。2026-11-07 实测：完整模式 **20/20 通过**、`--quick` **18/18 通过**；在**全新克隆**里执行 `npm ci --ignore-scripts && bash tools/verify.sh --quick` 同样全绿（仓库自包含，无遗漏文件）。
 
 > **改完代码记得重新安装**：Q14 会检查已安装树与仓库是否一致 —— 源码改了但没跑 `tools/install.py` 时，桌面仍在运行旧代码，而版本号可能完全相同。
 
