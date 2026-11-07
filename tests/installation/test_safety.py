@@ -72,15 +72,18 @@ class InstallerSafety(unittest.TestCase):
         self.assertEqual((self.layout.extension/'schemas'/'gschemas.compiled').read_bytes(),b'old-schema')
         self.assertTrue(all((self.layout.units/u).read_text()=='old-unit' for u in UNITS))
 
-    def test_upgrade_preserves_every_enabled_active_combination(self):
-        # Each trigger independently spans all four states, including partial.
+    def test_upgrade_retires_triggers_for_in_process_scheduler(self):
+        # Extension 1.3.3+ runs its own sliced scheduler, and the two engines
+        # fingerprint the policy differently: leaving the triggers enabled made
+        # every run flip the manifest input_key and re-render everything. The
+        # upgrade retires them from any prior combination, including partial.
         for enabled, active in [(False,False),(True,False),(False,True),(True,True)]:
             with self.subTest(enabled=enabled,active=active):
                 self.states = {TRIGGER_UNITS[0]:{'enabled':enabled,'active':active},
                                TRIGGER_UNITS[1]:{'enabled':not enabled,'active':not active}}
-                before=json.loads(json.dumps(self.states))
                 self.assertEqual(installer.install(True),0)
-                self.assertEqual(self.states,before)
+                self.assertEqual(self.states,
+                                 {u:{'enabled':False,'active':False} for u in TRIGGER_UNITS})
 
     def test_post_probe_failure_restores_extension_schema_and_rules(self):
         self.states={u:{'enabled':True,'active':True} for u in TRIGGER_UNITS}

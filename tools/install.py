@@ -163,6 +163,17 @@ def _known(states: dict[str, Any]) -> None:
         raise RuntimeError("Cannot confirm trigger state; no installation changes made")
 
 
+def _installed_extension_version(layout: Any) -> tuple[int, int, int] | None:
+    """Read the installed extension's version-name without executing code."""
+    meta = layout.extension / "metadata.json"
+    try:
+        data = json.loads(meta.read_text(encoding="utf-8"))
+        parts = [int(x) for x in str(data.get("version-name", "")).split(".")]
+        return tuple(parts) if len(parts) == 3 else None
+    except Exception:
+        return None
+
+
 def _saved_backend_version(target: Path) -> str | None:
     """Read the copied version declaration without executing saved code."""
     version_file = target / "libexec" / "icon_normalizer" / "version.py"
@@ -480,6 +491,16 @@ def install(assume_yes: bool) -> int:
                         created_theme = prepare_runtime(layout)
                         desired = before if is_upgrade else {
                             u: {"enabled": True, "active": True} for u in TRIGGER_UNITS}
+                        # Since extension 1.3.3 the Shell extension runs its own
+                        # sliced scheduler, and the Python engine fingerprints the
+                        # policy differently from the GJS engine. Both writers
+                        # flip the manifest's input_key on every run, forcing a
+                        # full re-render each time — the triggers must retire
+                        # instead of being restored.
+                        installed_version = _installed_extension_version(layout)
+                        if installed_version is not None and installed_version >= (1, 3, 3):
+                            desired = {u: {"enabled": False, "active": False}
+                                       for u in TRIGGER_UNITS}
                         trigger_states_restore(desired)
                         clean_old = True
                     except Exception:
