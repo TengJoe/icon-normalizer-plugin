@@ -154,10 +154,10 @@ check_version_bump_discipline() {
 }
 run Q17 "no patch bump without code" check_version_bump_discipline
 
-# Q18 runs the 8 in-process GJS engine unit tests (61 assertions).
+# Q18 runs the in-process GJS engine unit tests.
 check_gjs_units() {
     local f
-    for f in analyze render desktop transaction resolver classification engine control; do
+    for f in analyze render desktop transaction resolver classification engine control uicontract; do
         if ! gjs -m "tests/gjs/${f}.test.js" >/dev/null; then
             echo "GJS unit test failed: tests/gjs/${f}.test.js"
             return 1
@@ -172,6 +172,37 @@ check_gjs_parity() {
     python3 tools/parity.py analyze >/dev/null && python3 tools/parity.py render >/dev/null
 }
 run Q19 "GJS vs Python parity" check_gjs_parity
+
+# Q20 keeps the UI and the engine honest about each other: every operation the
+# interface invokes must have a contract case in tests/gjs/uicontract.test.js,
+# written with the exact payload the UI constructs (the 1.3.0 review found a
+# whole test suite passing while the rules page saved nothing, because the
+# test was written from the implementation instead of the interface).
+check_ui_contract() {
+    gjs -m tests/gjs/uicontract.test.js >/dev/null 2>&1 || {
+        echo "UI payload contract test failed: tests/gjs/uicontract.test.js"
+        return 1
+    }
+    local ui_ops covered op missing=""
+    ui_ops=$( { grep -rhoE "(call|read)\([^,]*,\s*'[a-z.]+'" \
+            extension/prefs extension/shared extension/shell extension/extension.js \
+            2>/dev/null
+        grep -rhoE "_mutate\('[a-z.]+'" extension/prefs 2>/dev/null; } \
+        | grep -oE "'[a-z.]+'" | tr -d "'" | sort -u)
+    covered=$(grep -hoE "control.handle\('[a-z.]+'" tests/gjs/uicontract.test.js \
+        | grep -oE "'[a-z.]+'" | tr -d "'" | sort -u)
+    for op in $ui_ops; do
+        # Exact whole-line match via awk: a shell grep alias/wrapper must
+        # never be able to weaken this gate.
+        awk -v op="$op" '$0==op{f=1} END{exit f?0:1}' <<<"$covered" || missing="$missing $op"
+    done
+    if [ -n "$missing" ]; then
+        echo "UI invokes operations with no contract case:$missing"
+        return 1
+    fi
+    return 0
+}
+run Q20 "UI payload contract" check_ui_contract
 
 echo
 echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"

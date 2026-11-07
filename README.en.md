@@ -218,7 +218,7 @@ Only **GNOME Shell 51** is declared, as runtime-verified; other versions need se
 
 ## Quality and safety
 
-- **19 quality gates** in one command (`bash tools/verify.sh`): 253 backend tests, 5 frontend suites, **69 GJS engine unit tests**, and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
+- **20 quality gates** in one command (`bash tools/verify.sh`): 253 backend tests, 5 frontend suites, **69 GJS engine unit tests**, a **UI payload contract suite** (Q20: every operation the interface invokes must have a test case written with the exact payload the UI constructs, so implementation and tests can no longer be wrong together), and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
 - **No network, no telemetry**: the tree contains no networking code; release artifacts are readable GJS/SVG/CSS — no binaries, no minification.
 - **Privacy audit**: `tools/privacy_audit.py` pattern-scans the release allowlist (secrets, personal paths, emails, image metadata, tar headers) with zero findings.
 - **Reproducible builds**: fixed timestamps and permissions; consecutive builds are byte-identical to the published assets.
