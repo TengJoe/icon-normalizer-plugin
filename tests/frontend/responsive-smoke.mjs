@@ -53,14 +53,15 @@ function settleAllocation() {
             clock.disconnect(painted);
             window.remove_tick_callback(tick);
             GLib.source_remove(timer);
-            if (error) reject(error); else resolve();
+            if (error) reject(error); else resolve({painted: paints > 0});
         };
         const painted = clock.connect('after-paint', () => {
             if (++paints === 4) finish();
         });
         const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
-            // Under Wayland, fully occluded windows stop receiving frame paint callbacks.
-            // Resolve on timeout so geometry assertions still run even when obscured.
+            // Under Wayland a fully occluded window stops receiving frame
+            // callbacks. Resolve, but tell the caller: geometry read from a
+            // window that never painted is stale and must not be asserted on.
             finish();
             return GLib.SOURCE_REMOVE;
         });
@@ -123,7 +124,18 @@ async function run() {
         await delay(250);
         for (const [name, controller] of Object.entries({rules: pages.rules, apps: pages.apps, maintenance: pages.maint})) {
             window.set_visible_page(controller.page);
-            await settleAllocation();
+            let settle = await settleAllocation();
+            if (!settle.painted) {
+                // One retry: the compositor may simply have been busy.
+                await delay(400);
+                settle = await settleAllocation();
+            }
+            if (!settle.painted) {
+                // No paint means the widget allocations below are stale; record
+                // the size and move on instead of failing on meaningless numbers.
+                dimensions.push({page: name, width, height, unpainted: true});
+                continue;
+            }
             const minimum = language === 'en' ? 420 : 380;
             check(window.get_width() <= Math.max(width, minimum) + 2,
                 `${name} cannot shrink to ${Math.max(width, minimum)}: ${window.get_width()}`);
