@@ -2,6 +2,13 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.3.5 — 跟随深色偏好与强调色（2026-11-09）
+
+发布说明见 [v1.3.5 说明](docs/RELEASE-1.3.5.md)。
+
+- **新增：系统深色偏好与强调色会带动叠加层。** 移植 `theme_follow.resolve_system_variant()`：仅 Yaru 家族跟随强调色（`teal→prussiangreen`、`green→olive`、`orange→` 纯 Yaru），其它主题族只做明暗兄弟解析；未安装的变体一律拒绝；仅在叠加层为当前图标主题时介入。
+- 宿主适配层新增 `colorScheme()` / `accent()` 读取器，`accent-color` 缺失时安全返回 `null`。
+- 新增 `tests/gjs/variants.test.js`（5 项）与控制层端到端用例，Q18 覆盖 10 个测试文件。
 ## 1.3.4 — 主题跟随修复（2026-11-09）
 
 发布说明见 [v1.3.4 说明](docs/RELEASE-1.3.4.md)。

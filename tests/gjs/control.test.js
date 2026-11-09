@@ -372,4 +372,56 @@ test('theme.sync adopts the newly selected source theme', async () => {
         removeTree(home);
     }
 });
+
+test('theme.sync follows the dark preference and accent colour', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        // Installed Yaru variants: the resolver may only choose from these.
+        for (const name of ["Yaru", "Yaru-dark", "Yaru-blue", "Yaru-blue-dark", "Yaru-olive"]) {
+            const dir = GLib.build_filenamev([home, ".local/share/icons", name]);
+            GLib.mkdir_with_parents(dir, 0o755);
+            GLib.file_set_contents(GLib.build_filenamev([dir, "index.theme"]),
+                "[Icon Theme]\nName=" + name + "\n");
+        }
+        let active = "DockNormalized";
+        let scheme = "default";
+        let accent = "blue";
+        const control = new LocalControl({home, settings: {
+            desktop: () => "GNOME",
+            iconTheme: () => active,
+            baseTheme: () => null,
+            colorScheme: () => scheme,
+            accent: () => accent,
+            automatic: () => null,
+            setTheme: name => { active = name; },
+        }});
+        await control.handle("apply", {activate: false});
+
+        // A dark preference switches to the dark sibling of the accent colour.
+        scheme = "prefer-dark";
+        let synced = await control.handle("theme.sync", {});
+        assertEqual(synced.adopted, "Yaru-blue-dark", "dark variant of the accent");
+        assertEqual(control.policy().base_theme, "Yaru-blue-dark", "persisted dark source");
+
+        // Back to light.
+        scheme = "default";
+        synced = await control.handle("theme.sync", {});
+        assertEqual(synced.adopted, "Yaru-blue", "light variant");
+
+        // Accent change moves within the Yaru family.
+        accent = "green";
+        synced = await control.handle("theme.sync", {});
+        assertEqual(synced.adopted, "Yaru-olive", "green maps to olive");
+
+        // An accent with no Yaru variant leaves the source alone (the real
+        // machine may install more Yaru colours than this fixture creates, so
+        // use a name the mapping table itself does not know).
+        accent = "chartreuse";
+        synced = await control.handle("theme.sync", {});
+        assertEqual(synced.adopted, null, "unmapped accent refused");
+        assertEqual(control.policy().base_theme, "Yaru-olive", "source unchanged");
+    } finally {
+        removeTree(home);
+    }
+});
 report();

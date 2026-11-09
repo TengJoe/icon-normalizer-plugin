@@ -16,6 +16,7 @@ import {normalize} from './engine/render.js';
 import {classifySourceEx, lookupRuleEx, describeRule} from './engine/classification.js';
 import {SyncLock, readBytes, shaHex, atomicWrite} from './engine/transaction.js';
 import {applyPatch, ProfilesStore, ThemeFollowStore} from './stores.js';
+import {resolveSystemVariant} from './variants.js';
 import {XdgIconResolver, iconSearchRoots} from './engine/resolver.js';
 
 /** Default policy when the state directory has none yet. */
@@ -521,6 +522,36 @@ export class LocalControl {
         return this.#locked(() => this.engine().revert());
     }
 
+    /**
+     * Follow the system's dark preference and accent colour within the current
+     * source theme's family (the overlay must be the active icon theme).
+     *
+     * @returns {string|null} the adopted variant, or null when unchanged
+     */
+    #adoptSystemVariant() {
+        const settings = this.settings || {};
+        // Only meaningful while the overlay is what the desktop actually shows;
+        // otherwise the user is looking at another theme on purpose.
+        const active = typeof settings.iconTheme === 'function' ? settings.iconTheme() : null;
+        if (active !== 'DockNormalized') return null;
+        if (!readBytes(GLib.build_filenamev([this.stateDir, 'manifest.json']))) return null;
+        const preferDark = typeof settings.colorScheme === 'function'
+            && settings.colorScheme() === 'prefer-dark';
+        const accent = typeof settings.accent === 'function' ? settings.accent() : null;
+        const current = this.policy();
+        const roots = iconSearchRoots(this.home);
+        const isInstalled = name => roots.some(root => readBytes(
+            GLib.build_filenamev([root, name, 'index.theme'])) !== null);
+        const target = resolveSystemVariant(current.base_theme, preferDark, accent, isInstalled);
+        if (!target || target === current.base_theme) return null;
+        if (target.length > 128 || !/^[A-Za-z0-9._-]+$/.test(target)) return null;
+        writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
+            {policy: {...current, base_theme: target}, theme_name: 'DockNormalized',
+                theme_dir: this.themeDir, state_dir: this.stateDir,
+                user_applications: this.appsDir});
+        return target;
+    }
+
     /** @returns {ProfilesStore} named profile catalogue */
     get profiles() {
         return new ProfilesStore(this.stateDir);
@@ -556,7 +587,13 @@ export class LocalControl {
                 source_theme: this.policy().base_theme};
         // Following a theme means adopting it first: without this the engine
         // keeps regenerating from the previous source and the switch is a no-op.
-        const adopted = await this.#locked(() => this.#adoptSelectedTheme());
+        const adopted = await this.#locked(() => {
+            // A concrete theme the user just picked wins over the system variant:
+            // it is an explicit choice, while dark/accent are ambient preferences.
+            const selected = this.#adoptSelectedTheme();
+            if (selected) return selected;
+            return this.#adoptSystemVariant();
+        });
         // apply() takes the lock itself: do not wrap this call in #locked.
         const payload = await this.apply({activate: false});
         return {ok: true, adopted,

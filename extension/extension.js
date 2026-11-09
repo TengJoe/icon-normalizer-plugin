@@ -139,6 +139,22 @@ export default class IconNormalizerExtension extends Extension {
                 settings: {
                     desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
                     iconTheme: () => desktopSettings.get_string('icon-theme'),
+                    // Dark preference and accent drive the variant the overlay
+                    // follows; accent-color only exists on newer schemas.
+                    colorScheme: () => {
+                        try {
+                            return desktopSettings.get_string('color-scheme');
+                        } catch {
+                            return null;
+                        }
+                    },
+                    accent: () => {
+                        try {
+                            return desktopSettings.get_string('accent-color');
+                        } catch {
+                            return null;
+                        }
+                    },
                     automatic: () => null,
                     setTheme: name => desktopSettings.set_string('icon-theme', name),
                 },

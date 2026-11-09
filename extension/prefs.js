@@ -25,6 +25,20 @@ export default class IconNormalizerPrefs extends ExtensionPreferences {
                 settings: {
                     desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
                     iconTheme: () => desktopSettings.get_string('icon-theme'),
+                    colorScheme: () => {
+                        try {
+                            return desktopSettings.get_string('color-scheme');
+                        } catch {
+                            return null;
+                        }
+                    },
+                    accent: () => {
+                        try {
+                            return desktopSettings.get_string('accent-color');
+                        } catch {
+                            return null;
+                        }
+                    },
                     automatic: () => null,
                     setTheme: name => desktopSettings.set_string('icon-theme', name),
                 },

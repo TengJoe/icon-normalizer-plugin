@@ -8,13 +8,13 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.4](https://img.shields.io/badge/release-1.3.4-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.4)
+[![Release 1.3.5](https://img.shields.io/badge/release-1.3.5-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.5)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Pure GJS engine](https://img.shields.io/badge/engine-pure_GJS_in--process-2ec27e?style=flat-square)](#architecture)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.4/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.5/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
@@ -95,7 +95,7 @@ Requires **GNOME Shell 51**. The extension has zero dependencies — one ZIP is 
 
 Click "Install" on GNOME Extensions (extensions.gnome.org) — **under review** at the moment; one-click install will be available once approved.
 
-Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.4/icon-normalizer@joeydeng.local.zip) and install it the standard way:
+Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.5/icon-normalizer@joeydeng.local.zip) and install it the standard way:
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
@@ -112,12 +112,12 @@ Then open **Icon Normalizer → Settings** from Extensions and click "Apply" to 
 
 ### Option 2: offline complete package
 
-1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.4/icon-normalizer-plugin-1.3.4.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.4/SHA256SUMS) into the same directory.
+1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.5/icon-normalizer-plugin-1.3.5.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.5/SHA256SUMS) into the same directory.
 2. Verify, extract and install:
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf icon-normalizer-plugin-1.3.4.tar.gz
+tar -xzf icon-normalizer-plugin-1.3.5.tar.gz
 cd icon-normalizer-plugin
 python3 tools/install.py
 ```
@@ -148,7 +148,7 @@ Build outputs land in `dist/`: the extension ZIP, the complete source package an
 
 </details>
 
-> Current GitHub release: extension **1.3.4** (companion **3.1.20**, optional). `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope. After a panel-code upgrade, log out and back in to refresh the GNOME Shell module cache.
+> Current GitHub release: extension **1.3.5** (companion **3.1.20**, optional). `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope. After a panel-code upgrade, log out and back in to refresh the GNOME Shell module cache.
 
 ## Usage
 
@@ -248,7 +248,7 @@ Backups are kept in `~/.local/state/icon-normalizer/backups/`. If a restore fail
 | [Protocol](PROTOCOL.md) | JSON requests, error codes and concurrency control |
 | [Contributing](CONTRIBUTING.md) | Development checks, feedback requirements, bilingual writing rules |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance and recovery steps |
-| [Changelog](CHANGELOG.md) | Version history; [v1.3.4 notes](docs/RELEASE-1.3.2.md) |
+| [Changelog](CHANGELOG.md) | Version history; [v1.3.5 notes](docs/RELEASE-1.3.2.md) |
 
 More material is indexed in the [documentation index](docs/README.md). When reporting an issue, include system and component versions and reproduction steps, and strip private information from logs and screenshots first.
 

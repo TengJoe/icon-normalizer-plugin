@@ -164,7 +164,7 @@ run Q17 "no patch bump without code" check_version_bump_discipline
 # Q18 runs the in-process GJS engine unit tests.
 check_gjs_units() {
     local f
-    for f in analyze render desktop transaction resolver classification engine control uicontract; do
+    for f in analyze render desktop transaction resolver classification variants engine control uicontract; do
         if ! gjs -m "tests/gjs/${f}.test.js" >/dev/null; then
             echo "GJS unit test failed: tests/gjs/${f}.test.js"
             return 1
