@@ -36,7 +36,10 @@ let code = 1;
 // Wayland can throttle background windows to one frame per second, including
 // fixture windows. Leave enough time for the complete matrix and screenshots.
 // This does not change UI/CLI request timeouts.
-const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 90000, () => {
+// 18 size/page rounds plus the preview checks, each of which waits for real
+// frames: a throttled window (partly covered desktop) yields ~1 frame/s, so
+// the budget must cover the slow case instead of assuming an idle compositor.
+const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150000, () => {
     printerr('Responsive GTK validation timed out'); loop.quit(); return GLib.SOURCE_REMOVE;
 });
 
@@ -56,7 +59,10 @@ function settleAllocation() {
             if (error) reject(error); else resolve({painted: paints > 0});
         };
         const painted = clock.connect('after-paint', () => {
-            if (++paints === 4) finish();
+            // Two paints are enough to see the allocation this round queued; a
+            // throttled window yields ~1 frame/s, so waiting for four would
+            // spend the whole fixture budget on idle frames.
+            if (++paints === 2) finish();
         });
         const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
             // Under Wayland a fully occluded window stops receiving frame

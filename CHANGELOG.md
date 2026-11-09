@@ -9,6 +9,10 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 - **渲染所有权**：扩展 apply 后写 `renderer.json`（`owner: gjs`）；Python `apply`/`revert` 读到即拒绝（`RENDERER_OWNED`），`scan`/`status`/`preview` 不受影响；人工修复用 `ICON_NORMALIZER_ALLOW_FOREIGN_RENDER=1` 放行。Python 仍是 parity 的对照实现。
 - **隐私审计改为全量扫描**：从"目录白名单"改为扫描 `git ls-files` 的全部跟踪文件 + 发行包成员，唯一例外是 `tools/privacy-allowlist.txt`（需写明理由），过期例外会列出。
 - **新增 Q21「release invariants」**：文档门数必须等于 `verify.sh` 实际门数；已发布的 `v<版本>` 之后 `extension/` 与 `backend/` 不得再变（文档/测试/工具可滞后）。
+## 未发布（1.3.6 之后）
+
+- **Q8 时间预算修复**：`responsive-smoke.mjs` 等待"4 帧"才判定分配完成，而受限窗口（被部分遮挡时）只有约 1 帧/秒，18 组尺寸就会耗尽 90s 预算并报 "Responsive GTK validation timed out"。改为**等待 2 帧**，同时把 fixture 自截止提到 150s、父进程超时提到 165s。实测：单跑英文用例 10s、完整 Q8 由 212s 失败变为 **49.7s 全过**。
+- 该改动属于测试基础设施，按 `docs/RELEASING.md` 不递增版本号，随下一个正式版本发布。
 ## 未发布（1.3.5 之后）
 
 - **Q8 偶发假失败修复**：完全被遮挡的窗口收不到 Wayland 帧回调，`responsive-smoke` 在超时后仍用**过时的控件分配**测量，于是报出假的「420px 横向溢出」。现在 `settleAllocation` 会回报是否真的绘制过，未绘制时重试一次，仍无绘制则记录该尺寸为 `unpainted` 而不对无效数据断言。

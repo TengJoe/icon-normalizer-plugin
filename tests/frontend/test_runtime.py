@@ -115,7 +115,7 @@ sys.exit(code)
             if script=='skip-smoke.mjs' and legacy: arguments+=['legacy']
             result=subprocess.run(['gjs','-m',str(REPO/'tests/frontend'/script),
                                    *arguments],env=env,capture_output=True,text=True,
-                                  timeout=105 if script=='responsive-smoke.mjs' else 75)
+                                  timeout=165 if script=='responsive-smoke.mjs' else 75)
             self.assertEqual(result.returncode,0,result.stdout+'\n'+result.stderr)
             self.assertNotIn('JS ERROR',result.stderr)
             self.assertNotIn('Gjs-CRITICAL',result.stderr)
