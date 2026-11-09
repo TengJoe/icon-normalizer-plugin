@@ -212,6 +212,35 @@ check_ui_contract() {
 }
 run Q20 "UI payload contract" check_ui_contract
 
+# Q21 keeps a release honest in two directions docs cannot cover on their own:
+# the gate count the documentation advertises must match the script, and code
+# that ships in a release must not change afterwards without minting a version
+# (tests, docs and tooling may legitimately lag behind the last tag).
+check_release_invariants() {
+    local rc=0 actual claim ver
+    # Four gates sit inside conditional blocks, so count unique labels rather
+    # than line starts.
+    actual=$(grep -oE "run Q[0-9]+ " tools/verify.sh | sort -u | wc -l)
+    for f in docs/HANDOVER.md README.md README.en.md docs/CHECKLIST.md; do
+        [ -f "$f" ] || continue
+        claim=$(grep -oE "[0-9]+ (个质量门|道质量门|道门|quality gates)" "$f" | head -1 | grep -oE "^[0-9]+")
+        if [ -n "$claim" ] && [ "$claim" != "$actual" ]; then
+            echo "$f advertises $claim gates, tools/verify.sh defines $actual"
+            rc=1
+        fi
+    done
+    ver=$(python3 -c "import json;print(json.load(open('extension/metadata.json'))['version-name'])")
+    if git rev-parse -q --verify "refs/tags/v$ver" >/dev/null 2>&1; then
+        if ! git diff --quiet "v$ver" -- extension backend 2>/dev/null; then
+            echo "shipped code changed after v$ver; bump the version or move the change out of extension/ backend/"
+            rc=1
+        fi
+    fi
+    return $rc
+}
+run Q21 "release invariants"   check_release_invariants
+
+
 echo
 echo "  passed: $PASS   failed: $FAIL   skipped: $SKIP"
 [ "$FAIL" -eq 0 ] || exit 1

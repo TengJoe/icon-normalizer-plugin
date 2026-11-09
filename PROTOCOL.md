@@ -78,6 +78,10 @@
 - 主题激活：`settings-pending.json`（stage=files_committed）先于 `gsettings set` 落盘，
   回读确认后移除；后续核心写操作入口补齐未完成的激活。
 - `scan` 拒绝在存在未恢复日志时运行（`RECOVERY_REQUIRED`）；核心写操作入口自动恢复；方案与跟随偏好的元数据操作不回放图标事务。
+- `apply` 与 `revert` 在状态目录被进程内（GJS）引擎接管时拒绝执行（`RENDERER_OWNED`）。
+  ADR-0008 之后主题由扩展自己渲染，Python 后台保留为跨实现对照（oracle）；两套渲染器
+  交替写入会让双方都把对方的输出视为陌生并全量重渲。需要人工修复或跑对照时，
+  设置 `ICON_NORMALIZER_ALLOW_FOREIGN_RENDER=1` 即可放行。`scan` / `status` / `preview` 不受影响。
 
 ## 6. 响应信封
 
@@ -102,7 +106,7 @@
 | BUSY / REVISION_CONFLICT / STALE_SOURCE / TIMEOUT | ✔ | 3 / 3 / 5 / 1 |
 | INVALID_REQUEST / UNSUPPORTED_VERSION / INVALID_CONFIG | ✘ | 2 |
 | NOT_INSTALLED / DEPENDENCY_MISSING / UNSUPPORTED_ENVIRONMENT | ✘ | 4 |
-| RECOVERY_REQUIRED / OWNERSHIP_CONFLICT / AUTOMATION_FAILED | ✘ | 5 |
+| RECOVERY_REQUIRED / OWNERSHIP_CONFLICT / AUTOMATION_FAILED / RENDERER_OWNED | ✘ | 5 |
 | NOT_FOUND / SOURCE_UNAVAILABLE / IO_ERROR / INTERNAL_ERROR | ✘ | 1 |
 
 未知错误码默认按 retryable 处理（向前兼容）。退出码：0 成功，1 其他，2 输入错误，

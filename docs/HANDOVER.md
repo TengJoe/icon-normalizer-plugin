@@ -1,6 +1,6 @@
 # 接手说明 / Handover
 
-更新时间：2026-11-09 · 扩展 **1.3.5** / 后台 **3.1.20** / 渲染核心 **3**
+更新时间：2026-11-09 · 扩展 **1.3.6** / 后台 **3.1.20** / 渲染核心 **3**
 
 ## 这是什么
 
@@ -14,7 +14,7 @@ python3 tools/install.py --assume-yes     # 安装扩展 + 后台 + systemd 用�
 python3 tools/build.py                    # 构建 dist/ 产物（ZIP + tar.gz + 清单）
 python3 tools/release_audit.py --submission && python3 tools/privacy_audit.py
 
-# 一条命令跑完全部 20 个质量门（--quick 跳过需要显示服务的 Q8/Q10）
+# 一条命令跑完全部 21 个质量门（--quick 跳过需要显示服务的 Q8/Q10）
 bash tools/verify.sh
 bash tools/verify.sh --quick
 ```

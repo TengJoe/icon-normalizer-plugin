@@ -424,4 +424,20 @@ test('theme.sync follows the dark preference and accent colour', async () => {
         removeTree(home);
     }
 });
+
+test('apply claims the theme for this engine', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home});
+        const marker = GLib.build_filenamev([home, ".local/state/icon-normalizer", "renderer.json"]);
+        assertTrue(!GLib.file_test(marker, GLib.FileTest.EXISTS), "no marker before apply");
+        await control.handle("apply", {activate: false});
+        const text = new TextDecoder().decode(readBytes(marker));
+        assertEqual(JSON.parse(text).owner, "gjs", "owner recorded");
+        // The Python guard reads exactly this value (renderer_owner.py).
+        assertEqual(JSON.parse(text).schema_version, 1, "schema version");
+    } finally {
+        removeTree(home);
+    }
+});
 report();

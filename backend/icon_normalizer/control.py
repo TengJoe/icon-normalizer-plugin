@@ -29,6 +29,7 @@ from .config_store import (
 from .fingerprints import hash_icon_name, policy_fingerprint
 from .dependencies import MODULES, missing_modules, require_image_runtime
 from . import health
+from . import renderer_owner
 if TYPE_CHECKING:
     from .core.engine import Engine
 from .errors import EXIT_BUSY, EXIT_OK, EXIT_OTHER, ProtocolError, reject
@@ -539,6 +540,8 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
 
 def op_apply(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
     assert ctx is not None  # write/read ops always run under the lock
+    # Never let two renderers alternate on the same theme (ADR-0008).
+    renderer_owner.guard(ctx.paths.state_dir)
     if args["expected_revision"] != ctx.revision:
         reject("REVISION_CONFLICT", "策略已被其他上下文修改；请刷新后重试",
                details={"current_revision": ctx.revision})
@@ -653,6 +656,7 @@ def op_automation(args: dict[str, Any], ctx: OperationContext | None) -> dict[st
 
 def op_revert(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
     assert ctx is not None  # write/read ops always run under the lock
+    renderer_owner.guard(ctx.paths.state_dir)
     engine = _build_engine(ctx.store, ctx.policy, ctx.paths)
     before = service_control.units_status()
     if any(not isinstance(before[name].get(key), bool)

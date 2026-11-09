@@ -1,0 +1,2 @@
+# Reviewed exceptions for tools/privacy_audit.py.
+# Format: <path> TAB <category> TAB <reason>. Comments and blank lines ignored.

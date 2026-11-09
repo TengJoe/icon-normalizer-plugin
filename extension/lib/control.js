@@ -17,6 +17,7 @@ import {classifySourceEx, lookupRuleEx, describeRule} from './engine/classificat
 import {SyncLock, readBytes, shaHex, atomicWrite} from './engine/transaction.js';
 import {applyPatch, ProfilesStore, ThemeFollowStore} from './stores.js';
 import {resolveSystemVariant} from './variants.js';
+import {claimRendererOwnership} from './rendererOwner.js';
 import {XdgIconResolver, iconSearchRoots} from './engine/resolver.js';
 
 /** Default policy when the state directory has none yet. */
@@ -324,6 +325,9 @@ export class LocalControl {
             const payload = this.slicing
                 ? await engine.syncAsync({apply: true}) : engine.sync({apply: true});
             payload.theme_activation = this.#activateTheme(Boolean(args.activate));
+            // Claim the theme for this engine so the Python worker refuses to
+            // alternate writes with it (see backend renderer_owner.guard).
+            claimRendererOwnership(this.stateDir);
             return {...payload, revision: this.revision()};
         });
     }
