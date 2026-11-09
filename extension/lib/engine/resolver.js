@@ -27,14 +27,24 @@ function findIconInDir(themeDir, name) {
  * Pure JavaScript XDG theme icon resolver, matching freedesktop icon theme specs.
  * Does not depend on Gtk or St, so it runs identically in Shell, Prefs and plain GJS.
  */
-export function resolveThemeIcon(name, baseTheme, home = GLib.get_home_dir()) {
-    const searchRoots = [
+/**
+ * Icon theme search roots, in freedesktop precedence order.
+ *
+ * @param {string} home user home directory
+ * @returns {string[]} directories that may contain <theme>/index.theme
+ */
+export function iconSearchRoots(home = GLib.get_home_dir()) {
+    return [
         GLib.build_filenamev([home, '.local', 'share', 'icons']),
         '/usr/share/icons',
         '/usr/local/share/icons',
         '/var/lib/flatpak/exports/share/icons',
         GLib.build_filenamev([home, '.local', 'share', 'flatpak', 'exports', 'share', 'icons']),
     ];
+}
+
+export function resolveThemeIcon(name, baseTheme, home = GLib.get_home_dir()) {
+    const searchRoots = iconSearchRoots(home);
     const themesToCheck = [baseTheme];
     if (baseTheme !== 'Yaru' && !baseTheme.startsWith('hicolor')) themesToCheck.push('Yaru');
     if (!themesToCheck.includes('hicolor')) themesToCheck.push('hicolor');

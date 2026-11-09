@@ -327,4 +327,49 @@ test('theme.follow and automation.set persist and reach status', async () => {
         removeTree(home);
     }
 });
+
+test('theme.sync adopts the newly selected source theme', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        // A source theme that is actually installed, so adoption can accept it.
+        const themeDir = GLib.build_filenamev([home, ".local/share/icons/Adwaita"]);
+        GLib.mkdir_with_parents(themeDir, 0o755);
+        GLib.file_set_contents(GLib.build_filenamev([themeDir, "index.theme"]),
+            "[Icon Theme]\nName=Adwaita\n");
+
+        let active = "DockNormalized";
+        const control = new LocalControl({home, settings: {
+            desktop: () => "GNOME",
+            iconTheme: () => active,
+            baseTheme: () => null,
+            automatic: () => null,
+            setTheme: name => { active = name; },
+        }});
+        // Following only makes sense once an overlay exists.
+        await control.handle("apply", {activate: false});
+        const before = control.policy().base_theme;
+
+        active = "Adwaita";
+        const synced = await control.handle("theme.sync", {});
+        assertEqual(synced.adopted, "Adwaita", "adopted the selected theme");
+        assertEqual(control.policy().base_theme, "Adwaita", "persisted as the new source");
+        assertTrue(before !== "Adwaita", "source actually changed");
+
+        // The overlay itself and unknown themes are never adopted.
+        active = "DockNormalized";
+        assertEqual((await control.handle("theme.sync", {})).adopted, null, "overlay ignored");
+        active = "NotInstalledTheme";
+        assertEqual((await control.handle("theme.sync", {})).adopted, null, "missing theme refused");
+        assertEqual(control.policy().base_theme, "Adwaita", "source unchanged by refusals");
+
+        // Turning following off stops the adoption entirely.
+        await control.handle("theme.follow", {enabled: false});
+        active = "Adwaita2";
+        const off = await control.handle("theme.sync", {});
+        assertEqual(off.synced, false, "not synced while disabled");
+        assertEqual(control.policy().base_theme, "Adwaita", "source unchanged while disabled");
+    } finally {
+        removeTree(home);
+    }
+});
 report();

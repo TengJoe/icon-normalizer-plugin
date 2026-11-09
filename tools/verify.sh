@@ -123,6 +123,13 @@ check_doc_versions() {
             echo "$f still downloads from an older release"
             rc=1
         fi
+        # The badge label and the link must agree, or the front page advertises
+        # one version while pointing at another.
+        if grep -q "img.shields.io/badge/release-" "$f" \
+                && ! grep -q "img.shields.io/badge/release-$ver-" "$f"; then
+            echo "$f badge label is not $ver"
+            rc=1
+        fi
     done
     return $rc
 }

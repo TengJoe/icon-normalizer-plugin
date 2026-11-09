@@ -16,7 +16,7 @@ import {normalize} from './engine/render.js';
 import {classifySourceEx, lookupRuleEx, describeRule} from './engine/classification.js';
 import {SyncLock, readBytes, shaHex, atomicWrite} from './engine/transaction.js';
 import {applyPatch, ProfilesStore, ThemeFollowStore} from './stores.js';
-import {XdgIconResolver} from './engine/resolver.js';
+import {XdgIconResolver, iconSearchRoots} from './engine/resolver.js';
 
 /** Default policy when the state directory has none yet. */
 export const DEFAULT_POLICY = {
@@ -554,10 +554,43 @@ export class LocalControl {
         if (!this.themeFollowStore.enabled())
             return {ok: true, changed: false, synced: false,
                 source_theme: this.policy().base_theme};
+        // Following a theme means adopting it first: without this the engine
+        // keeps regenerating from the previous source and the switch is a no-op.
+        const adopted = await this.#locked(() => this.#adoptSelectedTheme());
         // apply() takes the lock itself: do not wrap this call in #locked.
         const payload = await this.apply({activate: false});
-        return {ok: true, changed: (payload.file_operations || 0) > 0, synced: true,
+        return {ok: true, adopted,
+            changed: adopted !== null || (payload.file_operations || 0) > 0, synced: true,
             revision: this.revision(), source_theme: this.policy().base_theme};
+    }
+
+    /**
+     * Adopt the icon theme the user just selected as the new source.
+     *
+     * Mirrors backend theme_follow.transition_policy(): the overlay itself, an
+     * unsafe name and a theme that is not installed are all refused, and the
+     * switch only happens once a manifest exists (i.e. after a first run).
+     *
+     * @returns {string|null} the adopted theme name, or null when unchanged
+     */
+    #adoptSelectedTheme() {
+        const selected = this.settings && typeof this.settings.iconTheme === 'function'
+            ? this.settings.iconTheme() : null;
+        if (!selected || selected === 'DockNormalized') return null;
+        const current = this.policy();
+        if (selected === current.base_theme) return null;
+        if (selected.length > 128 || selected === '.' || selected === '..') return null;
+        if (!/^[A-Za-z0-9._-]+$/.test(selected)) return null;
+        // Nothing to follow before the first run: there is no overlay yet.
+        if (!readBytes(GLib.build_filenamev([this.stateDir, 'manifest.json']))) return null;
+        const installed = iconSearchRoots(this.home).some(root => readBytes(
+            GLib.build_filenamev([root, selected, 'index.theme'])) !== null);
+        if (!installed) return null;
+        const policy = {...current, base_theme: selected};
+        writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
+            {policy, theme_name: 'DockNormalized', theme_dir: this.themeDir,
+                state_dir: this.stateDir, user_applications: this.appsDir});
+        return selected;
     }
 
     /**
