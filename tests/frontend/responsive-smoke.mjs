@@ -39,11 +39,38 @@ let code = 1;
 // 18 size/page rounds plus the preview checks, each of which waits for real
 // frames: a throttled window (partly covered desktop) yields ~1 frame/s, so
 // the budget must cover the slow case instead of assuming an idle compositor.
-const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150000, () => {
+const deadline = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 240000, () => {
     printerr('Responsive GTK validation timed out'); loop.quit(); return GLib.SOURCE_REMOVE;
 });
 
-function settleAllocation() {
+/**
+ * Resize the window and wait until the compositor really applied it.
+ *
+ * A throttled window (covered by the user's own windows) can sit on the old
+ * allocation for seconds, so a fixed delay is not enough and asserting on the
+ * stale width reports a bogus 'cannot shrink' failure.
+ *
+ * The window has a minimum width, so the requested size is only an upper
+ * bound: success means the allocation settled at or below max(width, minimum),
+ * which is exactly what the assertion below checks.
+ *
+ * @param {number} width requested width
+ * @param {number} height requested height
+ * @param {number} minimum window minimum width for this language
+ * @returns {Promise<boolean>} whether the allocation settled in range
+ */
+async function resizeTo(width, height, minimum) {
+    const limit = Math.max(width, minimum) + 2;
+    window.set_default_size(width, height);
+    for (let attempt = 0; attempt < 30; attempt++) {
+        if (window.get_width() <= limit) return true;
+        await delay(100);
+        await settleAllocation(400);
+    }
+    return window.get_width() <= limit;
+}
+
+function settleAllocation(timeoutMs = 6000) {
     // Fixed millisecond delays can sample an old allocation when Wayland
     // throttles background windows. Observe completed paints instead, without
     // weakening the geometry assertions or invoking the page's resize code.
@@ -64,7 +91,7 @@ function settleAllocation() {
             // spend the whole fixture budget on idle frames.
             if (++paints === 2) finish();
         });
-        const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 6000, () => {
+        const timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
             // Under Wayland a fully occluded window stops receiving frame
             // callbacks. Resolve, but tell the caller: geometry read from a
             // window that never painted is stale and must not be asserted on.
@@ -126,8 +153,9 @@ async function run() {
     if (!readonly) check(JSON.stringify(policy) === '[83,2,70]', 'Unexpected fixture policy ' + policy);
     const dimensions = [];
     for (const [width, height] of [[1100,850], [960,720], [640,600], [420,560], [380,420], [960,480]]) {
-        window.set_default_size(width, height);
-        await delay(250);
+        // Wait for the resize to land; the settle below only proves a frame was
+        // painted, not that it was painted at the requested size.
+        const resized = await resizeTo(width, height, language === 'en' ? 420 : 380);
         for (const [name, controller] of Object.entries({rules: pages.rules, apps: pages.apps, maintenance: pages.maint})) {
             window.set_visible_page(controller.page);
             let settle = await settleAllocation();
@@ -143,8 +171,9 @@ async function run() {
                 continue;
             }
             const minimum = language === 'en' ? 420 : 380;
-            check(window.get_width() <= Math.max(width, minimum) + 2,
-                `${name} cannot shrink to ${Math.max(width, minimum)}: ${window.get_width()}`);
+            check(resized && window.get_width() <= Math.max(width, minimum) + 2,
+                `${name} cannot shrink to ${Math.max(width, minimum)}: ${window.get_width()}`
+                + (resized ? '' : ' (compositor never applied the resize)'));
             const bad = overflow();
             check(bad.length === 0, `${name} ${width}: horizontal overflow: ` + bad.join('; '));
             if (name === 'maintenance') {
