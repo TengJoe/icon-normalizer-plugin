@@ -515,7 +515,11 @@ export class Engine {
      * @returns {{changes: Map<string, Uint8Array|null>, manifest: object,
      *            payload: object, expectedBefore: Map<string, string|null>}}
      */
-    *inspectGenerator() {
+    /**
+     * @param {{onProgress?: (progress: object) => void}} [options]
+     * @yields {null} between per-icon units of work
+     */
+    *inspectGenerator(options = {}) {
         const expected = new Map();
         for (const path of [
             GLib.build_filenamev([this.stateDir, 'manifest.json']),
@@ -703,9 +707,23 @@ export class Engine {
 
         // ---- phase D: rendering (the heaviest phase) ----
         const renderOutputs = {};
+        const reportProgress = typeof options.onProgress === 'function'
+            ? options.onProgress : null;
+        let rendered = 0;
         for (const job of renderJobs) {
             renderOutputs[job.icon] = this.renderSizes(
                 job.path, job.metrics, job.cls, job.sizes);
+            rendered++;
+            // Rendering dominates a full pass (measured ~266 ms per icon), so
+            // report per icon instead of leaving the UI on one static label.
+            if (reportProgress) {
+                try {
+                    reportProgress({phase: 'render', done: rendered,
+                        total: renderJobs.length});
+                } catch (error) {
+                    logError(error, 'icon-normalizer: progress callback failed');
+                }
+            }
             yield null; // one full-icon render per unit
         }
 
@@ -918,7 +936,7 @@ export class Engine {
     sync(options = {}) {
         const apply = Boolean(options.apply);
         const recovered = apply ? this.recover() : false;
-        const result = this.inspect();
+        const result = drainSync(this.inspectGenerator(options));
         if (!apply) return result.payload;
         return this.#applyPlan(result, recovered);
     }
@@ -935,7 +953,7 @@ export class Engine {
     async syncAsync(options = {}, sliceMs = 20) {
         const apply = Boolean(options.apply);
         const recovered = apply ? this.recover() : false;
-        const result = await driveSliced(this.inspectGenerator(), sliceMs);
+        const result = await driveSliced(this.inspectGenerator(options), sliceMs);
         if (!apply) return result.payload;
         return this.#applyPlan(result, recovered);
     }

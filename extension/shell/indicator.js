@@ -118,6 +118,20 @@ export class Indicator {
 
     setBusy(busy) {
         this._localBusy = busy;
+        // Leaving the busy state must also clear a stale "12/85" readout.
+        if (!busy) this._progress = null;
+        this.update(this._status, this._envelope);
+    }
+
+    /**
+     * Show how far the running apply has got.
+     *
+     * @param {{done?: number, total?: number}} progress render progress
+     */
+    setProgress(progress) {
+        const done = Number(progress?.done) || 0;
+        const total = Number(progress?.total) || 0;
+        this._progress = total > 0 ? {done, total} : null;
         this.update(this._status, this._envelope);
     }
 
@@ -171,7 +185,10 @@ export class Indicator {
             detail = this._actionLabelFn(envelope);
         } else if (status) {
             state = status.installed === false ? t('后台未安装')
-                : busy ? t('正在处理图标…') : status.last_error ? health.label
+                : busy ? this._progress
+                    ? t('正在处理图标…') + ' ' + this._progress.done + '/' + this._progress.total
+                    : t('正在处理图标…')
+                : status.last_error ? health.label
                 : status.recovery_pending ? t('有待恢复事务')
                 : status.summary?.unresolved?.length ? health.label
                 : status.stale ? t('有待处理的图标') : status.overlay_in_use === false

@@ -8,13 +8,13 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.5](https://img.shields.io/badge/release-1.3.6-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.6)
+[![Release 1.3.5](https://img.shields.io/badge/release-1.3.7-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.7)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Pure GJS engine](https://img.shields.io/badge/engine-pure_GJS_in--process-2ec27e?style=flat-square)](#architecture)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
@@ -95,7 +95,7 @@ Requires **GNOME Shell 51**. The extension has zero dependencies — one ZIP is 
 
 Click "Install" on GNOME Extensions (extensions.gnome.org) — **under review** at the moment; one-click install will be available once approved.
 
-Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer@joeydeng.local.zip) and install it the standard way:
+Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) and install it the standard way:
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
@@ -112,7 +112,7 @@ Then open **Icon Normalizer → Settings** from Extensions and click "Apply" to 
 
 ### Option 2: offline complete package
 
-1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer-plugin-1.3.5.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/SHA256SUMS) into the same directory.
+1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer-plugin-1.3.5.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/SHA256SUMS) into the same directory.
 2. Verify, extract and install:
 
 ```bash

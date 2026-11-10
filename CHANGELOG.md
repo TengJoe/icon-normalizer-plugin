@@ -9,6 +9,13 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 - **渲染所有权**：扩展 apply 后写 `renderer.json`（`owner: gjs`）；Python `apply`/`revert` 读到即拒绝（`RENDERER_OWNED`），`scan`/`status`/`preview` 不受影响；人工修复用 `ICON_NORMALIZER_ALLOW_FOREIGN_RENDER=1` 放行。Python 仍是 parity 的对照实现。
 - **隐私审计改为全量扫描**：从"目录白名单"改为扫描 `git ls-files` 的全部跟踪文件 + 发行包成员，唯一例外是 `tools/privacy-allowlist.txt`（需写明理由），过期例外会列出。
 - **新增 Q21「release invariants」**：文档门数必须等于 `verify.sh` 实际门数；已发布的 `v<版本>` 之后 `extension/` 与 `backend/` 不得再变（文档/测试/工具可滞后）。
+## 1.3.7 — 应用进度可见（2026-11-10）
+
+发布说明见 [v1.3.7 说明](docs/RELEASE-1.3.7.md)。
+
+- **修复：全量重渲时界面只有一句静止提示。** 引擎按图标上报 `{phase,done,total}`，`sync()`/`syncAsync()` 两条路径都支持；面板显示 `正在处理图标… 42/85`，离开忙碌态自动清除。实测 67 图标 → 67 次回调。
+- 实测基线：`status` 3ms、`scan` 322ms、增量 `apply` 557ms、全量重渲约 23s（单图标 266ms）。
+- 未做提速：换成 Pillow 式预降采样会破坏 Q19 的跨实现逐像素对拍，取舍是保 parity。
 ## 未发布（1.3.6 之后）
 
 - **Q8 时间预算修复**：`responsive-smoke.mjs` 等待"4 帧"才判定分配完成，而受限窗口（被部分遮挡时）只有约 1 帧/秒，18 组尺寸就会耗尽 90s 预算并报 "Responsive GTK validation timed out"。改为**等待 2 帧**，同时把 fixture 自截止提到 150s、父进程超时提到 165s。实测：单跑英文用例 10s、完整 Q8 由 212s 失败变为 **49.7s 全过**。

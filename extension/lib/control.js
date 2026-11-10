@@ -322,8 +322,13 @@ export class LocalControl {
         return this.#locked(async () => {
             this.#requireRevision(args);
             const engine = this.engine();
+            // onProgress only exists for in-process callers; it is dropped when
+            // the same envelope is serialised for the Python worker.
+            const onProgress = typeof args.onProgress === 'function'
+                ? args.onProgress : undefined;
             const payload = this.slicing
-                ? await engine.syncAsync({apply: true}) : engine.sync({apply: true});
+                ? await engine.syncAsync({apply: true, onProgress})
+                : engine.sync({apply: true, onProgress});
             payload.theme_activation = this.#activateTheme(Boolean(args.activate));
             // Claim the theme for this engine so the Python worker refuses to
             // alternate writes with it (see backend renderer_owner.guard).

@@ -8,13 +8,13 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
-[![Release 1.3.5](https://img.shields.io/badge/release-1.3.6-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.6)
+[![Release 1.3.5](https://img.shields.io/badge/release-1.3.7-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.7)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
 [![纯 GJS 内嵌引擎](https://img.shields.io/badge/引擎-纯%20GJS%20内嵌-2ec27e?style=flat-square)](#架构)
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-813e9e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[下载扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer@joeydeng.local.zip) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
+[下载扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
@@ -95,7 +95,7 @@ Icon Normalizer 不改任何系统图标文件：它在专属主题 `DockNormali
 
 在 GNOME 扩展网站（extensions.gnome.org）点「Install」—— 目前**审核中**，通过后即可一键安装。
 
-或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
+或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
 
 ```bash
 gnome-extensions install --force icon-normalizer@joeydeng.local.zip
@@ -112,7 +112,7 @@ glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeyd
 
 ### 方式二：离线完整包
 
-1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/icon-normalizer-plugin-1.3.5.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.6/SHA256SUMS)，放在同一目录。
+1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer-plugin-1.3.5.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/SHA256SUMS)，放在同一目录。
 2. 校验后解压安装：
 
 ```bash

@@ -11,7 +11,7 @@ import {operationExitHint} from './stateModel.js';
  * already in use", matching the panel's historical behavior; the maintenance
  * page passes explicit true/false from the button the user clicked.
  */
-export async function runApplyFlow(controlPath, {activate = null, scope = null} = {}) {
+export async function runApplyFlow(controlPath, {activate = null, scope = null, onProgress = null} = {}) {
     const statusEnvelope = await call(controlPath, 'status', {}, scope);
     if (!statusEnvelope.ok) {
         return {status: statusEnvelope, apply: null, after: null};
@@ -25,6 +25,9 @@ export async function runApplyFlow(controlPath, {activate = null, scope = null} 
     const applyEnvelope = await call(controlPath, 'apply', {
         expected_revision: status.revision,
         activate: shouldActivate,
+        // Functions cannot cross the process boundary; the local backend uses
+        // it for progress and the Python worker simply never sees it.
+        ...(typeof onProgress === 'function' ? {onProgress} : {}),
     }, scope);
     const after = scope?.closed ? null : await call(controlPath, 'status', {}, scope);
     // The file transaction and the theme switch commit separately. Surface the

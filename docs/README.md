@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.3.6 发布说明 / Latest release notes](RELEASE-1.3.6.md) | 当前版本：渲染所有权、隐私全扫、发布不变量门 / Current: renderer ownership, full privacy scan, release invariants | 中文 / English |
+| [v1.3.7 发布说明 / Latest release notes](RELEASE-1.3.7.md) | 当前版本：应用进度可见 / Current: visible apply progress | 中文 / English |
+| [v1.3.6 发布说明](RELEASE-1.3.6.md) | 当前版本：渲染所有权、隐私全扫、发布不变量门 / Current: renderer ownership, full privacy scan, release invariants | 中文 / English |
 | [v1.3.5 发布说明](RELEASE-1.3.5.md) | 跟随深色偏好与强调色 / Dark preference and accent following | 中文 / English |
 | [v1.3.4 发布说明](RELEASE-1.3.4.md) | 主题跟随修复 / Theme following fixed | 中文 / English |
 | [v1.3.3 发布说明](RELEASE-1.3.3.md) | 控制层协议接缝补齐 / Control-layer protocol seams | 中文 / English |

@@ -279,7 +279,11 @@ export default class IconNormalizerExtension extends Extension {
         this._indicator?.setBusy(true);
         const generation = this._generation;
         try {
-            const flow = await runApplyFlow(this._controlPath, {activate: null, scope: this._requests});
+            const flow = await runApplyFlow(this._controlPath, {
+                activate: null,
+                scope: this._requests,
+                onProgress: progress => this._indicator?.setProgress(progress),
+            });
             if (generation !== this._generation) return;
             if (flow.apply?.ok) {
                 this._indicator?.update(flow.after?.result ?? null, flow.after);
