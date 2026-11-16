@@ -1,6 +1,7 @@
 # ADR-0005 — Named profiles and source-theme migration
 
-Status: accepted for frontend 1.1 / backend 3.1, 2026-10-04.
+Status: accepted for frontend 1.1 / backend 3.1, 2026-10-04. The in-process
+GJS behavior is described below.
 
 Profiles hold only three visual parameters. Selecting a profile fills the draft;
 explicit Save controls active policy. A separate catalog hash provides optimistic
@@ -22,3 +23,9 @@ without the preferences window or panel; a debounced Shell listener accelerates 
 The v1 envelope and the original nine operations stay compatible. Five new
 operations and one optional status field are additive. The normalization math,
 size ladder and CORE_VERSION remain unchanged.
+
+With the GJS engine, the Shell reads the selected theme at startup and on each
+theme change. After an initial apply, if both preferences are enabled,
+the engine commits the new source policy and generated icons under one lock,
+then reactivates the overlay only if the selection still matches. After Restore,
+the manifest records that automatic writes are paused until a manual apply.

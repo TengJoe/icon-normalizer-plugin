@@ -3,7 +3,7 @@
 
 import GLib from 'gi://GLib';
 
-import {resolveSource, isInside, parseThemeIndex} from '../../extension/lib/engine/resolver.js';
+import {resolveSource, resolveThemeIcon, isInside, parseThemeIndex} from '../../extension/lib/engine/resolver.js';
 import {atomicWrite} from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
@@ -82,6 +82,31 @@ test('parseThemeIndex reads Inherits and Directories', () => {
         assertEqual(parsed.directories.join(','), '16x16/apps,32x32/apps', 'directories');
     } finally {
         GLib.spawn_command_line_sync('rm -rf ' + root);
+    }
+});
+
+test('resolves icons from a custom theme and its declared parents', () => {
+    const home = tempDir();
+    try {
+        const root = GLib.build_filenamev([home, '.icons']);
+        const put = (path, text) => {
+            const file = GLib.build_filenamev([root, path]);
+            GLib.mkdir_with_parents(GLib.path_get_dirname(file), 0o755);
+            atomicWrite(file, new TextEncoder().encode(text));
+            return file;
+        };
+        put('FixtureCustom/index.theme',
+            '[Icon Theme]\nInherits=FixtureParent\nDirectories=custom/apps\n');
+        put('FixtureParent/index.theme',
+            '[Icon Theme]\nInherits=FixtureCustom,DockNormalized\nScaledDirectories=64x64@2x/apps\n');
+        const child = put('FixtureCustom/custom/apps/only-in-custom.png', 'child');
+        const parent = put('FixtureParent/64x64@2x/apps/only-in-parent.png', 'parent');
+        put('DockNormalized/64x64/apps/never-generated.png', 'generated');
+        assertEqual(resolveThemeIcon('only-in-custom', 'FixtureCustom', home), child);
+        assertEqual(resolveThemeIcon('only-in-parent', 'FixtureCustom', home), parent);
+        assertEqual(resolveThemeIcon('never-generated', 'FixtureCustom', home), null);
+    } finally {
+        GLib.spawn_command_line_sync('rm -rf ' + home);
     }
 });
 

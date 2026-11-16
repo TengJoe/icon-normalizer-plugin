@@ -1,5 +1,7 @@
 # Reviewer note — Icon Normalizer (1.3.7)
 
+Historical 1.3.7 review notes. The 1.3.8 local build uses a separate Python worker and is outside this submission.
+
 Bilingual statement of facts for the GNOME Extensions review. Copy the English part
 into a review comment or the upload notes if a reviewer asks.
 

@@ -91,7 +91,7 @@ export class MaintenancePage {
         this._setAuto = bindSwitch(this._autoRow, active => this._setAutomation(active));
         integration.add(this._autoRow);
         this._followRow = new Adw.SwitchRow({title: t('跟随图标主题'),
-            subtitle: t('切换到新图标主题时保留参数并重新归一化；需要开启自动维护。')});
+            subtitle: t('切换到已安装的图标主题后，保留规则并自动激活统一图标。需开启自动维护。')});
         this._setFollow = bindSwitch(this._followRow, async enabled => {
             this._followRow.set_sensitive(false);
             const response = await call(this._controlPath, 'theme.follow', {enabled}, this._scope);
@@ -270,7 +270,7 @@ export class MaintenancePage {
             : s.overlay_in_use === false ? t('未生效') : t('未知'));
         this._badgeTheme.set_css_classes(['badge-pill',
             s.overlay_in_use === true ? 'badge-active' : 'badge-keep']);
-        this._syncThemeNotice(s.overlay_in_use);
+        this._syncThemeNotice(s.overlay_in_use, s.restored);
         this._ruleWarnings = Array.isArray(s.rule_warnings) ? s.rule_warnings : [];
         const ruleWarnings = Number(s.summary?.rule_warnings ?? 0);
         if (Number.isFinite(ruleWarnings) && ruleWarnings > 0) {
@@ -308,8 +308,13 @@ export class MaintenancePage {
         this._opNotice.show(text, options);
     }
 
-    _syncThemeNotice(overlayInUse) {
+    _syncThemeNotice(overlayInUse, restored = false) {
         if (this._scope.closed) return;
+        if (restored) {
+            this._themeNotice.show(t('已恢复原样。重新应用可恢复图标统一。'),
+                {buttonLabel: t('立即激活'), onClick: () => this._apply(true)});
+            return;
+        }
         if (overlayInUse !== false) {
             this._themeNotice.hide();
             return;

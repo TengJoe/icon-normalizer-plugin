@@ -15,6 +15,8 @@ import {supportsProfilesAndThemes, supportsSafeSkip} from '../../extension/share
 import {readBytes, shaHex} from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
+const fixtureAppsDir = home => [GLib.build_filenamev([home, '.local', 'share', 'applications'])];
+
 function makeFixtureHome() {
     const home = GLib.dir_make_tmp('icon-normalizer-uicontract-XXXXXX');
     const apps = GLib.build_filenamev([home, '.local', 'share', 'applications']);
@@ -60,7 +62,7 @@ async function assertCode(promise, code, what) {
 test('status {} — panel refresh (indicator.js)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const status = await control.handle('status', {});
         assertEqual(status.installed, true, 'installed');
         assertTrue(typeof status.revision === 'string', 'revision');
@@ -78,7 +80,7 @@ test('status {} — panel refresh (indicator.js)', async () => {
 test('scan {} — rules page load (rulesPage.js)', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const scan = await control.handle('scan', {});
         assertTrue(Array.isArray(scan.groups), 'groups');
         assertTrue(scan.groups.some(g => g.icon_name === iconPath), 'fixture found');
@@ -91,7 +93,7 @@ test('apply {expected_revision, activate} — panel and maintenance flows '
     + '(applyFlow.js, maintenancePage.js)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const status = await control.handle('status', {});
         const apply = await control.handle('apply',
             {expected_revision: status.revision, activate: true});
@@ -109,7 +111,7 @@ test('preview {icon_id, source_sha256, size} — preview dialog '
     + '(previewDialog.js sends the scanned group verbatim)', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const scan = await control.handle('scan', {});
         const group = scan.groups.find(g => g.icon_name === iconPath);
         assertTrue(Boolean(group), 'group present');
@@ -136,7 +138,7 @@ test('rules.set {expected_revision, icon_id, rule} — rules page '
     + '(rulesPage.js classification/skip payloads)', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const status = await control.handle('status', {});
         const digest = shaHex(readBytes(iconPath));
         const set = await control.handle('rules.set', {
@@ -156,7 +158,7 @@ test('configure {expected_revision, patch} — rules page save button '
     + '(rulesPage.js sends patch:, never policy:)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const status = await control.handle('status', {});
         const configured = await control.handle('configure', {
             expected_revision: status.revision,
@@ -179,7 +181,7 @@ test('configure {expected_revision, patch} — rules page save button '
 test('profiles.list/save/delete — named profiles page (namedProfiles.js)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         let catalog = await control.handle('profiles.list', {});
         assertEqual(catalog.profiles.length, 0, 'empty catalogue');
         const saved = await control.handle('profiles.save', {
@@ -205,7 +207,7 @@ test('theme.follow {enabled} / automation.set {enabled} / theme.sync {} '
     + '— maintenance page switches (maintenancePage.js)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const follow = await control.handle('theme.follow', {enabled: false});
         assertEqual(follow.ok, true, 'follow ok');
         assertEqual(follow.theme_follow, false, 'follow echoed');
@@ -226,7 +228,7 @@ test('theme.follow {enabled} / automation.set {enabled} / theme.sync {} '
 test('revert {} — maintenance page restore (maintenancePage.js)', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         await control.handle('apply', {activate: false});
         const revert = await control.handle('revert', {});
         assertEqual(revert.reverted, true, 'reverted');

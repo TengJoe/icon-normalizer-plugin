@@ -1,10 +1,10 @@
 [Unit]
-Description=Check new or updated application icons every minute
+Description=Check for icon changes missed by the path trigger
 
 [Timer]
 OnStartupSec=90s
-OnUnitInactiveSec=1min
-AccuracySec=5s
+OnUnitInactiveSec=1h
+AccuracySec=30s
 Unit=icon-normalizer.service
 
 [Install]

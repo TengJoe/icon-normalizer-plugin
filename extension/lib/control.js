@@ -18,7 +18,7 @@ import {SyncLock, readBytes, shaHex, atomicWrite} from './engine/transaction.js'
 import {applyPatch, ProfilesStore, ThemeFollowStore} from './stores.js';
 import {resolveSystemVariant} from './variants.js';
 import {claimRendererOwnership} from './rendererOwner.js';
-import {XdgIconResolver, iconSearchRoots} from './engine/resolver.js';
+import {XdgIconResolver, iconSearchRoots, isSourceThemeName} from './engine/resolver.js';
 
 /** Default policy when the state directory has none yet. */
 export const DEFAULT_POLICY = {
@@ -30,6 +30,7 @@ export const DEFAULT_POLICY = {
 };
 
 const SIZES = DEFAULT_POLICY.sizes;
+const OVERLAY = 'DockNormalized';
 
 /** Error carrying a PROTOCOL.md §6 code; backendClient surfaces it verbatim. */
 export class ControlError extends Error {
@@ -67,7 +68,7 @@ export function rowsToGroups(rows, rules) {
     return rows.map(row => {
         const iconName = String(row.icon_name || '');
         const iconId = shaHex(iconName);
-        const rule = rules[iconId] || rules[iconName];
+        const [rule] = lookupRuleEx(rules, iconName);
         const skipped = Boolean(rule && rule.skip);
         let cls = row.class;
         const autoClass = row.auto_class || cls;
@@ -89,7 +90,7 @@ export function rowsToGroups(rows, rules) {
             reason = row.reason || 'source_unavailable';
         }
         const manualUser = Boolean(rule && !stale && rule.classification && rule.classification !== 'auto');
-        const origin = manualUser ? 'user'
+        const origin = (manualUser || row.classification_confidence === 'user') ? 'user'
             : (row.classification_confidence === 'reviewed' ? 'reviewed' : 'automatic');
         return {
             icon_id: iconId,
@@ -124,6 +125,7 @@ export class LocalControl {
         this.settings = options.settings;
         this.home = options.home || GLib.get_home_dir();
         this.resolver = options.resolver || null;
+        this.applicationDirs = Array.isArray(options.applicationDirs) ? options.applicationDirs : null;
         this.locking = Boolean(options.locking);
         this.slicing = Boolean(options.slicing);
         this._lock = null;
@@ -167,7 +169,7 @@ export class LocalControl {
         const stored = readJson(GLib.build_filenamev([this.stateDir, 'config.json']));
         const raw = (stored && stored.policy) || stored || {};
         return {
-            base_theme: raw.base_theme || (this.settings && this.settings.baseTheme())
+            base_theme: raw.base_theme || this.settings?.baseTheme?.()
                 || DEFAULT_POLICY.base_theme,
             target: Number(raw.target ?? DEFAULT_POLICY.target),
             deadband: Number(raw.deadband ?? DEFAULT_POLICY.deadband),
@@ -191,7 +193,7 @@ export class LocalControl {
     }
 
     /** @returns {Engine} */
-    engine() {
+    engine(policy = this.policy()) {
         // An empty override must fall back to the XDG roots, not replace them
         // with an empty list.
         const extraDirs = (GLib.getenv('ICON_NORMALIZER_APPLICATION_DIRS') || '')
@@ -202,12 +204,12 @@ export class LocalControl {
             themeName: 'DockNormalized',
             stateDir: this.stateDir,
             userApplications: this.appsDir,
-            applicationDirs: extraDirs.length ? extraDirs : undefined,
+            applicationDirs: this.applicationDirs || (extraDirs.length ? extraDirs : undefined),
             desktop: (this.settings && this.settings.desktop()) || 'GNOME',
-            policy: this.policy(),
+            policy,
             overrides: this.overrides(),
             userRules: this.userRules(),
-            resolver: this.resolver || new XdgIconResolver(this.policy().base_theme, this.home),
+            resolver: this.resolver || new XdgIconResolver(policy.base_theme, this.home),
             settings: this.settings,
             onHealthEvent: event => this.recordHealth(event),
         });
@@ -266,12 +268,15 @@ export class LocalControl {
                 ? new Date(lastRun.checked_at_unix * 1000).toISOString() : null,
             last_error: null,
             recovery_pending: readBytes(this.pendingPath()) !== null,
-            summary: lastRun.summary || null,
+            summary: manifest.restored && lastRun.summary
+                ? {...lastRun.summary, managed_icons: 0, managed_desktop_overrides: 0}
+                : lastRun.summary || null,
             automatic: this.unitsStatus().automatic,
             // A failed pass is a real fault the maintenance page must show.
             automatic_error: this.maintenanceError(),
             units: this.unitsStatus(),
             theme_follow: this.themeFollowStore.enabled(),
+            restored: manifest.restored === true,
             source_theme: this.policy().base_theme,
             active_theme: activeTheme,
             overlay_in_use: activeTheme === 'DockNormalized',
@@ -315,44 +320,52 @@ export class LocalControl {
     /**
      * Apply the current policy, optionally switching the active icon theme.
      *
-     * @param {{expected_revision?: string, activate?: boolean}} [args]
+     * @param {{expected_revision?: string, activate?: boolean, background?: boolean}} [args]
      * @returns {Promise<object>} apply payload
      */
     async apply(args = {}) {
         return this.#locked(async () => {
             this.#requireRevision(args);
-            const engine = this.engine();
+            if (args.background && this.#manifest()?.restored)
+                return {skipped: true, revision: this.revision()};
             // onProgress only exists for in-process callers; it is dropped when
             // the same envelope is serialised for the Python worker.
             const onProgress = typeof args.onProgress === 'function'
                 ? args.onProgress : undefined;
-            const payload = this.slicing
-                ? await engine.syncAsync({apply: true, onProgress})
-                : engine.sync({apply: true, onProgress});
-            payload.theme_activation = this.#activateTheme(Boolean(args.activate));
-            // Claim the theme for this engine so the Python worker refuses to
-            // alternate writes with it (see backend renderer_owner.guard).
-            claimRendererOwnership(this.stateDir);
+            const payload = await this.#applyIcons({apply: true, onProgress});
+            if (args.activate) payload.theme_activation = this.#setIconTheme(OVERLAY);
             return {...payload, revision: this.revision()};
         });
+    }
+
+    async #applyIcons(options, policy) {
+        const engine = this.engine(policy);
+        const payload = this.slicing
+            ? await engine.syncAsync(options) : engine.sync(options);
+        // Keep the retired Python worker from alternating writes with GJS.
+        claimRendererOwnership(this.stateDir);
+        return payload;
     }
 
     /**
      * Switch the active icon theme after a committed transaction.
      *
-     * @param {boolean} activate
-     * @returns {string} 'not_requested' | 'applied' | 'unavailable' | 'superseded'
+     * @param {string} name
+     * @returns {string} 'applied' | 'unavailable' | 'superseded'
      */
-    #activateTheme(activate) {
-        if (!activate) return 'not_requested';
+    #setIconTheme(name) {
         if (!this.settings || typeof this.settings.setTheme !== 'function')
             return 'unavailable';
         try {
-            this.settings.setTheme('DockNormalized');
+            this.settings.setTheme(name);
         } catch {
             return 'unavailable';
         }
-        return this.settings.iconTheme() === 'DockNormalized' ? 'applied' : 'superseded';
+        return this.settings.iconTheme() === name ? 'applied' : 'superseded';
+    }
+
+    #manifest() {
+        return readJson(GLib.build_filenamev([this.stateDir, 'manifest.json']));
     }
 
     /** Reject a stale revision so concurrent writers cannot clobber each other. */
@@ -470,6 +483,9 @@ export class LocalControl {
             this.#requireRevision(args);
             const rules = this.userRules();
             const key = String(args.icon_id || '');
+            for (const existing of Object.keys(rules)) {
+                if (existing !== key && shaHex(existing) === key) delete rules[existing];
+            }
             if (args.rule && args.rule.reset) {
                 delete rules[key];
             } else if (args.rule && args.rule.skip) {
@@ -528,37 +544,32 @@ export class LocalControl {
 
     /** @returns {Promise<object>} revert payload */
     async revert() {
-        return this.#locked(() => this.engine().revert());
+        return this.#locked(() => {
+            if (readBytes(this.pendingPath()) !== null) this.engine().recover();
+            const engine = this.engine();
+            const source = engine.manifest().base_theme;
+            const result = engine.revert();
+            if (this.settings?.iconTheme() === OVERLAY) {
+                const restore = [source, 'Adwaita', 'hicolor'].find(name => this.#isInstalledTheme(name));
+                if (restore) this.#setIconTheme(restore);
+            }
+            return {...result, restored_theme: this.settings?.iconTheme() ?? null};
+        });
     }
 
     /**
      * Follow the system's dark preference and accent colour within the current
      * source theme's family (the overlay must be the active icon theme).
      *
-     * @returns {string|null} the adopted variant, or null when unchanged
+     * @returns {string|null} the installed variant, or null when unavailable
      */
-    #adoptSystemVariant() {
+    #systemVariant(current) {
         const settings = this.settings || {};
-        // Only meaningful while the overlay is what the desktop actually shows;
-        // otherwise the user is looking at another theme on purpose.
-        const active = typeof settings.iconTheme === 'function' ? settings.iconTheme() : null;
-        if (active !== 'DockNormalized') return null;
-        if (!readBytes(GLib.build_filenamev([this.stateDir, 'manifest.json']))) return null;
         const preferDark = typeof settings.colorScheme === 'function'
             && settings.colorScheme() === 'prefer-dark';
         const accent = typeof settings.accent === 'function' ? settings.accent() : null;
-        const current = this.policy();
-        const roots = iconSearchRoots(this.home);
-        const isInstalled = name => roots.some(root => readBytes(
-            GLib.build_filenamev([root, name, 'index.theme'])) !== null);
-        const target = resolveSystemVariant(current.base_theme, preferDark, accent, isInstalled);
-        if (!target || target === current.base_theme) return null;
-        if (target.length > 128 || !/^[A-Za-z0-9._-]+$/.test(target)) return null;
-        writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
-            {policy: {...current, base_theme: target}, theme_name: 'DockNormalized',
-                theme_dir: this.themeDir, state_dir: this.stateDir,
-                user_applications: this.appsDir});
-        return target;
+        return resolveSystemVariant(current.base_theme, preferDark, accent,
+            name => this.#isInstalledTheme(name));
     }
 
     /** @returns {ProfilesStore} named profile catalogue */
@@ -588,55 +599,53 @@ export class LocalControl {
     /**
      * Re-apply the overlay after the source theme changed.
      *
+     * @param {{activate_if_current_theme?: string, canActivate?: () => boolean,
+     *          follow_system_variant?: boolean}} [options]
      * @returns {Promise<object>}
      */
-    async themeSync() {
-        if (!this.themeFollowStore.enabled())
-            return {ok: true, changed: false, synced: false,
-                source_theme: this.policy().base_theme};
-        // Following a theme means adopting it first: without this the engine
-        // keeps regenerating from the previous source and the switch is a no-op.
-        const adopted = await this.#locked(() => {
-            // A concrete theme the user just picked wins over the system variant:
-            // it is an explicit choice, while dark/accent are ambient preferences.
-            const selected = this.#adoptSelectedTheme();
-            if (selected) return selected;
-            return this.#adoptSystemVariant();
+    async themeSync({activate_if_current_theme: activationTarget, canActivate,
+        follow_system_variant: followVariant = true} = {}) {
+        return this.#locked(async () => {
+            const follow = this.themeFollowStore.enabled();
+            if (follow && readBytes(this.pendingPath()) !== null) this.engine().recover();
+            const current = this.policy();
+            const skipped = {ok: true, adopted: null, changed: false, synced: false,
+                source_theme: current.base_theme, theme_activation: 'not_requested'};
+            if (!follow || !this.#manifest()?.policy_sha256)
+                return skipped;
+
+            const selected = this.settings?.iconTheme() ?? null;
+            if (selected === OVERLAY && !followVariant) return skipped;
+            const target = selected === OVERLAY ? this.#systemVariant(current) : selected;
+            if (!this.#isInstalledTheme(target)) return skipped;
+
+            const adopted = target !== current.base_theme ? target : null;
+            const activate = activationTarget === selected && selected !== OVERLAY
+                && this.automationEnabled();
+            if (!adopted && !activate) return skipped;
+            const policy = adopted ? {...current, base_theme: adopted} : current;
+            const config = adopted ? {
+                policy, theme_name: 'DockNormalized', theme_dir: this.themeDir,
+                state_dir: this.stateDir, user_applications: this.appsDir,
+            } : undefined;
+            const payload = await this.#applyIcons({apply: true, config}, policy);
+            const activation = activate
+                ? (this.settings.iconTheme() === selected && (canActivate?.() ?? true)
+                    ? this.#setIconTheme(OVERLAY) : 'superseded')
+                : 'not_requested';
+            return {ok: true, adopted, changed: adopted !== null || payload.file_operations > 0,
+                synced: true, revision: this.revision(), source_theme: policy.base_theme,
+                theme_activation: activation};
         });
-        // apply() takes the lock itself: do not wrap this call in #locked.
-        const payload = await this.apply({activate: false});
-        return {ok: true, adopted,
-            changed: adopted !== null || (payload.file_operations || 0) > 0, synced: true,
-            revision: this.revision(), source_theme: this.policy().base_theme};
     }
 
     /**
-     * Adopt the icon theme the user just selected as the new source.
-     *
-     * Mirrors backend theme_follow.transition_policy(): the overlay itself, an
-     * unsafe name and a theme that is not installed are all refused, and the
-     * switch only happens once a manifest exists (i.e. after a first run).
-     *
-     * @returns {string|null} the adopted theme name, or null when unchanged
+     * @returns {boolean} whether name is an installed source theme
      */
-    #adoptSelectedTheme() {
-        const selected = this.settings && typeof this.settings.iconTheme === 'function'
-            ? this.settings.iconTheme() : null;
-        if (!selected || selected === 'DockNormalized') return null;
-        const current = this.policy();
-        if (selected === current.base_theme) return null;
-        if (selected.length > 128 || selected === '.' || selected === '..') return null;
-        if (!/^[A-Za-z0-9._-]+$/.test(selected)) return null;
-        // Nothing to follow before the first run: there is no overlay yet.
-        if (!readBytes(GLib.build_filenamev([this.stateDir, 'manifest.json']))) return null;
-        const installed = iconSearchRoots(this.home).some(root => readBytes(
-            GLib.build_filenamev([root, selected, 'index.theme'])) !== null);
-        if (!installed) return null;
-        const policy = {...current, base_theme: selected};
-        writeJson(GLib.build_filenamev([this.stateDir, 'config.json']),
-            {policy, theme_name: 'DockNormalized', theme_dir: this.themeDir,
-                state_dir: this.stateDir, user_applications: this.appsDir});
-        return selected;
+    #isInstalledTheme(name) {
+        if (!isSourceThemeName(name)) return false;
+        return iconSearchRoots(this.home).some(root => readBytes(
+            GLib.build_filenamev([root, name, 'index.theme'])) !== null);
     }
 
     /**
@@ -737,7 +746,7 @@ export class LocalControl {
         case 'configure': return this.configure(args);
         case 'doctor': return this.doctor();
         case 'revert': return this.revert();
-        case 'theme.sync': return this.themeSync();
+        case 'theme.sync': return this.themeSync(args);
         case 'theme.follow': return this.themeFollow(args);
         case 'automation.set': return this.automationSet(args);
         case 'profiles.list': return this.profiles.catalog();

@@ -10,6 +10,8 @@ import {LocalControl, DEFAULT_POLICY} from '../../extension/lib/control.js';
 import {SyncLock, readBytes, atomicWrite} from '../../extension/lib/engine/transaction.js';
 import {test, assertEqual, assertTrue, report} from './harness.js';
 
+const fixtureAppsDir = home => [GLib.build_filenamev([home, '.local', 'share', 'applications'])];
+
 function makeFixtureHome() {
     const home = GLib.dir_make_tmp('icon-normalizer-control-test-XXXXXX');
     const apps = GLib.build_filenamev([home, '.local', 'share', 'applications']);
@@ -52,7 +54,7 @@ function removeTree(path) {
 test('status reports installed true and valid revision', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const status = await control.handle('status');
         assertEqual(status.installed, true, 'installed');
         assertEqual(status.backend_version, 'gjs-1', 'version');
@@ -65,7 +67,7 @@ test('status reports installed true and valid revision', async () => {
 test('configure persists a partial patch', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const configured = await control.handle('configure', {patch: {target: 0.85}});
         assertEqual(configured.effective_policy.target, 0.85, 'target updated');
         const policy = control.policy();
@@ -80,7 +82,7 @@ test('configure persists a partial patch', async () => {
 test('rules.set stores and resets icon rules', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const setRes = await control.handle('rules.set', {
             icon_id: iconPath,
             rule: {classification: 'glyph'},
@@ -102,7 +104,7 @@ test('rules.set stores and resets icon rules', async () => {
 test('preview returns the protocol payload shape', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const preview = await control.handle('preview', {source_path: iconPath, size: 48});
         assertTrue(typeof preview.action === 'string' && preview.action.length > 0,
             'action present');
@@ -123,7 +125,7 @@ test('preview returns the protocol payload shape', async () => {
 test('scan rejects while a recovery journal is pending', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         atomicWrite(GLib.build_filenamev([control.stateDir, 'pending.json']),
             new TextEncoder().encode(JSON.stringify({ops: []})), 0o600);
         let caught = null;
@@ -142,7 +144,7 @@ test('scan rejects while a recovery journal is pending', async () => {
 test('apply rejects a stale expected_revision', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         let caught = null;
         try {
             await control.handle('apply', {expected_revision: '0'.repeat(64)});
@@ -163,7 +165,7 @@ test('apply rejects a stale expected_revision', async () => {
 test('scan, apply and revert cycle through LocalControl', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const scan = await control.handle('scan');
         assertTrue(Array.isArray(scan.groups), 'scan groups');
         const found = scan.groups.find(g => g.icon_name === iconPath);
@@ -183,7 +185,7 @@ test('scan, apply and revert cycle through LocalControl', async () => {
 test('SyncLock serializes two controls on the same state dir', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home, locking: true});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), locking: true});
         const holder = new SyncLock(control.lockPath());
         holder.acquire();
         let caught = null;
@@ -207,7 +209,7 @@ test('SyncLock serializes two controls on the same state dir', async () => {
 test('sliced scan completes across idle callbacks', async () => {
     const {home, iconPath} = makeFixtureHome();
     try {
-        const control = new LocalControl({home, slicing: true});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), slicing: true});
         const loop = GLib.MainLoop.new(null, false);
         const outcome = {payload: null, error: null};
         control.handle('scan').then(
@@ -231,7 +233,7 @@ await
 test('configure applies the patch shape the rules page sends', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const before = control.revision();
         const result = await control.handle('configure', {
             expected_revision: before,
@@ -252,7 +254,7 @@ test('configure applies the patch shape the rules page sends', async () => {
 test('configure rejects an out-of-range or cross-field patch', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         for (const patch of [{target: 0.99}, {target: 0.95, deadband: 0.10},
             {target: 0.83, inner: 1.2}]) {
             let caught = null;
@@ -272,7 +274,7 @@ test('configure rejects an out-of-range or cross-field patch', async () => {
 test('profiles survive a save/list/delete round trip with OCC', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const empty = await control.handle('profiles.list');
         assertEqual(empty.profiles.length, 0, 'starts empty');
         const saved = await control.handle('profiles.save', {
@@ -307,7 +309,7 @@ test('profiles survive a save/list/delete round trip with OCC', async () => {
 test('theme.follow and automation.set persist and reach status', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         await control.handle('theme.follow', {enabled: false});
         assertEqual((await control.handle('status')).theme_follow, false, 'follow off');
         await control.handle('theme.follow', {enabled: true});
@@ -338,7 +340,7 @@ test('theme.sync adopts the newly selected source theme', async () => {
             "[Icon Theme]\nName=Adwaita\n");
 
         let active = "DockNormalized";
-        const control = new LocalControl({home, settings: {
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), settings: {
             desktop: () => "GNOME",
             iconTheme: () => active,
             baseTheme: () => null,
@@ -386,7 +388,7 @@ test('theme.sync follows the dark preference and accent colour', async () => {
         let active = "DockNormalized";
         let scheme = "default";
         let accent = "blue";
-        const control = new LocalControl({home, settings: {
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), settings: {
             desktop: () => "GNOME",
             iconTheme: () => active,
             baseTheme: () => null,
@@ -425,10 +427,91 @@ test('theme.sync follows the dark preference and accent colour', async () => {
     }
 });
 
+test('theme.sync activates only a current selection and restore survives maintenance', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        for (const name of ['FixtureBlue', 'FixtureGreen']) {
+            const dir = GLib.build_filenamev([home, '.local/share/icons', name]);
+            GLib.mkdir_with_parents(dir, 0o755);
+            GLib.file_set_contents(GLib.build_filenamev([dir, 'index.theme']),
+                '[Icon Theme]\nName=' + name + '\n');
+        }
+        let active = 'FixtureBlue';
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), locking: true, settings: {
+            desktop: () => 'GNOME',
+            iconTheme: () => active,
+            automatic: () => null,
+            setTheme: name => { active = name; },
+        }});
+        await control.handle('automation.set', {enabled: true});
+        const sync = name => control.handle('theme.sync', {activate_if_current_theme: name});
+        assertEqual((await sync(active)).synced, false, 'before first apply');
+        await control.handle('apply', {activate: true});
+
+        const engine = control.engine.bind(control);
+        const oldSource = control.policy().base_theme;
+        active = 'FixtureGreen';
+        control.engine = policy => {
+            const instance = engine(policy);
+            instance.sync = () => { throw new Error('fixture render failure'); };
+            return instance;
+        };
+        await sync(active).then(
+            () => { throw new Error('failed render unexpectedly succeeded'); },
+            error => assertEqual(error.message, 'fixture render failure'));
+        assertEqual(control.policy().base_theme, oldSource, 'failed render did not save new source');
+        assertEqual(active, 'FixtureGreen', 'failed render did not activate overlay');
+
+        active = 'FixtureBlue';
+        control.engine = policy => {
+            const instance = engine(policy);
+            instance.syncAsync = async options => {
+                const payload = instance.sync(options);
+                active = 'FixtureGreen';
+                return payload;
+            };
+            return instance;
+        };
+        control.slicing = true;
+        assertEqual((await sync('FixtureBlue')).theme_activation, 'superseded', 'changed during apply');
+        assertEqual(active, 'FixtureGreen', 'new theme survives earlier render');
+        control.engine = engine;
+        assertEqual((await sync('FixtureGreen')).theme_activation, 'applied', 'latest selection');
+        assertEqual(active, 'DockNormalized', 'overlay is active');
+
+        // A newer selection event also supersedes an older run if both names match.
+        active = 'FixtureGreen';
+        const stale = await control.handle('theme.sync', {
+            activate_if_current_theme: active, canActivate: () => false,
+        });
+        assertEqual(stale.theme_activation, 'superseded', 'selection token changed');
+        assertEqual(active, 'FixtureGreen', 'stale activation skipped');
+        assertEqual((await sync(active)).theme_activation, 'applied', 'same source can reactivate');
+
+        const restored = await control.handle('revert');
+        assertEqual(restored.restored_theme, 'FixtureGreen', 'restored latest source');
+        assertEqual((await sync(active)).synced, false, 'restore survives follow');
+        assertEqual((await control.handle('apply', {background: true})).skipped, true,
+            'restore survives periodic maintenance');
+        assertEqual((await control.handle('apply', {activate: true})).theme_activation, 'applied',
+            'explicit apply resumes after restore');
+
+        await control.handle('automation.set', {enabled: false});
+        active = 'FixtureBlue';
+        assertEqual((await sync(active)).theme_activation, 'not_requested', 'automation disabled');
+        await control.handle('automation.set', {enabled: true});
+        await control.handle('theme.follow', {enabled: false});
+        assertEqual((await sync(active)).theme_activation, 'not_requested', 'follow disabled');
+        assertEqual(active, 'FixtureBlue', 'original theme remains active');
+    } finally {
+        removeTree(home);
+    }
+});
+
 test('apply claims the theme for this engine', async () => {
     const {home} = makeFixtureHome();
     try {
-        const control = new LocalControl({home});
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
         const marker = GLib.build_filenamev([home, ".local/state/icon-normalizer", "renderer.json"]);
         assertTrue(!GLib.file_test(marker, GLib.FileTest.EXISTS), "no marker before apply");
         await control.handle("apply", {activate: false});
@@ -440,4 +523,29 @@ test('apply claims the theme for this engine', async () => {
         removeTree(home);
     }
 });
-report();
+test('raw-path user rule without sha256 appears in scan and resets by icon_id', async () => {
+    const {home} = makeFixtureHome();
+    try {
+        const control = new LocalControl({home, applicationDirs: fixtureAppsDir(home), applicationDirs: fixtureAppsDir(home)});
+        const first = (await control.handle('scan')).groups[0];
+        const rulesPath = GLib.build_filenamev([control.stateDir, 'user-rules.json']);
+        const doc = {schema_version: 1, icons: {[first.icon_name]: {classification: 'glyph'}}};
+        atomicWrite(rulesPath, new TextEncoder().encode(JSON.stringify(doc, null, 2)), 0o600);
+        const scanned = (await control.handle('scan')).groups[0];
+        assertEqual(scanned.classification, 'glyph', 'legacy raw-path rule applied');
+        assertEqual(scanned.classification_origin, 'user', 'origin surfaced as user');
+        assertEqual(scanned.classification_stale, false, 'sha-less rule is not stale');
+        const status = await control.handle('status');
+        await control.handle('rules.set', {
+            expected_revision: status.revision,
+            icon_id: first.icon_id,
+            rule: {reset: true},
+        });
+        const after = (await control.handle('scan')).groups[0];
+        assertTrue(after.classification_origin !== 'user', 'reset clears legacy raw-path rule');
+    } finally {
+        removeTree(home);
+    }
+});
+
+await report();

@@ -32,6 +32,10 @@ UUID='icon-normalizer@joeydeng.local'
 HARNESS='icon-normalizer-acceptance@fixture.local'
 with Sandbox() as box:
     box.base_icon('fixture-headless',100)
+    local_icons=box.home/'.local/share/icons'
+    shutil.copytree(box.base,local_icons/'FixtureBase')
+    shutil.copytree(box.base,local_icons/'FixtureAlt')
+    shutil.copytree(box.base,local_icons/'Yaru-red-dark')
     make_desktop(box.system_apps/'one.desktop','Fixture Headless','fixture-headless')
     backend=box.home/'.local/libexec/icon-normalizer'
     shutil.copytree(REPO/'backend',backend,ignore=shutil.ignore_patterns('__pycache__'))
@@ -159,12 +163,66 @@ export default class Acceptance extends Extension {
         indicator=extension._indicator;
         check(indicator._indicator!==oldButton,'re-enable reused destroyed actor');
         check(indicator.menu._getMenuItems().length===7,'re-enabled menu missing');
+        const backend=await import(BACKEND_CLIENT);
+        const invoke=async (op,args={})=>{
+            const response=await backend.call(backend.controlPath(),op,args);
+            check(response.ok,op+': '+JSON.stringify(response));
+            return response.result;
+        };
+        const source=async ()=>(await invoke('status')).source_theme;
+        await invoke('automation.set',{enabled:true});
+        await invoke('theme.follow',{enabled:false});
+        desktop.set_string('icon-theme','FixtureAlt');
+        await wait(750);
+        await this.idle(extension);
+        check(desktop.get_string('icon-theme')==='FixtureAlt','follow off overrode a manual selection');
+        await invoke('theme.follow',{enabled:true});
+        desktop.set_string('icon-theme','FixtureBase');
+        await wait(750);
+        await this.idle(extension);
+        check(desktop.get_string('icon-theme')==='DockNormalized','switch from unnormalized theme did not activate');
+        extension.disable();
+        desktop.set_string('icon-theme','FixtureAlt');
+        extension.enable();
+        await wait(750);
+        await this.idle(extension);
+        check((await source())==='FixtureAlt','startup did not adopt selected source');
+        check(desktop.get_string('icon-theme')==='DockNormalized','startup did not reactivate');
+        desktop.set_string('icon-theme','FixtureAlt');
+        await wait(100);
+        desktop.set_string('icon-theme','FixtureBase');
+        await wait(750);
+        await this.idle(extension);
+        check(desktop.get_string('icon-theme')==='DockNormalized','following did not reactivate');
+        check((await source())==='FixtureBase','latest theme selection was lost');
+        desktop.set_string('icon-theme','FixtureAlt');
+        await wait(750);
+        await this.idle(extension);
+        check((await source())==='FixtureAlt','source theme was not adopted');
+        check(desktop.get_string('icon-theme')==='DockNormalized','overlay inactive after switch');
+        desktop.set_string('icon-theme','Yaru-red-dark');
+        await wait(750);
+        await this.idle(extension);
+        check((await source())==='Yaru-red-dark','selected Yaru variant was lost');
+        extension.disable();
+        extension.enable();
+        await wait(750);
+        await this.idle(extension);
+        check((await source())==='Yaru-red-dark','login applied the blue system accent to the red icon source');
+        check(desktop.get_string('icon-theme')==='DockNormalized','login deactivated the overlay');
+        await invoke('revert');
+        await wait(750);
+        await this.idle(extension);
+        check(desktop.get_string('icon-theme')==='Yaru-red-dark','restore was overridden');
+        check((await invoke('status')).restored,'maintenance undid restore');
         this.finish({ok:true,shell:'51.0',state:'ACTIVE',menu_items:7,symbolic_icon:true,
             bilingual:true,automation_guard:true,scan:true,apply:true,disable_reenable:true,
-            theme_cycles:2,custom_gtk_preserved:true,theme_disable_reenable:true});
+            theme_cycles:2,custom_gtk_preserved:true,theme_disable_reenable:true,
+            icon_theme_reactivated:true,startup_reactivated:true,restore_survived:true});
     }
 }
-'''.replace('REPORT',json.dumps(str(report))).replace('OUTPUT',json.dumps(str(OUT)))
+'''.replace('REPORT',json.dumps(str(report))).replace('OUTPUT',json.dumps(str(OUT))).replace(
+    'BACKEND_CLIENT',json.dumps((target/'shared/backendClient.js').as_uri()))
     (test/'extension.js').write_text(script)
     env=box.env()
     env['DBUS_SESSION_BUS_ADDRESS']=os.environ['DBUS_SESSION_BUS_ADDRESS']
@@ -177,6 +235,7 @@ export default class Acceptance extends Extension {
     env['GTK_A11Y']='none'
     env.pop('DISPLAY',None);env.pop('WAYLAND_DISPLAY',None)
     for args in [
+        ['gsettings','set','org.gnome.desktop.interface','icon-theme','FixtureBase'],
         ['gsettings','set','org.gnome.shell','enabled-extensions',json.dumps([UUID,HARNESS])],
         ['gsettings','--schemadir',str(target/'schemas'),'set',
             'org.gnome.shell.extensions.icon-normalizer','show-panel-indicator','true'],

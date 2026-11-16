@@ -1,11 +1,11 @@
 {
   "uuid": "icon-normalizer@joeydeng.local",
   "name": "Icon Normalizer",
-  "description": "Normalize application icon coverage on GNOME with a pure-GJS in-process engine: per-icon rules, live previews, theme following and transactional rollback. One ZIP, zero external dependencies.",
+  "description": "Normalize application icons with a separately installed Python worker. Provides theme following, per-icon rules, previews and transactional restore.",
   "shell-version": [
     "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.icon-normalizer",
-  "version-name": "1.3.7",
+  "version-name": "1.3.8",
   "url": "https://github.com/TengJoe/icon-normalizer-plugin"
 }

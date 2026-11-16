@@ -212,6 +212,18 @@ def parse_automation(args: dict[str, Any]) -> dict[str, Any]:
     return {"enabled": args["enabled"]}
 
 
+def parse_theme_sync(args: dict[str, Any]) -> dict[str, Any]:
+    _no_unknown(args, ("expected_icon_theme", "follow_system_variant"), "theme.sync")
+    selected = args.get("expected_icon_theme")
+    if "expected_icon_theme" in args and (
+        not isinstance(selected, str) or not 1 <= len(selected) <= 128
+    ):
+        reject("INVALID_REQUEST", "expected_icon_theme must be a non-empty theme name", exit_code=2)
+    if "follow_system_variant" in args and not isinstance(args["follow_system_variant"], bool):
+        reject("INVALID_REQUEST", "follow_system_variant must be a boolean", exit_code=2)
+    return args
+
+
 def parse_profile(args: dict[str, Any], deleting: bool = False) -> dict[str, Any]:
     from .profiles import validate_name, validate_parameters
     allowed = ("expected_profiles_revision", "profile_id") if deleting else (
@@ -245,11 +257,12 @@ ARG_PARSERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "profiles.save": parse_profile,
     "profiles.delete": lambda args: parse_profile(args, deleting=True),
     "theme.follow": parse_automation,
+    "theme.sync": parse_theme_sync,
 }
 
 
 def validate(op: str, args: dict[str, Any]) -> dict[str, Any]:
-    if op in ("status", "doctor", "scan", "revert", "profiles.list", "theme.sync"):
+    if op in ("status", "doctor", "scan", "revert", "profiles.list"):
         _empty_args(args, op)
         return {}
     parser = ARG_PARSERS.get(op)

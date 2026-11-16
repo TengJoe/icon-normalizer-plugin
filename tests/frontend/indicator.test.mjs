@@ -116,7 +116,7 @@ const fakeModules = {
 };
 const clientUrl = new URL('shared/backendClient.js', extensionRoot).href;
 let delayedRequest = null;
-fakeModules[clientUrl] = {RequestScope: class {constructor() {this.closed = false;} close() {this.closed = true;}}, clearLocalBackend() {}, call: async (_path, operation, arguments_, scope) => {
+fakeModules[clientUrl] = {RequestScope: class {constructor() {this.closed = false;} close() {this.closed = true;}}, controlPath: () => '/fixture/control.py', call: async (_path, operation, arguments_, scope) => {
     if (scope?.closed) return {ok: false, error: {code: 'TIMEOUT'}};
     requests.push({operation, arguments: arguments_});
     if (delayedRequest) {const pending = delayedRequest; delayedRequest = null; return await pending;}
@@ -301,4 +301,19 @@ assert.equal(extension._indicator._stateLabel.text,'Icons normalized');
 assert.doesNotMatch(extension._indicator._stateLabel.style_class,/warning/);
 extension.disable();
 console.log('ok   persisted maintenance faults show warnings and successful recovery clears them');
-console.log('15/15 passed');
+themeSettings.data['icon-theme'] = 'DockNormalized';
+extension.enable(); await drain();
+requests.length = 0;
+await extension._syncTheme();
+assert.equal(requests.filter(r => r.operation === 'theme.sync').length, 1);
+extension.disable();
+extension.enable(); await drain();
+assert.equal(timers.size, 0, 'unchanged unlock skips startup theme.sync timer');
+extension.disable();
+themeSettings.data['color-scheme'] = 'prefer-dark';
+extension.enable(); await drain();
+assert.equal(timers.size, 1, 'appearance change while locked schedules theme.sync');
+assert.equal(extension._followAppearance, true);
+extension.disable();
+console.log('ok   unlock skips redundant theme.sync when unchanged and runs when appearance changed');
+console.log('16/16 passed');

@@ -7,6 +7,8 @@ Description=Normalize icons when installed application launchers change
 PathChanged=@HOME@/.local/share/applications
 PathChanged=/usr/share/applications
 PathChanged=/var/lib/flatpak/exports/share/applications
+PathChanged=@HOME@/.local/share/flatpak/exports/share/applications
+PathChanged=/var/lib/snapd/desktop/applications
 Unit=icon-normalizer.service
 
 [Install]

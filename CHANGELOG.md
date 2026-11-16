@@ -2,6 +2,14 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.3.8 本地版（2026-11-17）
+
+- 独立 Python 渲染进程（3.1.21）代替 Shell 内渲染：后台定时维护用 2 线程，手动应用用 `min(4, cpu_count)` 线程；应用变化由 path 触发，每小时兜底一次。
+- 从「优化」换到任何可读的已安装素材主题后自动激活统一图标；锁屏解锁且外观未变时跳过冗余 `theme.sync`；安装器默认仅保留最近 2 份快照。
+- 修复设置页 `rulesPage.js` 漏调 `this._ruleGroup.add(row)` 导致逐图标规则不显示及刷新报 `Adwaita-CRITICAL` 的问题。
+- 修复 `control.py` / `control.js` 对按原始路径保存且无 `source_sha256` 的用户规则在 `scan` 中显示为 `automatic` 及重置遗留键不清理的问题。
+- `tests/gjs/control.test.js` 与 `uicontract.test.js` 隔离夹具目录，避免全量扫描系统应用（耗时从 >5 分钟降至 <3 秒）。
+
 ## 1.3.6 — Python 降级为 oracle、隐私全扫、发布不变量门（2026-11-10）
 
 发布说明见 [v1.3.6 说明](docs/RELEASE-1.3.6.md)。

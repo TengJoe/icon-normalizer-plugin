@@ -47,7 +47,7 @@
 | `profiles.save` | `{expected_profiles_revision, name, parameters, profile_id?}` | 元数据写 | 0 ms |
 | `profiles.delete` | `{expected_profiles_revision, profile_id}` | 元数据写 | 0 ms |
 | `theme.follow` | `{enabled}` | 元数据写 | 0 ms |
-| `theme.sync` | `{}` | 按当前系统主题维护 | 0 ms |
+| `theme.sync` | `{expected_icon_theme?,follow_system_variant?}` | 按当前系统主题维护 | 0 ms |
 
 - `patch ⊆ {target, deadband, inner}`，≥1 项，范围 0.50–0.98 / 0.0–0.10 / 0.40–0.95，
   交叉约束 `0 < target-deadband ∧ target+deadband ≤ 1`。
@@ -144,10 +144,9 @@
 - theme.sync 返回 `{changed,revision,source_theme,...apply_result}`。跟随与自动维护开启时，
   新选择的已安装图标主题成为素材主题；视觉参数与逐图标规则保留。
   config/baseline/图标/manifest 同一前置日志事务提交；失败一并回滚。
-  新的素材主题成为还原目标，激活日志记录 only_if_current_theme，尊重渲染期间
-  用户后续选择。重新选择原素材主题不会强制激活；显式 Apply & activate 可以恢复。
-- 后台 scheduled 模式也执行主题跟随，前端关闭时由 timer 兜底；Shell 监听只作加速。
-  关闭自动维护时 theme.sync 不迁移，显式 apply 仍可以执行用户请求。
+  激活日志记录 only_if_current_theme，尊重渲染期间的后续选择。再次选同一个素材
+  也会恢复统一主题。Shell 在登录和主题变动时发送 theme.sync；定时后台只刷新
+  已保存的素材。关闭自动维护或恢复原样后，theme.sync 暂停。
 - metadata 操作不会回放尚未恢复的图标事务；核心写操作先恢复并重新读取 policy/revision。
 
 ## 3.1.2 可靠性扩展（API v1）

@@ -72,18 +72,28 @@ class InstallerSafety(unittest.TestCase):
         self.assertEqual((self.layout.extension/'schemas'/'gschemas.compiled').read_bytes(),b'old-schema')
         self.assertTrue(all((self.layout.units/u).read_text()=='old-unit' for u in UNITS))
 
-    def test_upgrade_retires_triggers_for_in_process_scheduler(self):
-        # Extension 1.3.3+ runs its own sliced scheduler, and the two engines
-        # fingerprint the policy differently: leaving the triggers enabled made
-        # every run flip the manifest input_key and re-render everything. The
-        # upgrade retires them from any prior combination, including partial.
+    def test_upgrade_preserves_python_trigger_states(self):
         for enabled, active in [(False,False),(True,False),(False,True),(True,True)]:
             with self.subTest(enabled=enabled,active=active):
                 self.states = {TRIGGER_UNITS[0]:{'enabled':enabled,'active':active},
                                TRIGGER_UNITS[1]:{'enabled':not enabled,'active':not active}}
+                expected = json.loads(json.dumps(self.states))
                 self.assertEqual(installer.install(True),0)
-                self.assertEqual(self.states,
-                                 {u:{'enabled':False,'active':False} for u in TRIGGER_UNITS})
+                self.assertEqual(self.states, expected)
+
+    def test_gjs_handoff_requires_disabled_shell_and_preserves_automation(self):
+        marker = self.layout.state/'renderer.json'
+        marker.write_text('{"schema_version":1,"owner":"gjs"}')
+        (self.layout.state/'automation.json').write_text('{"schema_version":1,"enabled":true}')
+        with patch.object(installer,'_shell_enabled_extensions',
+                          return_value=(0, installer.EXTENSION_UUID+'\n','')):
+            self.assertEqual(installer.install(True),5)
+        self.assert_old_installation()
+        self.assertEqual(json.loads(marker.read_text())['owner'],'gjs')
+        with patch.object(installer,'_shell_enabled_extensions',return_value=(0,'','')):
+            self.assertEqual(installer.install(True),0)
+        self.assertEqual(json.loads(marker.read_text())['owner'],'python')
+        self.assertTrue(all(state=={'enabled':True,'active':True} for state in self.states.values()))
 
     def test_post_probe_failure_restores_extension_schema_and_rules(self):
         self.states={u:{'enabled':True,'active':True} for u in TRIGGER_UNITS}

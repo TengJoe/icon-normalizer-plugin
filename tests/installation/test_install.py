@@ -91,10 +91,10 @@ class Installation(unittest.TestCase):
         self.assertTrue(all((units / ('icon-normalizer.' + suffix)).exists()
                             for suffix in ('service', 'timer', 'path')))
         manager = json.loads((self.home.parent/'test-manager.json').read_text())
-        # Extension 1.3.3+ runs its own scheduler: the trigger units retire.
+        # The Python worker stays available after removing only the panel.
         for suffix in ('timer','path'):
             self.assertEqual(manager['units']['icon-normalizer.'+suffix],
-                             {'enabled':False,'active':False})
+                             {'enabled':True,'active':True})
 
         # full uninstall removes everything but keeps backups
         rc, out, _ = run_installer(["--uninstall"], self.home)

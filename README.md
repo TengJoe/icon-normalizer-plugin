@@ -8,13 +8,10 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
-[![Release 1.3.5](https://img.shields.io/badge/release-1.3.7-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.7)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
-[![纯 GJS 内嵌引擎](https://img.shields.io/badge/引擎-纯%20GJS%20内嵌-2ec27e?style=flat-square)](#架构)
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-813e9e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[下载扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) · [English](README.en.md) · [问题反馈](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
@@ -31,25 +28,7 @@ Icon Normalizer 不改任何系统图标文件：它在专属主题 `DockNormali
 
 ## 架构
 
-自 1.3.0 起，全部工作由 **扩展进程内的纯 GJS 引擎** 完成 —— 一个 ZIP 装完即用，无需 Python、Pillow、NumPy 或 systemd 服务：
-
-```text
-┌─ GNOME Shell 进程 ─────────────────────────┐      ┌─ 设置窗口（独立进程）─┐
-│  顶栏指示器 · 纯 GJS 引擎                    │      │  Gtk4 / Libadwaita    │
-│  XDG 解析 → 分析 → Lanczos3 渲染 → 事务落盘  │      │  规则 · 预览 · 方案    │
-└──────────────┬─────────────────────────────┘      └──────────┬────────────┘
-               │        共用一把 sync.lock（flock 互斥）         │
-               ▼                                               ▼
-   ~/.local/share/icons/DockNormalized/        ~/.local/share/applications/*.desktop
-   ~/.local/state/icon-normalizer/（manifest · 事务日志 · 备份 · 缓存）
-               ▲
-   （可选）systemd 用户单元：自动维护 worker，与应用目录监视共用同一把锁
-```
-
-- **零外部依赖**：图标解码交给 GNOME 自带的 GdkPixbuf，重采样为自研 GJS Lanczos3（alpha 预乘），与参考实现经 144 组逐像素对拍验证。
-- **事务与回滚**：所有写入走 tmp+rename 原子替换与摘要守卫；中断事务按日志回滚，且严格拒绝覆盖外部修改。
-- **单写者互斥**：Shell、设置窗口与可选后台共用一把 `sync.lock`（flock），争用时返回可重试的 BUSY。
-- **主线程不冻结**：批量分析/渲染按 idle 时间片切片，桌面始终保持可交互。
+GJS 负责 GNOME 顶栏、主题事件和设置。按需启动的 Python 进程通过 Pillow、NumPy 和 GTK 3 查找与渲染图标。所有写操作共用同一把锁和恢复日志。
 
 ## 效果预览
 
@@ -89,66 +68,13 @@ Icon Normalizer 不改任何系统图标文件：它在专属主题 `DockNormali
 
 ## 快速开始
 
-需要 **GNOME Shell 51**。扩展零依赖，一个 ZIP 装完即用。
-
-### 方式一：安装扩展（推荐）
-
-在 GNOME 扩展网站（extensions.gnome.org）点「Install」—— 目前**审核中**，通过后即可一键安装。
-
-或者下载 [扩展 ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) 后按标准方式安装：
+需要 GNOME Shell 51、系统 Python（含 Pillow、NumPy、PyGObject/GTK 3）和 systemd 用户会话。
 
 ```bash
-gnome-extensions install --force icon-normalizer@joeydeng.local.zip
-gnome-extensions enable icon-normalizer@joeydeng.local
-```
-
-源码构建的 ZIP 需先编译 schema（完整发行包和安装器会自动处理）：
-
-```bash
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
-```
-
-安装后从扩展管理器打开 **Icon Normalizer → 设置**，点「立即应用」即可生成并激活归一化主题。
-
-### 方式二：离线完整包
-
-1. 下载 [完整安装包](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer-plugin-1.3.5.tar.gz) 与 [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/SHA256SUMS)，放在同一目录。
-2. 校验后解压安装：
-
-```bash
-sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf icon-normalizer-plugin-1.3.5.tar.gz
-cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-安装器会创建快照、暂存并验证文件、替换代码和探活；升级失败时恢复快照。**不使用 `sudo`**，所有文件都在你的主目录。
-
-### 可选：自动维护后台
-
-不装后台，扩展照常完整工作；安装可选后台可获得 **systemd 级自动维护**——监视应用目录变化、定时兜底刷新，与扩展共用同一把锁：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
-```
-
-只检查依赖：`... | bash -s -- --check`。
-
-<details>
-<summary>从源码安装</summary>
-
-```bash
-git clone https://github.com/TengJoe/icon-normalizer-plugin.git
-cd icon-normalizer-plugin
-python3 tools/build.py
-python3 tools/install.py
-```
-
-构建产物位于 `dist/`：扩展 ZIP、完整源码包和 `DIST_MANIFEST.json`。开发检查见[贡献指南](CONTRIBUTING.md)。
-
-</details>
-
-> 当前 GitHub 发行版：扩展 **1.3.5**（后台 **3.1.20**，可选）。`main` 可能包含未发布变更；版本范围见[发布记录](CHANGELOG.md)。顶栏代码升级后需要注销、重新登录以刷新 GNOME Shell 模块缓存。
+从旧的进程内 GJS 版迁移时，先停用 Icon Normalizer。安装后注销再登录，然后启用扩展。当前本地版见 [1.3.8 说明](docs/RELEASE-1.3.8.md)。
 
 ## 使用说明
 
@@ -170,11 +96,11 @@ python3 tools/install.py
 <details>
 <summary>换主题、新装应用或关闭窗口后会怎样？</summary>
 
-“维护 → 跟随图标主题”默认开启。切换到另一个已安装的素材主题会重新生成 `DockNormalized`，保留参数与逐图标规则。
+「维护 → 跟随图标主题」默认开启。首次应用后，只要自动维护和主题跟随都开启，切换到任意已安装的图标主题都会使用它重新生成并激活 `DockNormalized`，保留参数与逐图标规则。登录时也会同步当前主题。要使用原样图标，可以关闭跟随再切换主题，或选择「恢复原样」；还原后手动应用即可恢复维护。
 
 扩展启用时，标准 Yaru GTK 主题跟随系统深浅色和强调色，自定义 GTK 主题保持手动选择。`DockNormalized` 激活且主题跟随开启时，标准 Yaru 图标来源也跟随强调色与深浅色，只选择已安装变体。
 
-自动维护（扩展内置或可选后台）检测应用入口变化后增量刷新；重新生成只处理有变化的图标，已生成的直接复用。
+自动维护通过 systemd 监视应用入口变化，另有 1 小时检查兜底。Python 进程按需启动，任务结束后退出。
 
 </details>
 
@@ -207,9 +133,9 @@ python3 tools/install.py
 
 | 组件 | 依赖 |
 | --- | --- |
-| 扩展（引擎 + 顶栏） | 无额外依赖：GJS、GdkPixbuf 均为 GNOME 51 自带 |
+| 扩展（顶栏与设置） | GNOME 51、GJS、GTK 4 / Libadwaita |
 | 设置窗口 | GTK 4、Libadwaita 及对应 GI 类型库 |
-| 可选自动维护后台 | Python 3.10+、systemd 用户会话 |
+| 渲染及自动维护 | Python 3.10+、Pillow、NumPy、PyGObject / GTK 3、systemd 用户会话 |
 | 构建与安装 | `gtk-update-icon-cache`、`glib-compile-schemas` |
 
 - 托盘、AppIndicator，以及应用直接绘制或从文件加载的窗口图标，可能绕过图标主题。
@@ -218,7 +144,7 @@ python3 tools/install.py
 
 ## 质量与安全
 
-- **21 道质量门**一条命令全量回归（`bash tools/verify.sh`）：后端 253 项测试、前端 5 组套件、**69 项 GJS 引擎单测**、**UI 载荷契约测试**（Q20：界面每个调用的操作都必须有用界面真实载荷编写的用例，防止实现与测试互相印证地一起错）、**144 组渲染 + 69 组分析**的 GJS vs Python 跨实现逐像素对拍。
+- **21 道质量门**一条命令全量回归（`bash tools/verify.sh`）：后端 261 项测试、前端 5 组套件、**GJS 参考引擎单测**、**UI 载荷契约测试**（Q20：界面每个调用的操作都必须有用界面真实载荷编写的用例，防止实现与测试互相印证地一起错）、**144 组渲染 + 69 组分析**的 GJS vs Python 跨实现逐像素对拍。
 - **无网络、无遥测**：全仓不含任何网络请求代码；发布物为可读 GJS/SVG/CSS，无二进制、无压缩混淆。
 - **隐私审计**：`tools/privacy_audit.py` 对发布允许清单做模式扫描（密钥、个人路径、邮箱、图片元数据、tar 头账号信息），0 发现。
 - **构建可复现**：固定时间戳与权限的构建脚本，两次构建与发布资产逐字节一致。

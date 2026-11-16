@@ -867,9 +867,13 @@ export class Engine {
      *
      * @param {object} result inspectGenerator() result
      * @param {boolean} recovered whether a pending journal was replayed
+     * @param {object} [config] source policy to commit with the generated files
      * @returns {object} payload
      */
-    #applyPlan(result, recovered) {
+    #applyPlan(result, recovered, config) {
+        if (config)
+            result.changes.set(GLib.build_filenamev([this.stateDir, 'config.json']),
+                jsonBytes(config));
 
         if (!readBytes(GLib.build_filenamev([this.stateDir, 'baseline.json']))) {
             const baseline = {
@@ -930,7 +934,7 @@ export class Engine {
     /**
      * Apply the plan, or dry-run it, fully synchronous.
      *
-     * @param {{apply?: boolean}} options
+     * @param {{apply?: boolean, config?: object}} options
      * @returns {object} payload
      */
     sync(options = {}) {
@@ -938,7 +942,7 @@ export class Engine {
         const recovered = apply ? this.recover() : false;
         const result = drainSync(this.inspectGenerator(options));
         if (!apply) return result.payload;
-        return this.#applyPlan(result, recovered);
+        return this.#applyPlan(result, recovered, options.config);
     }
 
     /**
@@ -946,7 +950,7 @@ export class Engine {
      * callbacks. Same semantics as sync(); for hosts with a running main loop
      * (gnome-shell, prefs window) so bulk work never blocks the UI thread.
      *
-     * @param {{apply?: boolean}} options
+     * @param {{apply?: boolean, config?: object}} options
      * @param {number} [sliceMs] wall-clock budget per idle callback
      * @returns {Promise<object>} payload
      */
@@ -955,7 +959,7 @@ export class Engine {
         const recovered = apply ? this.recover() : false;
         const result = await driveSliced(this.inspectGenerator(options), sliceMs);
         if (!apply) return result.payload;
-        return this.#applyPlan(result, recovered);
+        return this.#applyPlan(result, recovered, options.config);
     }
 
     /**
@@ -1000,7 +1004,8 @@ export class Engine {
             }
         }
         const manifestPath = GLib.build_filenamev([this.stateDir, 'manifest.json']);
-        const empty = {version: MANIFEST_VERSION, base_theme: this.baseTheme,
+        const empty = {version: MANIFEST_VERSION, base_theme: old.base_theme || this.baseTheme,
+            restored: true,
             items: {}, desktop_overrides: {}};
         this.store.commit(changes, {
             committedLast: [manifestPath, jsonBytes(empty)],

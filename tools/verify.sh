@@ -99,7 +99,7 @@ fi
 check_doc_versions() {
     local ver rc=0
     ver=$(python3 -c "import json;print(json.load(open('extension/metadata.json'))['version-name'])")
-    for doc in docs/HANDOVER.md docs/CHECKLIST.md docs/REVIEWER-NOTE.md; do
+    for doc in docs/HANDOVER.md docs/CHECKLIST.md; do
         [ -f "$doc" ] || continue
         if ! head -6 "$doc" | grep -q "\b$ver\b"; then
             echo "$doc does not mention the current version $ver in its header"
@@ -111,23 +111,9 @@ check_doc_versions() {
         echo "docs/README.md does not link RELEASE-$ver.md"
         rc=1
     fi
-    # Both READMEs are the project's front page: their download links must
-    # resolve to the current release, otherwise visitors install an old build.
-    for f in README.md README.en.md; do
-        [ -f "$f" ] || continue
-        if ! grep -q "releases/tag/v$ver" "$f"; then
-            echo "$f does not link releases/tag/v$ver"
-            rc=1
-        fi
-        if grep -q "releases/download/v[0-9]" "$f" && ! grep -q "releases/download/v$ver/" "$f"; then
-            echo "$f still downloads from an older release"
-            rc=1
-        fi
-        # The badge label and the link must agree, or the front page advertises
-        # one version while pointing at another.
-        if grep -q "img.shields.io/badge/release-" "$f" \
-                && ! grep -q "img.shields.io/badge/release-$ver-" "$f"; then
-            echo "$f badge label is not $ver"
+    for doc in README.md README.en.md; do
+        if ! grep -q "RELEASE-$ver.md" "$doc" && ! grep -q "releases/tag/v$ver" "$doc"; then
+            echo "$doc does not link notes or a published release for $ver"
             rc=1
         fi
     done

@@ -111,10 +111,11 @@ def _env_path_list(name: str) -> list[str] | None:
 
 
 def _build_engine(store: ConfigStore, policy: Policy, paths: RuntimePaths,
-                  previous_source_theme: str | None = None) -> Engine:
+                  previous_source_theme: str | None = None,
+                  scheduled: bool = False) -> Engine:
     """Caller holds the lock; assemble the engine with every dependency."""
     require_image_runtime()
-    from .core.engine import Engine, EngineConfig
+    from .core.engine import Engine, EngineConfig, default_max_workers
 
     application_dirs = _env_path_list("ICON_NORMALIZER_APPLICATION_DIRS")
     icon_search_path = _env_path_list("ICON_NORMALIZER_ICON_SEARCH_PATH")
@@ -131,6 +132,7 @@ def _build_engine(store: ConfigStore, policy: Policy, paths: RuntimePaths,
         application_dirs=tuple(application_dirs) if application_dirs is not None else None,
         icon_search_path=tuple(icon_search_path) if icon_search_path is not None else None,
         settings=load_interface_settings(),
+        max_workers=default_max_workers(scheduled=scheduled),
         previous_source_theme=previous_source_theme,
     )
     return Engine(config)
@@ -179,7 +181,7 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         active_theme = current_icon_theme(load_interface_settings())
     except Exception:
         active_theme = None
-    source_theme = (baseline or {}).get("icon_theme")
+    source_theme = (manifest or {}).get("base_theme") or (baseline or {}).get("icon_theme")
 
     policy = None
     revision = None
@@ -208,6 +210,8 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
                 "last_error": {"code": "INVALID_CONFIG", "message": str(exc)[:200]},
                 "diagnostics": ["config.json unreadable: " + str(exc)[:160]],
             }
+    if not config_exists:
+        revision = _store_for(paths).revision()
     busy = _busy_probe(paths)
     follow_error: dict[str, Any] | None = None
     try:
@@ -247,6 +251,8 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
             # Legacy records cannot prove that current rules were applied.
             # One successful apply writes the full policy+rules revision.
             stale = True
+    if (manifest or {}).get("restored"):
+        summary = None
     error = health.status_error(paths.state_dir)
     if follow_error is not None and not (error and all(
             error.get(key) == follow_error[key] for key in ("code", "message", "details"))):
@@ -284,6 +290,8 @@ def op_status(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         "stale": stale,
         "last_error": error,
         "theme_follow": follows_theme,
+        "restored": (manifest or {}).get("restored") is True,
+        "guarded_theme_sync": True,
     }
 
 
@@ -353,17 +361,24 @@ def op_doctor(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
 
 def _rows_to_groups(rows: list[dict[str, Any]], rules: dict[str, Any]) -> list[dict[str, Any]]:
     """Map engine rows to the wire 'groups' shape (icon_id keyed, UI-consumable)."""
+    if not rows:
+        return []
+    # Defer importing core.classification until image runtime is already loaded.
+    from .core.classification import lookup_rule
     groups: list[dict[str, Any]] = []
     for row in rows:
         icon_name = str(row.get("icon_name"))
         icon_id = hash_icon_name(icon_name)
-        rule = rules.get(icon_id)
+        # Match engine lookup_rule_ex (sha256 id -> raw icon_name -> unique basename)
+        # so legacy raw-path entries in user-rules.json stay visible in scan.
+        rule = lookup_rule(rules, icon_name)
         skipped = bool(rule and rule.get("skip"))
         cls = row.get("class")
         auto_class = row.get("auto_class") or cls
         stale = False
         if rule and not rule.get("skip") and rule.get("classification") not in (None, "auto"):
-            if rule.get("source_sha256") != row.get("source_sha256"):
+            expected_sha = rule.get("source_sha256")
+            if expected_sha and expected_sha != row.get("source_sha256"):
                 stale = True
                 cls = auto_class
         action, reason = row.get("action"), row.get("reason")
@@ -377,7 +392,7 @@ def _rows_to_groups(rows: list[dict[str, Any]], rules: dict[str, Any]) -> list[d
         )
         origin = (
             "user"
-            if manual_user
+            if manual_user or row.get("classification_confidence") == "user"
             else "reviewed" if row.get("classification_confidence") == "reviewed" else "automatic"
         )
         groups.append({
@@ -489,8 +504,12 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
     icons = rules["icons"]
     icon_id = args["icon_id"]
     rule = args["rule"]
+    # Legacy user-rules.json may store raw icon paths; find them by sha256(key).
+    legacy_keys = [k for k in icons if k != icon_id and hash_icon_name(k) == icon_id]
     if "skip" in rule and set(rule) <= {"skip", "keep_desktop_override"}:
-        previous = icons.get(icon_id)
+        previous = icons.get(icon_id) or (icons.get(legacy_keys[0]) if legacy_keys else None)
+        for k in legacy_keys:
+            icons.pop(k, None)
         if previous is not None and not isinstance(previous, dict):
             reject("INVALID_CONFIG", "现有图标规则损坏；请先检查配置")
         enabled = rule["skip"]
@@ -524,6 +543,8 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
             icons[icon_id] = updated
     elif rule.get("reset"):
         icons.pop(icon_id, None)
+        for k in legacy_keys:
+            icons.pop(k, None)
         # A reviewed override for the same icon lives in the machine-local file;
         # clearing the user rule alone would leave its warning behind forever.
         _prune_local_override(ctx.store, icon_id)
@@ -533,6 +554,8 @@ def op_rules_set(args: dict[str, Any], ctx: OperationContext | None) -> dict[str
             entry["source_sha256"] = rule["source_sha256"]
         if rule.get("keep_desktop_override"):
             entry["keep_desktop_override"] = True
+        for k in legacy_keys:
+            icons.pop(k, None)
         icons[icon_id] = entry
     store.write_rules_if_changed(rules)
     return {"revision": store.revision(), "rule": icons.get(icon_id, {"reset": True})}
@@ -560,57 +583,66 @@ def op_apply(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, An
 
 
 def _apply_current(ctx: OperationContext, *, activate: bool,
-                   automatic_follow: bool = False, sync_only: bool = False) -> dict[str, Any]:
-    from .gsettings import current_icon_theme
+                   automatic_follow: bool = False, sync_only: bool = False,
+                   expected_theme: str | None = None, follow_variant: bool = False) -> dict[str, Any]:
+    from .gsettings import current_accent_color, current_color_scheme, current_icon_theme
     paths = ctx.paths
-    selected = current_icon_theme(load_interface_settings())
-    baseline = read_json_file(paths.baseline_path)
-    reference = baseline.get("icon_theme") if isinstance(baseline, dict) else ctx.policy.base_theme
-    transition = (isinstance(selected, str) and selected != paths.theme_name and
-                  selected != reference and paths.manifest_path.exists() and
-                  paths.baseline_path.exists() and theme_follow.enabled(paths.state_dir))
-    if not transition:
-        if (selected == paths.theme_name and theme_follow.enabled(paths.state_dir)
-                and paths.manifest_path.exists() and paths.baseline_path.exists()):
-            settings = load_interface_settings()
-            from .gsettings import current_accent_color, current_color_scheme
-            prefer_dark = (current_color_scheme(settings) == "prefer-dark")
-            original = _build_engine(ctx.store, ctx.policy, paths)
-            variant = theme_follow.resolve_system_variant(
-                ctx.policy.base_theme, prefer_dark, current_accent_color(settings),
-                original.resolver.search_paths())
-            if variant != ctx.policy.base_theme:
-                updated = theme_follow.transition_policy(ctx.policy, variant, original.resolver.search_paths())
-                baseline_doc = theme_follow.baseline_document(paths.baseline_path, updated, variant)
-                engine = _build_engine(ctx.store, updated, paths, previous_source_theme=ctx.policy.base_theme)
-                changes = {
-                    paths.config_path: json.dumps(ctx.store.policy_document(updated), ensure_ascii=False, indent=2).encode(),
-                    paths.baseline_path: json.dumps(baseline_doc, ensure_ascii=False, indent=2).encode(),
-                }
-                result = engine.sync(apply=True, activate=activate or automatic_follow,
-                                     state_changes=changes, activate_if_theme=selected)
-                ctx.policy = updated
-                ctx.revision = ctx.store.revision(updated)
-                return {**result, "changed": True, "revision": ctx.revision, "source_theme": variant}
+    settings = load_interface_settings()
+    selected = current_icon_theme(settings)
+    unchanged = {"changed": False, "revision": ctx.revision, "source_theme": ctx.policy.base_theme}
+    if expected_theme is not None and selected != expected_theme:
+        return {**unchanged, "theme_activation": "superseded"}
 
-        if sync_only:
-            return {"changed": False, "revision": ctx.revision, "source_theme": ctx.policy.base_theme}
+    manifest = read_json_file(paths.manifest_path) or {}
+    initialized = bool(manifest.get("policy_sha256"))
+    if automatic_follow and (manifest.get("restored") or not initialized):
+        return unchanged
+    following = theme_follow.enabled(paths.state_dir)
+    source = ctx.policy.base_theme
+    target = source
+    raw_selection = bool(selected and selected != paths.theme_name)
+    if following and (initialized or activate):
+        if raw_selection and selected is not None:
+            if automatic_follow:
+                target = selected
+            elif activate:
+                original = _build_engine(ctx.store, ctx.policy, paths)
+                try:
+                    theme_follow.transition_policy(ctx.policy, selected, original.resolver.search_paths())
+                except ProtocolError as exc:
+                    if exc.code != "SOURCE_UNAVAILABLE":
+                        raise
+                else:
+                    target = selected
+        elif follow_variant and selected == paths.theme_name:
+            original = _build_engine(ctx.store, ctx.policy, paths)
+            target = theme_follow.resolve_system_variant(
+                source, current_color_scheme(settings) == "prefer-dark",
+                current_accent_color(settings), original.resolver.search_paths())
+    reactivate = automatic_follow and following and initialized and raw_selection
+    if sync_only and target == source and not reactivate:
+        return unchanged
+    baseline = read_json_file(paths.baseline_path) or {}
+    update_restore = (automatic_follow and following and raw_selection
+                      and baseline.get("icon_theme") != target)
+    if target == source and not update_restore:
         engine = _build_engine(ctx.store, ctx.policy, paths)
-        return engine.sync(apply=True, activate=activate)
-    assert isinstance(selected, str)
+        result = engine.sync(apply=True, activate=activate or reactivate, activate_if_theme=selected)
+        return {**result, **unchanged}
+
     original = _build_engine(ctx.store, ctx.policy, paths)
-    updated = theme_follow.transition_policy(ctx.policy, selected, original.resolver.search_paths())
-    baseline_doc = theme_follow.baseline_document(paths.baseline_path, updated, selected)
+    updated = theme_follow.transition_policy(ctx.policy, target, original.resolver.search_paths())
+    baseline_doc = theme_follow.baseline_document(paths.baseline_path, updated, target)
     engine = _build_engine(ctx.store, updated, paths, previous_source_theme=ctx.policy.base_theme)
     changes = {
         paths.config_path: json.dumps(ctx.store.policy_document(updated), ensure_ascii=False, indent=2).encode(),
         paths.baseline_path: json.dumps(baseline_doc, ensure_ascii=False, indent=2).encode(),
     }
-    result = engine.sync(apply=True, activate=activate or automatic_follow,
+    result = engine.sync(apply=True, activate=activate or reactivate,
                          state_changes=changes, activate_if_theme=selected)
     ctx.policy = updated
     ctx.revision = ctx.store.revision(updated)
-    return {**result, "changed": True, "revision": ctx.revision, "source_theme": selected}
+    return {**result, "changed": True, "revision": ctx.revision, "source_theme": target}
 
 
 def op_profiles_list(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, Any]:
@@ -638,7 +670,9 @@ def op_theme_sync(args: dict[str, Any], ctx: OperationContext | None) -> dict[st
     assert ctx is not None
     if not theme_follow.enabled(ctx.paths.state_dir) or service_control.units_status()["automatic"] not in ("on", "partial"):
         return {"changed": False, "revision": ctx.revision, "source_theme": ctx.policy.base_theme}
-    result = _apply_current(ctx, activate=False, automatic_follow=True, sync_only=True)
+    result = _apply_current(ctx, activate=False, automatic_follow=True, sync_only=True,
+                            expected_theme=args.get("expected_icon_theme"),
+                            follow_variant=args.get("follow_system_variant", True))
     if result.get("applied"):
         health.resolve(ctx.paths.state_dir)
     return result
@@ -691,6 +725,7 @@ def op_revert(args: dict[str, Any], ctx: OperationContext | None) -> dict[str, A
         "removed_managed_files": result.get("removed_managed_files", 0),
         "automation": automation["units"],
         "ok": result.get("ok", True),
+        "reverted": result.get("reverted", True),
     }
 
 
@@ -827,6 +862,8 @@ def handle(raw: bytes, scheduled: bool, paths: RuntimePaths | None = None) -> in
                         reject("RECOVERY_REQUIRED", "存在未完成正式事务；请执行 apply 恢复",
                                request_id=rid, operation=op)
                 elif op in WRITE_OPS:
+                    if op in ("apply", "revert", "theme.sync"):
+                        renderer_owner.guard(effective_paths.state_dir)
                     _recover_transactions(ctx)
                     # Migration recovery can roll config.json back as well as icons.
                     ctx.policy = store.load_policy()
@@ -867,6 +904,7 @@ def _run_scheduled(paths: RuntimePaths) -> int:
         return EXIT_BUSY
     with lock:
         try:
+            renderer_owner.guard(paths.state_dir)
             store = _store_for(paths)
             policy = store.load_policy()
             ctx = OperationContext(
@@ -884,13 +922,16 @@ def _run_scheduled(paths: RuntimePaths) -> int:
             # our own Icon= rewrite causes at most one extra no-op pass.
             for _attempt in range(3):
                 before = _launcher_stamp(paths)
-                _apply_current(ctx, activate=False, automatic_follow=True)
-                from .gsettings import current_icon_theme
-                current = current_icon_theme(load_interface_settings())
-                baseline = read_json_file(paths.baseline_path) or {}
-                changed_theme = (isinstance(current, str) and current != paths.theme_name and
-                                 current != baseline.get("icon_theme") and theme_follow.enabled(paths.state_dir))
-                if _launcher_stamp(paths) == before and not changed_theme:
+                manifest = read_json_file(paths.manifest_path) or {}
+                if manifest.get("restored"):
+                    break
+                # The Shell listener owns theme selection. Timer and path
+                # maintenance refresh the saved source without changing it.
+                if renderer_owner.owner(paths.state_dir) == "python" or not manifest:
+                    _build_engine(ctx.store, ctx.policy, paths, scheduled=True).sync(apply=True)
+                else:
+                    _apply_current(ctx, activate=False, automatic_follow=True)
+                if _launcher_stamp(paths) == before:
                     break
             health.resolve(paths.state_dir)
             return EXIT_OK

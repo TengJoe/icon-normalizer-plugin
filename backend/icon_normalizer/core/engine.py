@@ -50,10 +50,12 @@ from .transaction import ProtectedRoot, TransactionStore
 _THEME_NAME_RE = re.compile(r"[A-Za-z0-9_.+-]+")
 
 
-def default_max_workers() -> int:
+def default_max_workers(scheduled: bool = False) -> int:
     override = os.environ.get("ICON_NORMALIZER_WORKERS")
     if override and override.isdigit() and int(override) > 0:
         return int(override)
+    if scheduled:
+        return 2
     return max(2, min(4, os.cpu_count() or 2))
 
 
@@ -863,7 +865,8 @@ class Engine:
                         0o600,
                     )
                     gsettings.finish_pending_theme(self.config.settings, pending, self.state_dir / "manifest.json")
-                    activation = "applied"
+                    activation = ("applied" if gsettings.current_icon_theme(self.config.settings)
+                                  == self.theme_name else "superseded")
         payload = result.payload
         payload["applied"] = True
         payload["recovered_transaction"] = recovered
@@ -961,6 +964,7 @@ class Engine:
         baseline_path = self.state_dir / "baseline.json"
         baseline = json.loads(baseline_path.read_text()) if baseline_path.exists() \
             else {"icon_theme": previous or self.base_theme}
+        restore_theme = old.get("base_theme") or baseline["icon_theme"]
         manifest_path = self.state_dir / "manifest.json"
         manifest_bytes = self.revert_manifest_bytes()
         pending = self.state_dir / "settings-pending.json"
@@ -968,7 +972,7 @@ class Engine:
         if change_theme:
             atomic_write(pending, json.dumps({
                 "stage": "revert_prepared", "previous_theme": previous,
-                "restore_theme": str(baseline["icon_theme"]),
+                "restore_theme": str(restore_theme),
                 "manifest_before_sha": sha_hex(manifest_path.read_bytes())
                     if manifest_path.exists() else None,
                 "manifest_after_sha": sha_hex(manifest_bytes),
@@ -976,7 +980,7 @@ class Engine:
         try:
             if change_theme:
                 assert self.config.settings is not None
-                gsettings.set_icon_theme(self.config.settings, str(baseline["icon_theme"]))
+                gsettings.set_icon_theme(self.config.settings, str(restore_theme))
             self.store.commit(changes, committed_last=(manifest_path, manifest_bytes),
                               expected_before=expected_before)
         except Exception:
@@ -991,7 +995,7 @@ class Engine:
             "ok": True,
             "reverted": True,
             "restored_theme": gsettings.current_icon_theme(self.config.settings)
-            or baseline["icon_theme"],
+            or restore_theme,
             "removed_managed_files": len(changes),
         }
 
@@ -999,6 +1003,7 @@ class Engine:
         new = {
             "version": MANIFEST_VERSION,
             "base_theme": self.base_theme,
+            "restored": True,
             "items": {},
             "desktop_overrides": {},
         }

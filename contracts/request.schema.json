@@ -277,7 +277,10 @@
     },
     "theme.sync": {
       "type": "object",
-      "properties": {},
+      "properties": {
+        "expected_icon_theme": {"type": "string", "minLength": 1, "maxLength": 128},
+        "follow_system_variant": {"type": "boolean"}
+      },
       "required": [],
       "additionalProperties": false
     },

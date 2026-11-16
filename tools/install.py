@@ -113,7 +113,7 @@ def _components(layout: Any) -> dict[str, Path]:
     return {"libexec": layout.libexec, "extension": layout.extension,
             **{f"units/{u}": layout.units / u for u in UNITS},
             **{n: layout.state / n for n in ("config.json", "user-rules.json", "overrides.json",
-                                           "profiles.json", "theme-follow.json")}}
+                                           "profiles.json", "theme-follow.json", "renderer.json")}}
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -163,15 +163,10 @@ def _known(states: dict[str, Any]) -> None:
         raise RuntimeError("Cannot confirm trigger state; no installation changes made")
 
 
-def _installed_extension_version(layout: Any) -> tuple[int, int, int] | None:
-    """Read the installed extension's version-name without executing code."""
-    meta = layout.extension / "metadata.json"
-    try:
-        data = json.loads(meta.read_text(encoding="utf-8"))
-        parts = [int(x) for x in str(data.get("version-name", "")).split(".")]
-        return tuple(parts) if len(parts) == 3 else None
-    except Exception:
-        return None
+def _shell_enabled_extensions() -> tuple[int, str, str]:
+    proc = subprocess.run(["gnome-extensions", "list", "--enabled"],
+                          capture_output=True, text=True, timeout=10, check=False)
+    return proc.returncode, proc.stdout, proc.stderr
 
 
 def _saved_backend_version(target: Path) -> str | None:
@@ -228,7 +223,7 @@ def _sha(path: Path) -> str:
 #: back the run that created it, so older copies are dead weight in the state
 #: directory; failures keep their snapshot and uninstall snapshots stay until
 #: the user removes them.
-SNAPSHOT_KEEP = 5
+SNAPSHOT_KEEP = 2
 
 
 def prune_install_snapshots(layout: Any, keep: int = SNAPSHOT_KEEP) -> list[str]:
@@ -491,16 +486,15 @@ def install(assume_yes: bool) -> int:
                         created_theme = prepare_runtime(layout)
                         desired = before if is_upgrade else {
                             u: {"enabled": True, "active": True} for u in TRIGGER_UNITS}
-                        # Since extension 1.3.3 the Shell extension runs its own
-                        # sliced scheduler, and the Python engine fingerprints the
-                        # policy differently from the GJS engine. Both writers
-                        # flip the manifest's input_key on every run, forcing a
-                        # full re-render each time — the triggers must retire
-                        # instead of being restored.
-                        installed_version = _installed_extension_version(layout)
-                        if installed_version is not None and installed_version >= (1, 3, 3):
-                            desired = {u: {"enabled": False, "active": False}
-                                       for u in TRIGGER_UNITS}
+                        marker = layout.state / "renderer.json"
+                        if marker.is_file() and json.loads(marker.read_text()).get("owner") == "gjs":
+                            rc, enabled, _ = _shell_enabled_extensions()
+                            if rc or EXTENSION_UUID in enabled.splitlines():
+                                raise RuntimeError("Disable the old Shell extension before handing rendering to Python")
+                            automation = layout.state / "automation.json"
+                            wanted = json.loads(automation.read_text()).get("enabled") is True if automation.exists() else False
+                            desired = {u: {"enabled": wanted, "active": wanted} for u in TRIGGER_UNITS}
+                        _write_json(marker, {"schema_version": 1, "owner": "python"})
                         trigger_states_restore(desired)
                         clean_old = True
                     except Exception:

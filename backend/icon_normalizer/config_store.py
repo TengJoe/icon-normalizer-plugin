@@ -39,6 +39,11 @@ def migrate_policy(data: Any, defaults: PolicyDefaults) -> Policy:
     """Accept schema v1/v2 documents, merge over defaults, validate."""
     if not isinstance(data, dict):
         raise ValueError("config.json must be an object")
+    if "policy" in data:
+        policy = data["policy"]
+        if not isinstance(policy, dict):
+            raise ValueError("config.policy must be an object")
+        data = {**policy, "schema_version": data.get("schema_version", SCHEMA_VERSION)}
     for key in ('target', 'deadband', 'inner'):
         if key in data and (isinstance(data[key], bool) or not isinstance(data[key], (int, float))):
             raise ValueError(f'config.{key} must be a number')
@@ -92,7 +97,8 @@ class ConfigStore:
         if not self.rules_path.exists():
             return {"schema_version": 1, "icons": {}}
         data: dict[str, Any] = json.loads(self.rules_path.read_text())
-        if data.get("schema_version") != 1 or not isinstance(data.get("icons"), dict):
+        if (not isinstance(data, dict) or data.get("schema_version", 1) != 1
+                or not isinstance(data.get("icons"), dict)):
             raise ValueError("user-rules.json is corrupt")
         return data
 

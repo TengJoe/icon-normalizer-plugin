@@ -99,30 +99,9 @@ function fail(requestId, operation, code, message, retryable = false, timedOut =
     };
 }
 
-/** When set, requests are dispatched in-process instead of spawning a backend. */
-let localBackend = null;
-
-/**
- * Install an in-process backend. Once installed, call() no longer spawns a
- * child process: the extension runs the engine itself.
- *
- * @param {(operation: string, args: object) => Promise<object>} handler
- */
-export function setLocalBackend(handler) {
-    localBackend = handler;
-}
-
-/**
- * Remove the in-process backend again. The extension calls this from disable()
- * so a local backend never outlives the enable() cycle that installed it.
- */
-export function clearLocalBackend() {
-    localBackend = null;
-}
-
-/** @returns {boolean} true when an in-process backend is installed */
-export function hasLocalBackend() {
-    return localBackend !== null;
+export function controlPath() {
+    return GLib.build_filenamev([GLib.get_home_dir(), '.local', 'libexec',
+        'icon-normalizer', 'control.py']);
 }
 
 /**
@@ -138,26 +117,6 @@ export function call(controlPath, operation, args, scope = null) {
         const requestId = `ui-${GLib.uuid_string_random()}`;
         if (scope?.closed) {
             resolve(fail(requestId, operation, 'TIMEOUT', t('窗口已关闭')));
-            return;
-        }
-        if (localBackend) {
-            localBackend(operation, args || {}).then(
-                result => resolve({
-                    api_version: API_VERSION,
-                    request_id: requestId,
-                    operation,
-                    ok: true,
-                    result,
-                }),
-                // Local engine errors duck-type the protocol shape: a
-                // ControlError/LockError carries .code/.retryable/.details and
-                // becomes the envelope verbatim; anything else is BACKEND_ERROR.
-                error => resolve(fail(requestId, operation,
-                    error && typeof error.code === 'string'
-                        ? error.code : 'BACKEND_ERROR',
-                    String(error && error.message || error),
-                    Boolean(error && error.retryable), false,
-                    (error && error.details) || {})));
             return;
         }
         if (!controlPath ||

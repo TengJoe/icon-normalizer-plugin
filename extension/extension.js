@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// GNOME Shell entry (GNOME 51 ESM). The engine runs in-process (ADR-0008),
-// so this file also owns the periodic maintenance pass: a GLib timer runs the
-// sliced sync and records a heartbeat the preferences window can display.
+// GNOME Shell entry. Rendering runs in the separately installed Python worker.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import {call, clearLocalBackend, RequestScope} from './shared/backendClient.js';
+import {call, controlPath, RequestScope} from './shared/backendClient.js';
 import {runApplyFlow} from './shared/applyFlow.js';
 import {operationExitHint, supportsProfilesAndThemes} from './shared/stateModel.js';
 import {Indicator} from './shell/indicator.js';
@@ -14,10 +12,8 @@ import {initLanguage} from './shared/i18n.js';
 import {syncGtkTheme} from './shell/themeSync.js';
 
 const PANEL_KEY = 'show-panel-indicator';
-/** Seconds between automatic maintenance passes (15 minutes). */
-const MAINTENANCE_INTERVAL_SECONDS = 900;
-/** Delay before the first pass after login, so startup is not contended. */
-const MAINTENANCE_START_DELAY_MS = 90 * 1000;
+const THEME_RETRY_DELAY_MS = 500;
+const THEME_BUSY_RETRY_LIMIT = 120;
 
 export default class IconNormalizerExtension extends Extension {
     enable() {
@@ -30,10 +26,7 @@ export default class IconNormalizerExtension extends Extension {
         this._requests = new RequestScope();
         this._settings = this.getSettings();
         initLanguage(this._settings, GLib.get_language_names());
-        this._controlPath = GLib.build_filenamev([GLib.get_home_dir(), '.local', 'libexec', 'icon-normalizer', 'control.py']);
-        this._maintenanceTimer = 0;
-        this._maintenanceStartId = 0;
-        this._setupLocalBackend();
+        this._controlPath = controlPath();
         this._pending = new Set();
         this._lastStatus = null;
         this._indicator = null;
@@ -45,6 +38,8 @@ export default class IconNormalizerExtension extends Extension {
         });
         this._themeSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._themeDirty = false;
+        this._themeSelection = null;
+        this._followAppearance = false;
 
         this._triggerThemeSync = () => {
             this._themeDirty = true;
@@ -56,26 +51,48 @@ export default class IconNormalizerExtension extends Extension {
             });
         };
 
+        const readThemeSelection = () => {
+            const selected = this._themeSettings.get_string('icon-theme');
+            this._themeSelection = selected === 'DockNormalized' ? null : {name: selected};
+        };
         this._themeHandler = this._themeSettings.connect('changed::icon-theme', () => {
-            if (this._themeSettings.get_string('icon-theme') === 'DockNormalized') return;
-            this._triggerThemeSync();
+            readThemeSelection();
+            this._followAppearance = false;
+            if (this._themeSelection) this._triggerThemeSync();
         });
 
+        // Reconcile GTK before listening for appearance changes. A startup
+        // write to color-scheme must not replace a saved icon source.
+        syncGtkTheme(this._themeSettings);
         this._colorSchemeHandler = this._themeSettings.connect('changed::color-scheme', () => {
             syncGtkTheme(this._themeSettings);
+            this._followAppearance = true;
             this._triggerThemeSync();
         });
 
         this._accentColorHandler = this._themeSettings.connect('changed::accent-color', () => {
             syncGtkTheme(this._themeSettings);
+            this._followAppearance = true;
             this._triggerThemeSync();
         });
 
         // Read after connecting so GSettings delivers subsequent key changes.
-        for (const key of ['icon-theme', 'color-scheme', 'accent-color'])
-            this._themeSettings.get_string(key);
-        syncGtkTheme(this._themeSettings);
-        this._triggerThemeSync();
+        readThemeSelection();
+        const scheme = this._themeSettings.get_string('color-scheme');
+        const accent = this._themeSettings.get_string('accent-color');
+        const synced = this._lastSyncedAppearance;
+        // Lock/unlock calls disable() then enable(): skip spawning the worker
+        // when the overlay is still active and appearance did not change.
+        const unchanged = Boolean(synced && !this._themeSelection
+            && synced.iconTheme === 'DockNormalized'
+            && synced.colorScheme === scheme
+            && synced.accent === accent);
+        if (!unchanged) {
+            if (synced && !this._themeSelection
+                    && (synced.colorScheme !== scheme || synced.accent !== accent))
+                this._followAppearance = true;
+            this._triggerThemeSync();
+        }
         this._syncIndicator();
     }
 
@@ -106,113 +123,7 @@ export default class IconNormalizerExtension extends Extension {
         }
         this._pending?.clear();
         this._lastStatus = null;
-        if (this._maintenanceTimer) {
-            GLib.source_remove(this._maintenanceTimer);
-            this._maintenanceTimer = 0;
-        }
-        if (this._maintenanceStartId) {
-            GLib.source_remove(this._maintenanceStartId);
-            this._maintenanceStartId = 0;
-        }
         this._controlPath = null;
-        // The module-level in-process backend must not outlive this enable()
-        // cycle: re-enable installs a fresh one (no stale LocalControl).
-        clearLocalBackend();
-        this._control = null;
-    }
-
-    async _setupLocalBackend() {
-        const generation = this._generation;
-        try {
-            const {setLocalBackend, hasLocalBackend} = await import('./shared/backendClient.js');
-            if (generation !== this._generation) return;
-            if (hasLocalBackend()) return;
-            const {LocalControl} = await import('./lib/control.js');
-            if (generation !== this._generation) return;
-            const desktopSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
-            const control = new LocalControl({
-                home: GLib.get_home_dir(),
-                // Live main loop: take the cross-process sync lock and slice
-                // engine phases across idle callbacks.
-                locking: true,
-                slicing: true,
-                settings: {
-                    desktop: () => GLib.getenv('XDG_CURRENT_DESKTOP') || 'GNOME',
-                    iconTheme: () => desktopSettings.get_string('icon-theme'),
-                    // Dark preference and accent drive the variant the overlay
-                    // follows; accent-color only exists on newer schemas.
-                    colorScheme: () => {
-                        try {
-                            return desktopSettings.get_string('color-scheme');
-                        } catch {
-                            return null;
-                        }
-                    },
-                    accent: () => {
-                        try {
-                            return desktopSettings.get_string('accent-color');
-                        } catch {
-                            return null;
-                        }
-                    },
-                    automatic: () => null,
-                    setTheme: name => desktopSettings.set_string('icon-theme', name),
-                },
-            });
-            this._control = control;
-            setLocalBackend((operation, args) => control.handle(operation, args));
-            if (generation === this._generation) this._scheduleMaintenance();
-        } catch {
-            // Running in an environment without backend support or during tests: keep controlPath.
-        }
-    }
-
-    /**
-     * Arm the periodic maintenance pass when the preference is on.
-     *
-     * The timer re-arms itself so a disable() always wins: the callback checks
-     * the generation before touching anything.
-     */
-    _scheduleMaintenance() {
-        if (this._maintenanceTimer) return;
-        const control = this._control;
-        if (!control || !control.automationEnabled()) return;
-        // A short lead-in so login finishes first, then a slow cadence: the
-        // engine only rewrites files whose content actually changed.
-        this._maintenanceStartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
-            MAINTENANCE_START_DELAY_MS, () => {
-                this._maintenanceStartId = 0;
-                this._runMaintenance();
-                return GLib.SOURCE_REMOVE;
-            });
-        this._maintenanceTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
-            MAINTENANCE_INTERVAL_SECONDS * 1000, () => {
-                this._runMaintenance();
-                return GLib.SOURCE_CONTINUE;
-            });
-    }
-
-    /** Run one maintenance pass and record its heartbeat. */
-    async _runMaintenance() {
-        const generation = this._generation;
-        const control = this._control;
-        if (!control || !control.automationEnabled()) return;
-        // A user-triggered apply is already in flight: skip this slot rather
-        // than queue behind it.
-        if (this._pending.has('apply') || this._pending.has('status')) return;
-        this._pending.add('maintenance');
-        try {
-            const envelope = await call(this._controlPath, 'apply',
-                {expected_revision: null, activate: false}, this._requests);
-            if (generation !== this._generation) return;
-            control.recordHeartbeat(Boolean(envelope.ok),
-                envelope.ok ? null : (envelope.error?.code ?? 'UNKNOWN'));
-        } catch (error) {
-            logError(error, 'icon-normalizer: maintenance pass failed');
-            control.recordHeartbeat(false, String(error));
-        } finally {
-            this._pending.delete('maintenance');
-        }
     }
 
     _syncIndicator() {
@@ -282,7 +193,6 @@ export default class IconNormalizerExtension extends Extension {
             const flow = await runApplyFlow(this._controlPath, {
                 activate: null,
                 scope: this._requests,
-                onProgress: progress => this._indicator?.setProgress(progress),
             });
             if (generation !== this._generation) return;
             if (flow.apply?.ok) {
@@ -306,18 +216,47 @@ export default class IconNormalizerExtension extends Extension {
     async _syncTheme() {
         if (!this._requests || this._pending.has('theme')) return;
         const generation = this._generation;
+        const scope = this._requests;
         this._pending.add('theme');
         // A ZIP-only upgrade can leave an older companion installed.
         const status = this._lastStatus ??
-            (await call(this._controlPath, 'status', {}, this._requests)).result;
+            (await call(this._controlPath, 'status', {}, scope)).result;
         if (generation !== this._generation) return;
-        if (!supportsProfilesAndThemes(status)) { this._pending.delete('theme'); return; }
+        if (!supportsProfilesAndThemes(status)) {
+            this._themeSelection = null;
+            this._pending.delete('theme');
+            return;
+        }
         let envelope;
-        do {
+        let busyRetries = 0;
+        while (true) {
             this._themeDirty = false;
-            envelope = await call(this._controlPath, 'theme.sync', {}, this._requests);
+            const selection = this._themeSelection;
+            const args = status.guarded_theme_sync ? {
+                expected_icon_theme: selection?.name ?? 'DockNormalized',
+                follow_system_variant: this._followAppearance,
+            } : {};
+            envelope = await call(this._controlPath, 'theme.sync', args, scope);
             if (generation !== this._generation) return;
-        } while (this._themeDirty && envelope.ok);
+            if (envelope.error?.code === 'BUSY' && busyRetries < THEME_BUSY_RETRY_LIMIT) {
+                busyRetries++;
+                if (!await scope.delay(THEME_RETRY_DELAY_MS)) return;
+                continue;
+            }
+            if (selection === this._themeSelection) this._themeSelection = null;
+            if (!this._themeDirty) {
+                this._followAppearance = false;
+                break;
+            }
+            busyRetries = 0;
+        }
+        if (envelope.ok && envelope.result?.theme_activation !== 'superseded' && this._themeSettings) {
+            this._lastSyncedAppearance = {
+                iconTheme: this._themeSettings.get_string('icon-theme'),
+                colorScheme: this._themeSettings.get_string('color-scheme'),
+                accent: this._themeSettings.get_string('accent-color'),
+            };
+        }
         this._pending.delete('theme');
         if (!envelope.ok) this._indicator?.update(this._lastStatus, envelope);
         this._request('status');

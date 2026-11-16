@@ -53,5 +53,28 @@ class StatusRulesHealth(unittest.TestCase):
         self.assertIsInstance(rules["user_rules"], int)
         self.assertIsInstance(rules["reviewed_overrides"], int)
 
+    def test_raw_path_user_rule_without_sha_shows_in_scan_and_resets(self):
+        group = self.call("scan")["groups"][0]
+        rules_file = self.box.state / "user-rules.json"
+        rules_file.write_text(json.dumps({
+            "schema_version": 1,
+            "icons": {group["icon_name"]: {"classification": "glyph"}},
+        }))
+        scanned = self.call("scan")["groups"][0]
+        self.assertEqual(scanned["classification"], "glyph")
+        self.assertEqual(scanned["classification_origin"], "user")
+        self.assertFalse(scanned["classification_stale"])
+        status = self.call("status")
+        self.call("rules.set", {
+            "expected_revision": status["revision"],
+            "icon_id": group["icon_id"],
+            "rule": {"reset": True},
+        })
+        after = self.call("scan")["groups"][0]
+        self.assertNotEqual(after["classification_origin"], "user")
+        stored = json.loads(rules_file.read_text())
+        self.assertEqual(stored["icons"], {})
+
+
 if __name__ == "__main__":
     unittest.main()

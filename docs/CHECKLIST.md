@@ -1,13 +1,12 @@
 # 发布验收清单
 
-## 1.3.7 / 3.1.20 发布验收（2026-11-10）
+## 1.3.8 / 3.1.21 本地验收（2026-11-17）
 
-当前组件版本为 **1.3.7 / 3.1.20**（渲染核心 3）；GitHub 发行和 GNOME 送审状态独立记录，不由本清单推定。
+当前组件版本为 **1.3.8 / 3.1.21**（渲染核心 3）；本版为本地 Python 后台切换与日志审计后的修复/优化批次。
 
-- 本版为 1.3.0 当日的加固批次：跨进程 sync.lock flock 互斥、recover() ∈{before, after} 安全回滚、idle 时间片分片、preview/激活/恢复协议接缝对齐（详见 CHANGELOG）。
-- **21 道质量门**全部通过（Q18 为 69 项 GJS 单测 + 9 项 UI 载荷契约用例；Q19 144 组渲染 + 69 组分析 parity；Q20 覆盖率检查界面调用的全部 13 个操作）。
-- 真机行为验证：live scan 85 组（修复前为 0，applicationDirs bug）；外部持锁时 BUSY 互斥；`tools/build.py` 连续构建逐字节可复现。
-- `npx eslint extension --max-warnings 0` 零告警。
+- **21 道质量门**全部通过（`bash tools/verify.sh` 21/21，`--quick` 19/19）。
+- 实测设置页 `rulesPage.js` 4 条逐图标规则正常挂载显示、0 条 `Adwaita-CRITICAL` 告警；`DeepSeek Harness` 旧路径用户规则在 `scan` 中正确显示为 `user` 且可重置。
+- `tests/gjs/control.test.js` 18 项（~2.6s）与 `uicontract.test.js` 9 项（~0.4s）均通过；`npx eslint extension --max-warnings 0` 与 `python3 -m mypy` 零告警。
 
 ## 1.3.0 / 3.1.20 发布验收（2026-11-07）
 

@@ -72,10 +72,26 @@ class ThemeFollow(unittest.TestCase):
             self.assertFalse(control.op_theme_sync({}, self.context())['changed'])
         self.assertEqual(before, png_hashes(self.box.theme)); self.assertEqual(self.setting.value, 'FixtureBlue')
 
-    def test_selecting_original_source_does_not_force_reactivation(self):
+    def test_selecting_original_source_reactivates_normalized_theme(self):
         self.setting.value = 'FixtureBase'
+        result = control.op_theme_sync({'expected_icon_theme': 'FixtureBase'}, self.context())
+        self.assertEqual(result['theme_activation'], 'applied')
+        self.assertEqual(self.setting.value, 'DockNormalized')
+
+    def test_stale_request_does_not_process_the_new_selection(self):
+        self.setting.value = 'FixtureGreen'
+        result = control.op_theme_sync({'expected_icon_theme': 'FixtureBlue'}, self.context())
+        self.assertEqual(result['theme_activation'], 'superseded')
+        self.assertEqual(self.setting.value, 'FixtureGreen')
+        self.assertEqual(self.context().policy.base_theme, 'FixtureBase')
+
+    def test_restored_manifest_prevents_automatic_activation(self):
+        self.engine.revert()
+        self.setting.value = 'FixtureBlue'
         self.assertFalse(control.op_theme_sync({}, self.context())['changed'])
-        self.assertEqual(self.setting.value, 'FixtureBase')
+        self.assertEqual(control._run_scheduled(self.paths), 0)
+        self.assertEqual(self.setting.value, 'FixtureBlue')
+        self.assertEqual(png_hashes(self.box.theme), {})
 
     def test_nonexistent_or_unsafe_theme_refused_without_policy_changes(self):
         before = self.paths.config_path.read_bytes(), self.paths.baseline_path.read_bytes(), png_hashes(self.box.theme)

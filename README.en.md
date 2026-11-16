@@ -8,13 +8,10 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.5](https://img.shields.io/badge/release-1.3.7-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.7)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
-[![Pure GJS engine](https://img.shields.io/badge/engine-pure_GJS_in--process-2ec27e?style=flat-square)](#architecture)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
 
-[Download extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) · [简体中文](README.md) · [Report an issue](https://github.com/TengJoe/icon-normalizer-plugin/issues)
 
 </div>
 
@@ -31,25 +28,7 @@ No system icon file is modified: new artwork is generated in a dedicated theme n
 
 ## Architecture
 
-Since 1.3.0 the entire pipeline runs as a **pure-GJS engine inside the extension process** — one ZIP installs everything, with no Python, Pillow, NumPy or systemd services required:
-
-```text
-┌─ GNOME Shell process ──────────────────────┐      ┌─ Prefs window (separate) ──┐
-│  Panel indicator · pure-GJS engine          │      │  Gtk4 / Libadwaita          │
-│  XDG resolve → analyze → Lanczos3 → commit  │      │  rules · preview · profiles │
-└──────────────┬──────────────────────────────┘      └──────────┬─────────────────┘
-               │      one shared sync.lock (flock)              │
-               ▼                                                ▼
-   ~/.local/share/icons/DockNormalized/        ~/.local/share/applications/*.desktop
-   ~/.local/state/icon-normalizer/ (manifest · journal · backups · cache)
-               ▲
-   (optional) systemd user units: maintenance worker, sharing the same lock
-```
-
-- **Zero external dependencies**: decoding uses the GdkPixbuf that gnome-shell already links; resampling is a hand-written GJS Lanczos3 (premultiplied alpha) verified against the reference implementation with 144 pixel-level comparisons.
-- **Transactions and rollback**: every write is an atomic tmp+rename guarded by digests; an interrupted transaction is rolled back from its journal, and external edits are strictly refused, never clobbered.
-- **Single-writer mutual exclusion**: Shell, prefs window and the optional worker serialize on one `sync.lock` (flock); contention surfaces as a retryable BUSY.
-- **The main loop never freezes**: bulk analysis/rendering is sliced across idle callbacks, so the desktop stays interactive.
+GJS handles the GNOME panel, theme events and preferences. An on-demand Python worker uses Pillow, NumPy and GTK 3 icon lookup to render away from the Shell process. All writes share the same lock and recovery journal.
 
 ## Preview
 
@@ -89,66 +68,13 @@ Both rows in the image use the same canvas size. ChatGPT and Cursor are enlarged
 
 ## Quick start
 
-Requires **GNOME Shell 51**. The extension has zero dependencies — one ZIP is all it takes.
-
-### Option 1: install the extension (recommended)
-
-Click "Install" on GNOME Extensions (extensions.gnome.org) — **under review** at the moment; one-click install will be available once approved.
-
-Or download the [extension ZIP](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer@joeydeng.local.zip) and install it the standard way:
+Requires GNOME Shell 51, system Python with Pillow, NumPy and PyGObject/GTK 3, and a systemd user session.
 
 ```bash
-gnome-extensions install --force icon-normalizer@joeydeng.local.zip
-gnome-extensions enable icon-normalizer@joeydeng.local
-```
-
-ZIPs built from source need the schema compiled first (release packages and the installer do this automatically):
-
-```bash
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/icon-normalizer@joeydeng.local/schemas
-```
-
-Then open **Icon Normalizer → Settings** from Extensions and click "Apply" to generate and activate the normalized theme.
-
-### Option 2: offline complete package
-
-1. Download the [complete package](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/icon-normalizer-plugin-1.3.5.tar.gz) and [SHA256SUMS](https://github.com/TengJoe/icon-normalizer-plugin/releases/download/v1.3.7/SHA256SUMS) into the same directory.
-2. Verify, extract and install:
-
-```bash
-sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf icon-normalizer-plugin-1.3.5.tar.gz
-cd icon-normalizer-plugin
 python3 tools/install.py
 ```
 
-The installer snapshots, stages and validates files, swaps the code and probes the service; a failed upgrade restores the snapshot. **No `sudo` is used** — everything lives in your home directory.
-
-### Optional: automated maintenance worker
-
-Without the worker the extension is fully functional. Installing the optional companion adds **systemd-grade automation** — watching application directories and refreshing on a timer — sharing the same lock with the extension:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/TengJoe/icon-normalizer-plugin/main/install.sh | bash
-```
-
-Dependency check only: `... | bash -s -- --check`.
-
-<details>
-<summary>Install from source</summary>
-
-```bash
-git clone https://github.com/TengJoe/icon-normalizer-plugin.git
-cd icon-normalizer-plugin
-python3 tools/build.py
-python3 tools/install.py
-```
-
-Build outputs land in `dist/`: the extension ZIP, the complete source package and `DIST_MANIFEST.json`. See the [contributing guide](CONTRIBUTING.md) for development checks.
-
-</details>
-
-> Current GitHub release: extension **1.3.5** (companion **3.1.20**, optional). `main` may contain unreleased changes; see the [changelog](CHANGELOG.md) for version scope. After a panel-code upgrade, log out and back in to refresh the GNOME Shell module cache.
+For an upgrade from the in-process GJS version, first disable Icon Normalizer. After installation, log out and back in, then enable it. The local version is documented in [1.3.8 notes](docs/RELEASE-1.3.8.md).
 
 ## Usage
 
@@ -170,7 +96,7 @@ Build outputs land in `dist/`: the extension ZIP, the complete source package an
 <details>
 <summary>What happens when I switch themes, install apps, or close the window?</summary>
 
-"Maintenance → Follow icon theme" is on by default. Switching to another installed source theme regenerates `DockNormalized`, keeping parameters and per-icon rules.
+"Maintenance → Follow icon theme" is on by default. After the first apply, with automatic maintenance and theme following enabled, choosing any installed icon theme rebuilds and activates `DockNormalized` with that theme as the source, keeping parameters and per-icon rules. This also syncs the selected theme at login. To use the original icons, turn off theme following before switching, or choose Restore original. Applying manually after a restore resumes maintenance.
 
 While the extension is enabled, the standard Yaru GTK theme follows the system light/dark style and accent color; custom GTK themes stay manual. When `DockNormalized` is active with theme following enabled, the standard Yaru icon source follows the accent color and light/dark style too, choosing only installed variants.
 
@@ -207,9 +133,9 @@ Only **GNOME Shell 51** is declared, as runtime-verified; other versions need se
 
 | Component | Dependencies |
 | --- | --- |
-| Extension (engine + panel) | None beyond GNOME 51 itself: GJS and GdkPixbuf ship with it |
+| Extension (panel and preferences) | GNOME 51, GJS, GTK 4 / Libadwaita |
 | Settings window | GTK 4, Libadwaita and their GI typelibs |
-| Optional maintenance worker | Python 3.10+, a systemd user session |
+| Rendering and maintenance | Python 3.10+, Pillow, NumPy, PyGObject / GTK 3, systemd user session |
 | Build and install | `gtk-update-icon-cache`, `glib-compile-schemas` |
 
 - Tray/AppIndicator icons, and window icons drawn or loaded directly by apps, may bypass icon themes.
@@ -218,7 +144,7 @@ Only **GNOME Shell 51** is declared, as runtime-verified; other versions need se
 
 ## Quality and safety
 
-- **21 quality gates** in one command (`bash tools/verify.sh`): 253 backend tests, 5 frontend suites, **69 GJS engine unit tests**, a **UI payload contract suite** (Q20: every operation the interface invokes must have a test case written with the exact payload the UI constructs, so implementation and tests can no longer be wrong together), and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
+- **21 quality gates** in one command (`bash tools/verify.sh`): 261 backend tests, 5 frontend suites, **tests for the GJS reference engine**, a **UI payload contract suite** (Q20: every operation the interface invokes must have a test case written with the exact payload the UI constructs, so implementation and tests can no longer be wrong together), and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
 - **No network, no telemetry**: the tree contains no networking code; release artifacts are readable GJS/SVG/CSS — no binaries, no minification.
 - **Privacy audit**: `tools/privacy_audit.py` pattern-scans the release allowlist (secrets, personal paths, emails, image metadata, tar headers) with zero findings.
 - **Reproducible builds**: fixed timestamps and permissions; consecutive builds are byte-identical to the published assets.

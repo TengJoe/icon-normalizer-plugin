@@ -135,7 +135,11 @@ export class RulesPage {
             this._ruleRows.push(empty);
             return;
         }
-        for (const group of manual) this._ruleRows.push(this._ruleRow(group));
+        for (const group of manual) {
+            const row = this._ruleRow(group);
+            this._ruleGroup.add(row);
+            this._ruleRows.push(row);
+        }
     }
 
     _ruleRow(group) {

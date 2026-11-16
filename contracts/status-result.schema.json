@@ -193,6 +193,8 @@
         }
       ]
     },
+    "restored": {"type": "boolean"},
+    "guarded_theme_sync": {"type": "boolean"},
     "theme_follow": {
       "type": [
         "boolean",
