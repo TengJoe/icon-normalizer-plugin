@@ -62,11 +62,16 @@ export function automaticLabel(status) {
 
 function actionText(group, targetRatio) {
     const target = Number.isFinite(targetRatio) ? Math.round(targetRatio * 100) : null;
+    const source = Number.isFinite(group?.source_ratio) ? Math.round(group.source_ratio * 100) : null;
     switch (group?.action) {
         case 'enlarge':
-            return target === null ? t('放大') : t('→ {target}%（放大）', {target});
+            if (target === null) return t('放大');
+            return source === null ? t('→ {target}%（放大）', {target})
+                : t('{source}% → {target}%（放大）', {source, target});
         case 'shrink':
-            return target === null ? t('缩小') : t('→ {target}%（缩小）', {target});
+            if (target === null) return t('缩小');
+            return source === null ? t('→ {target}%（缩小）', {target})
+                : t('{source}% → {target}%（缩小）', {source, target});
         case 'add_plate':
             return target === null || !Number.isFinite(group.inner_target_ratio) ? t('补充底板')
                 : t('底板 {target}% · Logo {inner}%', {target, inner: Math.round(group.inner_target_ratio * 100)});

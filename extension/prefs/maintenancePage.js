@@ -48,13 +48,13 @@ export class MaintenancePage {
         this._lblRev = new Gtk.Label({label: '—', valign: Gtk.Align.CENTER,
             ellipsize: 3, max_width_chars: 16, css_classes: ['mono-stat', 'dimmed']});
         this._rowRev.add_suffix(this._lblRev);
-        dashboard.add(this._rowVersion);
         dashboard.add(this._rowTheme);
         dashboard.add(this._rowManaged);
         dashboard.add(this._rowAuto);
         this._rowHealth = this._dashboardRow(t('后台健康'), t('状态未知'), 'badge-keep', '_badgeHealth');
         this._rowHealth._normalizerDataProperties = ['subtitle'];
         this._healthDetails = actionButton(t('查看详情'), () => this._showHealthDetails());
+        this._healthDetails.set_hexpand(false);
         dashboard.add(this._rowHealth);
         this._rowHealthDetails = new Adw.ActionRow({title: t('故障详情'),
             subtitle: t('查看冲突文件与首次发生时间')});
@@ -68,9 +68,6 @@ export class MaintenancePage {
         this._rowUpdated = new Adw.ActionRow({title: t('最近更新')});
         this._rowChecked._normalizerDataProperties = ['subtitle'];
         this._rowUpdated._normalizerDataProperties = ['subtitle'];
-        dashboard.add(this._rowChecked);
-        dashboard.add(this._rowUpdated);
-        dashboard.add(this._rowRev);
         this.page.add(dashboard);
 
         // ---- actions ---------------------------------------------------
@@ -142,6 +139,12 @@ export class MaintenancePage {
         danger.add(revertRow);
         this.page.add(danger);
         this._about = new About(this._win);
+        const diagnostics = new Adw.PreferencesGroup({title: t('系统与诊断')});
+        diagnostics.add(this._rowChecked);
+        diagnostics.add(this._rowUpdated);
+        diagnostics.add(this._rowVersion);
+        diagnostics.add(this._rowRev);
+        this.page.add(diagnostics);
         this.page.add(this._about.group);
     }
 
@@ -172,7 +175,9 @@ export class MaintenancePage {
                 if (detail.actual_sha256) parts.push(`${String(detail.actual_sha256).slice(0, 12)}…`);
                 const row = new Adw.ActionRow({title: name, subtitle: parts.filter(Boolean).join(' · '),
                     subtitle_lines: 2});
-                row.add_suffix(actionButton(t('重置为自动'), () => this._resetRule(warning, row)));
+                const resetBtn = actionButton(t('重置为自动'), () => this._resetRule(warning, row));
+                resetBtn.set_hexpand(false);
+                row.add_suffix(resetBtn);
                 group.add(row);
             }
             box.append(group);

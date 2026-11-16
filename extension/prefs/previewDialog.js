@@ -102,6 +102,7 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     const rowSuggest = new Adw.ActionRow({title: t('建议改为圆角底板'),
         subtitle: t('该图标是满幅直角底板，在圆角图标网格中显得不协调。')});
     const suggestButton = actionButton(t('改为圆角'), () => applyRounded(group));
+    suggestButton.set_hexpand(false);
     rowSuggest.add_suffix(suggestButton);
     details.add(rowSuggest);
     details.add(rowClass);
@@ -109,11 +110,17 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
     details.add(rowPath);
     content.append(details);
 
-    // action bar: skip toggle + close
+    // Pin the action bar below the scroll region so narrow dialogs keep
+    // Skip and Done visible without scrolling.
     const skipButton = actionButton(t('跳过此图标'), () => toggleSkip(group));
     const closeButton = actionButton(t('完成'), () => handle.close(), {primary: true});
-    const actionBar = adaptiveBox([skipButton, closeButton], {window: parent, scope});
-    content.append(actionBar.widget);
+    const actionBar = adaptiveBox([skipButton, closeButton], {below: 360, window: parent, scope});
+    const footer = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
+        css_classes: ['normalizer-dialog-actions'],
+    });
+    footer.append(actionBar.widget);
+    root.append(footer);
 
     function syncDetails() {
         rowClass.set_subtitle(t('{classification}（{origin}）', {
@@ -191,7 +198,8 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
         _syncControls();
         originalCard.setPicture(
             result.original_png_base64,
-            t('占比 {ratio}%', {ratio: ((result.metrics.source_ratio ?? 0) * 100).toFixed(1)}));
+            t('占比 {ratio}%', {ratio: ((result.metrics.source_ratio ?? 0) * 100).toFixed(1)}),
+            dialogState.size);
         proposedCard.setPicture(
             result.proposed_png_base64,
             result.metrics.measured_after_ratio !== undefined
@@ -199,7 +207,7 @@ export function openPreview(parent, group, {controlPath, settings, onRuleChanged
                     target: (result.effective_policy.target * 100).toFixed(0),
                     measured: (result.metrics.measured_after_ratio * 100).toFixed(1)})
                 : t('目标 {target}%', {target: (result.effective_policy.target * 100).toFixed(0)}),
-        );
+            dialogState.size);
         return envelope;
     }
 
@@ -320,13 +328,24 @@ function _makeStage(title) {
             errorLabel.set_text(message);
             stack.set_visible_child(errorLabel);
         },
-        setPicture(b64, ratioText) {
+        setPicture(b64, ratioText, displaySize = 160) {
             spinner.stop();
             const previous = stack.get_child_by_name('current-picture');
-            const picture = pictureFromBase64(b64, 160);
+            // Render <= 160 px sizes at 1:1 native scale inside a fixed slot so
+            // small sizes stay sharp instead of blurring up to 160 px.
+            const slot = new Gtk.Box({
+                width_request: 160,
+                height_request: 160,
+                halign: Gtk.Align.CENTER,
+                valign: Gtk.Align.CENTER,
+            });
+            const picture = pictureFromBase64(b64, Math.min(160, Math.max(32, displaySize)));
+            picture.set_halign(Gtk.Align.CENTER);
+            picture.set_valign(Gtk.Align.CENTER);
+            slot.append(picture);
             if (previous) stack.remove(previous);
-            stack.add_named(picture, 'current-picture');
-            stack.set_visible_child(picture);
+            stack.add_named(slot, 'current-picture');
+            stack.set_visible_child(slot);
             ratioLabel.set_text(ratioText);
         },
     };

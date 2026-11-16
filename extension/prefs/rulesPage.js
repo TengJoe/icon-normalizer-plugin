@@ -52,10 +52,17 @@ export class RulesPage {
             });
         }
         this.page.add(this._core);
-        this._ruleGroup = new Adw.PreferencesGroup({title: t('逐图标规则'),
-            description: t('列出所有手动或已复核的分类，可直接改类别或重置为自动。')});
-        this.page.add(this._ruleGroup);
-        this._ruleRows = [];
+
+        // Keep primary Save actions directly under the sliders so they stay
+        // reachable above the fold even when many per-icon rules exist.
+        this._saveApply = actionButton(t('保存并应用'), () => this._save(true), {primary: true});
+        this._saveOnly = actionButton(t('仅保存'), () => this._save(false));
+        const actions = actionGroup(t('保存修改'), [this._saveApply, this._saveOnly], '',
+            {window: this._win, scope: this._scope});
+        this._actionLayout = actions;
+        this._notice = noticeRow();
+        actions.group.add(this._notice.row);
+        this.page.add(actions.group);
 
         const presets = new Adw.PreferencesGroup({title: t('常用方案'),
             description: t('选择方案填入参数，再保存生效。')});
@@ -88,14 +95,10 @@ export class RulesPage {
         });
         this.page.add(this._profiles.group);
 
-        this._saveApply = actionButton(t('保存并应用'), () => this._save(true), {primary: true});
-        this._saveOnly = actionButton(t('仅保存'), () => this._save(false));
-        const actions = actionGroup(t('保存修改'), [this._saveApply, this._saveOnly], '',
-            {window: this._win, scope: this._scope});
-        this._actionLayout = actions;
-        this._notice = noticeRow();
-        actions.group.add(this._notice.row);
-        this.page.add(actions.group);
+        this._ruleGroup = new Adw.PreferencesGroup({title: t('逐图标规则'),
+            description: t('列出所有手动或已复核的分类，可直接改类别或重置为自动。')});
+        this.page.add(this._ruleGroup);
+        this._ruleRows = [];
     }
 
     _spin(title, subtitle, lo, hi, value) {
@@ -151,13 +154,16 @@ export class RulesPage {
         const model = Gtk.StringList.new(CLASS_CHOICES.map(c =>
             t(CLASSIFICATION_LABELS[c] ?? c)));
         const selected = Math.max(0, CLASS_CHOICES.indexOf(group.classification));
-        const dropdown = new Gtk.DropDown({model, selected});
+        const dropdown = new Gtk.DropDown({model, selected,
+            valign: Gtk.Align.CENTER, css_classes: ['normalizer-rule-dropdown']});
         dropdown.connect('notify::selected', () => {
             const cls = CLASS_CHOICES[dropdown.get_selected()];
             if (cls && cls !== group.classification) this._applyClass(group, cls, row, dropdown);
         });
+        const reset = actionButton(t('重置'), () => this._resetRule(group, row));
+        reset.set_hexpand(false);
         row.add_suffix(dropdown);
-        row.add_suffix(actionButton(t('重置'), () => this._resetRule(group, row)));
+        row.add_suffix(reset);
         return row;
     }
 
@@ -176,6 +182,9 @@ export class RulesPage {
             if (!response.ok) { toast(this._win, actionLabel(response.error)); return; }
             group.classification = cls;
             group.classification_origin = 'user';
+            row.set_subtitle(t('{cls} · {origin}', {
+                cls: t(CLASSIFICATION_LABELS[cls] ?? cls),
+                origin: t(ruleOriginLabel(group) || '自动')}));
             toast(this._win, t('已更新为 {cls}', {cls: t(CLASSIFICATION_LABELS[cls] ?? cls)}));
             this.onSaved?.();
         } finally {

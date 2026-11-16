@@ -37,8 +37,8 @@
     color: @accent_color;
 }
 .badge-add-plate {
-    background-color: rgba(145, 65, 172, 0.16);
-    color: #a96bc4;
+    background-color: rgba(155, 89, 182, 0.18);
+    color: #b57edc;
 }
 .badge-skipped, .badge-warn {
     background-color: alpha(@warning_bg_color, 0.16);
@@ -51,6 +51,27 @@
 .normalizer-notice image { color: @accent_color; }
 .normalizer-notice.notice-error image { color: @error_color; }
 .normalizer-notice.notice-success image { color: @success_color; }
+.normalizer-search-entry {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    min-height: 36px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.normalizer-app-icon-well {
+    border-radius: 10px;
+    padding: 4px;
+    background-color: alpha(@window_fg_color, 0.06);
+    border: 1px solid alpha(@window_fg_color, 0.07);
+}
+.normalizer-rule-dropdown {
+    min-width: 112px;
+}
+.normalizer-dialog-actions {
+    padding: 12px 16px;
+    border-top: 1px solid alpha(@window_fg_color, 0.08);
+}
 .normalizer-app-list {
     background: none;
     border-radius: 12px;

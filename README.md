@@ -8,7 +8,7 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
-[![Release 1.3.8](https://img.shields.io/badge/release-1.3.8-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.8)
+[![Release 1.3.9](https://img.shields.io/badge/release-1.3.9-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.9)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-813e9e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
@@ -75,7 +75,7 @@ GJS 负责 GNOME 顶栏、主题事件和设置。按需启动的 Python 进程�
 python3 tools/install.py
 ```
 
-从旧的进程内 GJS 版迁移时，先停用 Icon Normalizer。安装后注销再登录，然后启用扩展。当前本地版见 [1.3.8 说明](docs/RELEASE-1.3.8.md)。
+从旧的进程内 GJS 版迁移时，先停用 Icon Normalizer。安装后注销再登录，然后启用扩展。当前版本见 [1.3.9 说明](docs/RELEASE-1.3.9.md)。
 
 ## 使用说明
 
@@ -175,7 +175,7 @@ python3 tools/uninstall.py --keep-backend
 | [协议规范](PROTOCOL.md) | JSON 请求、错误码与并发控制 |
 | [贡献指南](CONTRIBUTING.md) | 开发检查、反馈要求与双语写作规范 |
 | [发布验收](docs/CHECKLIST.md) | 自动检查、桌面验收与恢复步骤 |
-| [版本记录](CHANGELOG.md) | 历史版本；[v1.3.8 说明](docs/RELEASE-1.3.8.md) |
+| [版本记录](CHANGELOG.md) | 历史版本；[v1.3.9 说明](docs/RELEASE-1.3.9.md) |
 
 更多资料见[文档索引](docs/README.md)。报告问题时，请附系统与组件版本、复现步骤，并先去除日志或截图中的私人信息。
 

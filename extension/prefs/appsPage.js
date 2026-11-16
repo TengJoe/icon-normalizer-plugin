@@ -85,10 +85,11 @@ export class AppsPage {
         });
         this.page.add(this._controls);
 
-        const searchRow = new Adw.ActionRow();
+        const searchRow = new Adw.ActionRow({activatable: false, selectable: false});
         this._search = new Gtk.SearchEntry({
             placeholder_text: t('搜索应用名称或图标名…'),
             hexpand: true,
+            css_classes: ['normalizer-search-entry'],
         });
         this._search.connect('search-changed', () => {
             this._needle = this._search.text.trim().toLowerCase();
@@ -150,8 +151,20 @@ export class AppsPage {
 
     _setupRow(listItem) {
         const row = new Gtk.Box({spacing: 12, margin_top: 4, margin_bottom: 4});
-        const picture = new Gtk.Picture({can_shrink: true});
-        picture.set_size_request(48, 48);
+        const iconWell = new Gtk.Box({
+            width_request: 48,
+            height_request: 48,
+            halign: Gtk.Align.CENTER,
+            valign: Gtk.Align.CENTER,
+            css_classes: ['normalizer-app-icon-well'],
+        });
+        const picture = new Gtk.Picture({
+            can_shrink: true,
+            halign: Gtk.Align.CENTER,
+            valign: Gtk.Align.CENTER,
+        });
+        picture.set_size_request(40, 40);
+        iconWell.append(picture);
         const textBox = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
             spacing: 2,
@@ -173,7 +186,7 @@ export class AppsPage {
             tooltip_text: t('实时对比预览'),
             css_classes: ['flat'],
         });
-        row.append(picture);
+        row.append(iconWell);
         row.append(textBox);
         row.append(badge);
         row.append(previewButton);
