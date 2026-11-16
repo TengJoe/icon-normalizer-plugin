@@ -8,6 +8,7 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
+[![Release 1.3.8](https://img.shields.io/badge/release-1.3.8-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.8)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
@@ -146,7 +147,7 @@ Only **GNOME Shell 51** is declared, as runtime-verified; other versions need se
 
 - **21 quality gates** in one command (`bash tools/verify.sh`): 261 backend tests, 5 frontend suites, **tests for the GJS reference engine**, a **UI payload contract suite** (Q20: every operation the interface invokes must have a test case written with the exact payload the UI constructs, so implementation and tests can no longer be wrong together), and cross-implementation parity — **144 render + 69 analysis** pixel comparisons against the Python reference.
 - **No network, no telemetry**: the tree contains no networking code; release artifacts are readable GJS/SVG/CSS — no binaries, no minification.
-- **Privacy audit**: `tools/privacy_audit.py` pattern-scans the release allowlist (secrets, personal paths, emails, image metadata, tar headers) with zero findings.
+- **Privacy audit**: `tools/privacy_audit.py` deny-by-default scans every `git`-tracked file and release archive member (secrets, personal paths, emails, image metadata, tar headers) with zero findings.
 - **Reproducible builds**: fixed timestamps and permissions; consecutive builds are byte-identical to the published assets.
 
 ## Recovery and removal
@@ -170,11 +171,11 @@ Backups are kept in `~/.local/state/icon-normalizer/backups/`. If a restore fail
 | Document | Contents |
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Module responsibilities, process isolation, transactions and data flow |
-| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | The pure-GJS in-process engine: decision and trade-offs |
+| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | Pure-GJS engine and the 1.3.8 switch back to the Python worker |
 | [Protocol](PROTOCOL.md) | JSON requests, error codes and concurrency control |
 | [Contributing](CONTRIBUTING.md) | Development checks, feedback requirements, bilingual writing rules |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance and recovery steps |
-| [Changelog](CHANGELOG.md) | Version history; [v1.3.5 notes](docs/RELEASE-1.3.2.md) |
+| [Changelog](CHANGELOG.md) | Version history; [v1.3.8 notes](docs/RELEASE-1.3.8.md) |
 
 More material is indexed in the [documentation index](docs/README.md). When reporting an issue, include system and component versions and reproduction steps, and strip private information from logs and screenshots first.
 

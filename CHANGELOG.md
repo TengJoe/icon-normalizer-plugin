@@ -2,13 +2,24 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
-## 1.3.8 本地版（2026-11-17）
+## 1.3.8 — Python 3.1.21 后台与规则/性能修复（2026-11-17）
 
-- 独立 Python 渲染进程（3.1.21）代替 Shell 内渲染：后台定时维护用 2 线程，手动应用用 `min(4, cpu_count)` 线程；应用变化由 path 触发，每小时兜底一次。
-- 从「优化」换到任何可读的已安装素材主题后自动激活统一图标；锁屏解锁且外观未变时跳过冗余 `theme.sync`；安装器默认仅保留最近 2 份快照。
-- 修复设置页 `rulesPage.js` 漏调 `this._ruleGroup.add(row)` 导致逐图标规则不显示及刷新报 `Adwaita-CRITICAL` 的问题。
-- 修复 `control.py` / `control.js` 对按原始路径保存且无 `source_sha256` 的用户规则在 `scan` 中显示为 `automatic` 及重置遗留键不清理的问题。
-- `tests/gjs/control.test.js` 与 `uicontract.test.js` 隔离夹具目录，避免全量扫描系统应用（耗时从 >5 分钟降至 <3 秒）。
+发布说明见 [v1.3.8 说明](docs/RELEASE-1.3.8.md)。
+
+- **独立 Python 渲染进程（3.1.21）**：后台定时维护保持 2 线程省电，手动应用恢复 `min(4, cpu_count)` 线程；应用目录变化由 systemd path 触发，每小时兜底一次。
+- **主题切换与解锁优化**：从「优化」换到任意可读的已安装素材主题后自动激活统一图标；锁屏解锁且外观与活跃叠加层未变时跳过冗余 `theme.sync`；安装器默认仅保留最近 2 份安装快照。
+- **修复设置页「逐图标规则」丢失与 GTK 报错**：`rulesPage.js` 补齐 `this._ruleGroup.add(row)`，恢复规则展示并消除刷新时的 4 条 `Adwaita-CRITICAL: tried to remove non-child`。
+- **修复旧路径/无 SHA 用户规则识别与重置**：`control.py` / `control.js` 对齐引擎 `lookup_rule_ex`，让按原始路径保存且无 `source_sha256` 的用户规则（如 Chrome Web 应用）在 `scan` 中正确标为 `user` 并可正常重置。
+- **测试稳定性与提速**：`tests/gjs/control.test.js`（~2.6s）与 `uicontract.test.js`（~0.4s）隔离夹具目录，避免每轮重扫系统 85 个应用；沿用随后的 Q8 窗口尺寸等待修复（`resizeTo()` 有界等待分配生效）。
+
+## 1.3.7 — 应用进度可见（2026-11-10）
+
+发布说明见 [v1.3.7 说明](docs/RELEASE-1.3.7.md)。
+
+- **修复：全量重渲时界面只有一句静止提示。** 引擎按图标上报 `{phase,done,total}`，`sync()`/`syncAsync()` 两条路径都支持；面板显示 `正在处理图标… 42/85`，离开忙碌态自动清除。实测 67 图标 → 67 次回调。
+- 实测基线：`status` 3ms、`scan` 322ms、增量 `apply` 557ms、全量重渲约 23s（单图标 266ms）。
+- 未做提速：换成 Pillow 式预降采样会破坏 Q19 的跨实现逐像素对拍，取舍是保 parity。
+- 测试加固：`responsive-smoke.mjs` 等待 2 帧并调整预算（150s/165s），消除受限窗口下的超时假失败。
 
 ## 1.3.6 — Python 降级为 oracle、隐私全扫、发布不变量门（2026-11-10）
 
@@ -17,21 +28,8 @@ v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、�
 - **渲染所有权**：扩展 apply 后写 `renderer.json`（`owner: gjs`）；Python `apply`/`revert` 读到即拒绝（`RENDERER_OWNED`），`scan`/`status`/`preview` 不受影响；人工修复用 `ICON_NORMALIZER_ALLOW_FOREIGN_RENDER=1` 放行。Python 仍是 parity 的对照实现。
 - **隐私审计改为全量扫描**：从"目录白名单"改为扫描 `git ls-files` 的全部跟踪文件 + 发行包成员，唯一例外是 `tools/privacy-allowlist.txt`（需写明理由），过期例外会列出。
 - **新增 Q21「release invariants」**：文档门数必须等于 `verify.sh` 实际门数；已发布的 `v<版本>` 之后 `extension/` 与 `backend/` 不得再变（文档/测试/工具可滞后）。
-## 1.3.7 — 应用进度可见（2026-11-10）
+- 测试加固：`responsive-smoke.mjs` 在未实际绘制时跳过陈旧几何断言（后续在 1.3.7/1.3.8 进一步改用 `resizeTo()` 有界等待）。
 
-发布说明见 [v1.3.7 说明](docs/RELEASE-1.3.7.md)。
-
-- **修复：全量重渲时界面只有一句静止提示。** 引擎按图标上报 `{phase,done,total}`，`sync()`/`syncAsync()` 两条路径都支持；面板显示 `正在处理图标… 42/85`，离开忙碌态自动清除。实测 67 图标 → 67 次回调。
-- 实测基线：`status` 3ms、`scan` 322ms、增量 `apply` 557ms、全量重渲约 23s（单图标 266ms）。
-- 未做提速：换成 Pillow 式预降采样会破坏 Q19 的跨实现逐像素对拍，取舍是保 parity。
-## 未发布（1.3.6 之后）
-
-- **Q8 时间预算修复**：`responsive-smoke.mjs` 等待"4 帧"才判定分配完成，而受限窗口（被部分遮挡时）只有约 1 帧/秒，18 组尺寸就会耗尽 90s 预算并报 "Responsive GTK validation timed out"。改为**等待 2 帧**，同时把 fixture 自截止提到 150s、父进程超时提到 165s。实测：单跑英文用例 10s、完整 Q8 由 212s 失败变为 **49.7s 全过**。
-- 该改动属于测试基础设施，按 `docs/RELEASING.md` 不递增版本号，随下一个正式版本发布。
-## 未发布（1.3.5 之后）
-
-- **Q8 偶发假失败修复**：完全被遮挡的窗口收不到 Wayland 帧回调，`responsive-smoke` 在超时后仍用**过时的控件分配**测量，于是报出假的「420px 横向溢出」。现在 `settleAllocation` 会回报是否真的绘制过，未绘制时重试一次，仍无绘制则记录该尺寸为 `unpainted` 而不对无效数据断言。
-- 按 `docs/RELEASING.md`，测试改动不递增版本号，本项随下一个正式版本发布；`v1.3.5` 的发布内容不包含它。
 ## 1.3.5 — 跟随深色偏好与强调色（2026-11-09）
 
 发布说明见 [v1.3.5 说明](docs/RELEASE-1.3.5.md)。

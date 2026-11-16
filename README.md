@@ -8,6 +8,7 @@
 
 为 GNOME 桌面提供图标归一化、自定义方案与自动维护。
 
+[![Release 1.3.8](https://img.shields.io/badge/release-1.3.8-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.8)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#兼容与依赖)
 [![中文 / English](https://img.shields.io/badge/界面-中文%20%2F%20English-813e9e?style=flat-square)](README.en.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
@@ -146,7 +147,7 @@ python3 tools/install.py
 
 - **21 道质量门**一条命令全量回归（`bash tools/verify.sh`）：后端 261 项测试、前端 5 组套件、**GJS 参考引擎单测**、**UI 载荷契约测试**（Q20：界面每个调用的操作都必须有用界面真实载荷编写的用例，防止实现与测试互相印证地一起错）、**144 组渲染 + 69 组分析**的 GJS vs Python 跨实现逐像素对拍。
 - **无网络、无遥测**：全仓不含任何网络请求代码；发布物为可读 GJS/SVG/CSS，无二进制、无压缩混淆。
-- **隐私审计**：`tools/privacy_audit.py` 对发布允许清单做模式扫描（密钥、个人路径、邮箱、图片元数据、tar 头账号信息），0 发现。
+- **隐私审计**：`tools/privacy_audit.py` 对全仓 `git` 跟踪文件及发行包成员做默认拒绝模式扫描（密钥、个人路径、邮箱、图片元数据、tar 头账号信息），0 发现。
 - **构建可复现**：固定时间戳与权限的构建脚本，两次构建与发布资产逐字节一致。
 
 ## 恢复与卸载
@@ -170,11 +171,11 @@ python3 tools/uninstall.py --keep-backend
 | 文档 | 内容 |
 | --- | --- |
 | [架构说明](ARCHITECTURE.md) | 模块职责、进程隔离、事务与数据流 |
-| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | 纯 GJS 内嵌引擎的架构决策与取舍 |
+| [ADR-0008](docs/adr/0008-gjs-only-engine.md) | 纯 GJS 引擎与 1.3.8 切回独立 Python 后台的演进决策 |
 | [协议规范](PROTOCOL.md) | JSON 请求、错误码与并发控制 |
 | [贡献指南](CONTRIBUTING.md) | 开发检查、反馈要求与双语写作规范 |
 | [发布验收](docs/CHECKLIST.md) | 自动检查、桌面验收与恢复步骤 |
-| [版本记录](CHANGELOG.md) | 历史版本；[v1.3.5 说明](docs/RELEASE-1.3.2.md) |
+| [版本记录](CHANGELOG.md) | 历史版本；[v1.3.8 说明](docs/RELEASE-1.3.8.md) |
 
 更多资料见[文档索引](docs/README.md)。报告问题时，请附系统与组件版本、复现步骤，并先去除日志或截图中的私人信息。
 
