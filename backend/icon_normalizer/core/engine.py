@@ -301,6 +301,7 @@ class Engine:
                 rows.append({
                     "icon_name": icon,
                     "action": "excluded",
+                    "reason": refs[0].visibility,
                     "names": [r.name for r in refs],
                     "desktop_ids": [r.desktop_id for r in refs],
                 })

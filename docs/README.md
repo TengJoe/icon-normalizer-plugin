@@ -8,7 +8,8 @@
 | --- | --- | --- |
 | [README](../README.md) | 安装、使用、自定义方案、主题跟随与恢复 | 简体中文 |
 | [English README](../README.en.md) | Installation, usage, profiles, theme following, and recovery | English |
-| [v1.3.9 发布说明 / Latest release notes](RELEASE-1.3.9.md) | 当前版本：设置界面重构与视觉打磨 / Current: Libadwaita UI layout & preview polish | 中文 / English |
+| [v1.3.10 发布说明 / Latest release notes](RELEASE-1.3.10.md) | 当前版本：已排除图标显示排除原因 / Current: excluded groups explain why | 中文 / English |
+| [v1.3.9 发布说明](RELEASE-1.3.9.md) | 设置界面重构与视觉打磨 / Libadwaita UI layout & preview polish | 中文 / English |
 | [v1.3.8 发布说明](RELEASE-1.3.8.md) | Python 3.1.21 后台与规则/性能修复 / Python 3.1.21 worker, rules UI/lookup fixes, and runtime optimizations | 中文 / English |
 | [v1.3.7 发布说明](RELEASE-1.3.7.md) | 应用进度可见 / Visible apply progress | 简体中文 |
 | [v1.3.6 发布说明](RELEASE-1.3.6.md) | 渲染所有权、隐私全扫、发布不变量门 / Renderer ownership, full privacy scan, release invariants | 中文 / English |

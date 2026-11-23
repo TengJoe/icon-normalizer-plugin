@@ -8,7 +8,7 @@
 
 Icon normalization, custom profiles, and automatic maintenance for GNOME.
 
-[![Release 1.3.9](https://img.shields.io/badge/release-1.3.9-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.9)
+[![Release 1.3.10](https://img.shields.io/badge/release-1.3.10-3584e4?style=flat-square)](https://github.com/TengJoe/icon-normalizer-plugin/releases/tag/v1.3.10)
 [![Verified GNOME Shell 51](https://img.shields.io/badge/GNOME_Shell-51-4a86cf?style=flat-square)](#compatibility-and-dependencies)
 [![Chinese / English](https://img.shields.io/badge/UI-Chinese%20%2F%20English-813e9e?style=flat-square)](README.md)
 [![GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-77767b?style=flat-square)](LICENSE)
@@ -75,7 +75,7 @@ Requires GNOME Shell 51, system Python with Pillow, NumPy and PyGObject/GTK 3, a
 python3 tools/install.py
 ```
 
-For an upgrade from the in-process GJS version, first disable Icon Normalizer. After installation, log out and back in, then enable it. The current release is documented in [1.3.9 notes](docs/RELEASE-1.3.9.md).
+For an upgrade from the in-process GJS version, first disable Icon Normalizer. After installation, log out and back in, then enable it. The current release is documented in [1.3.10 notes](docs/RELEASE-1.3.10.md).
 
 ## Usage
 
@@ -175,7 +175,7 @@ Backups are kept in `~/.local/state/icon-normalizer/backups/`. If a restore fail
 | [Protocol](PROTOCOL.md) | JSON requests, error codes and concurrency control |
 | [Contributing](CONTRIBUTING.md) | Development checks, feedback requirements, bilingual writing rules |
 | [Release checklist](docs/CHECKLIST.md) | Automated checks, desktop acceptance and recovery steps |
-| [Changelog](CHANGELOG.md) | Version history; [v1.3.9 notes](docs/RELEASE-1.3.9.md) |
+| [Changelog](CHANGELOG.md) | Version history; [v1.3.10 notes](docs/RELEASE-1.3.10.md) |
 
 More material is indexed in the [documentation index](docs/README.md). When reporting an issue, include system and component versions and reproduction steps, and strip private information from logs and screenshots first.
 

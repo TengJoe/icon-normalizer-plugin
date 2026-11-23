@@ -165,3 +165,12 @@ for (const [name, fn] of tests) {
 }
 console.log(`${tests.length - failed}/${tests.length} passed`);
 process.exit(failed === 0 ? 0 : 1);
+
+test('excluded groups explain why they were excluded', () => {
+    assert.equal(m.excludedReasonText('not_show_in_current_desktop'), '当前桌面不显示（NotShowIn）');
+    assert.equal(m.excludedReasonText('only_show_in_other_desktop'), '仅用于其他桌面（OnlyShowIn）');
+    assert.equal(m.excludedReasonText(undefined), '');
+    assert.equal(m.isLeftoverReason('exec_missing'), true);
+    assert.equal(m.isLeftoverReason('not_show_in_current_desktop'), false);
+    assert.equal(m.isLeftoverReason(undefined), true);
+});

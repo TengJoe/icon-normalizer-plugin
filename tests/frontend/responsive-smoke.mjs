@@ -152,18 +152,23 @@ async function run() {
     const policy = [pages.rules._targetSpin.get_value(), pages.rules._deadbandSpin.get_value(), pages.rules._innerSpin.get_value()];
     if (!readonly) check(JSON.stringify(policy) === '[83,2,70]', 'Unexpected fixture policy ' + policy);
     const dimensions = [];
+    let throttled = false;
     for (const [width, height] of [[1100,850], [960,720], [640,600], [420,560], [380,420], [960,480]]) {
         // Wait for the resize to land; the settle below only proves a frame was
         // painted, not that it was painted at the requested size.
         const resized = await resizeTo(width, height, language === 'en' ? 420 : 380);
         for (const [name, controller] of Object.entries({rules: pages.rules, apps: pages.apps, maintenance: pages.maint})) {
             window.set_visible_page(controller.page);
-            let settle = await settleAllocation();
-            if (!settle.painted) {
+            // Once the compositor has stopped painting this window (occluded or
+            // throttled), every further wait costs the full timeout and the
+            // fixture runs into its global deadline. Keep probing, but briefly.
+            let settle = await settleAllocation(throttled ? 1500 : 6000);
+            if (!settle.painted && !throttled) {
                 // One retry: the compositor may simply have been busy.
                 await delay(400);
                 settle = await settleAllocation();
             }
+            throttled = !settle.painted;
             if (!settle.painted) {
                 // No paint means the widget allocations below are stale; record
                 // the size and move on instead of failing on meaningless numbers.

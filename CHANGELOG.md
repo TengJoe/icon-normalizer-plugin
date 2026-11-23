@@ -2,6 +2,14 @@
 
 v1.1.1 是首个公开 GitHub Release；此前版本为开发历史。下载、安装与验证范围见 [v1.1.1 发布说明](docs/RELEASE-1.1.1.md)。
 
+## 1.3.10 — 已排除图标显示排除原因（2026-11-23）
+
+发布说明见 [v1.3.10 说明](docs/RELEASE-1.3.10.md)。
+
+- **修复「已排除」分组没有原因**：Python 后台（3.1.22）与 GJS 引擎在 `scan` 结果中为 `excluded` 分组写入 `reason`（取自 `.desktop` 可见性判定，如 `not_show_in_current_desktop`、`only_show_in_other_desktop`、`exec_missing`）。
+- **修复误标「残留入口」**：应用图标页副标题先说明排除原因（例如「当前桌面不显示（NotShowIn）」）；只有程序缺失或 Exec 无法解析时才称为「残留入口」，系统有意隐藏的入口改称「入口」。
+- **测试**：新增 `tests/backend/test_excluded_reason.py` 与 `stateModel` 原因映射单测；补 9 条英文译文。
+
 ## 1.3.9 — 设置界面重构与视觉打磨（2026-11-17）
 
 发布说明见 [v1.3.9 说明](docs/RELEASE-1.3.9.md)。

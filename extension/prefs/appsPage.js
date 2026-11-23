@@ -19,6 +19,8 @@ import {
     groupMatchesSearch,
     groupSubtitle,
     ruleOriginLabel,
+    excludedReasonText,
+    isLeftoverReason,
 } from '../shared/stateModel.js';
 import {cachedTexture, configurePage, makePills, observeWindowSize, statusBadge, toast} from './uiCommon.js';
 import {openPreview} from './previewDialog.js';
@@ -265,7 +267,7 @@ export class AppsPage {
         const total = this._groups.length;
         this._controls.set_description(
             visible.length === total
-                ? t('共 {total} 组候选（已排除的残留入口在“已排除”胶囊下）', {total})
+                ? t('共 {total} 组候选（已排除的入口在“已排除”胶囊下）', {total})
                 : t('共 {total} 组 · 当前显示 {visible} 组', {total, visible: visible.length}));
     }
 
@@ -277,9 +279,15 @@ export class AppsPage {
             const origin = ruleOriginLabel(g);
             return origin ? t('{base} · {origin}', {base, origin: t(origin)}) : base;
         }
-        // Surface WHERE the leftover launcher lives so it can be cleaned up.
+        // Say WHY the launcher is excluded, then WHERE it lives. Only a missing
+        // program makes it a real leftover worth cleaning up.
+        const why = excludedReasonText(g.reason);
+        const head = why ? t('{base} · {origin}', {base, origin: why}) : base;
         const entries = (g.desktop_ids ?? []).join('、');
-        return entries ? t('{base} · 残留入口：{entries}', {base, entries}) : base;
+        if (!entries) return head;
+        return isLeftoverReason(g.reason)
+            ? t('{base} · 残留入口：{entries}', {base: head, entries})
+            : t('{base} · 入口：{entries}', {base: head, entries});
     }
 
     setPolicy(policy) {

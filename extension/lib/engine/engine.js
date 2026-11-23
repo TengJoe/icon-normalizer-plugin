@@ -583,7 +583,7 @@ export class Engine {
             order.push(icon);
             yield null; // source digesting dominates this phase: one icon per unit
             if (!refs.some(ref => ref.visibility === 'visible')) {
-                rows.push({icon_name: icon, action: 'excluded',
+                rows.push({icon_name: icon, action: 'excluded', reason: refs[0].visibility,
                     names: refs.map(r => r.name), desktop_ids: refs.map(r => r.desktop_id)});
                 continue;
             }

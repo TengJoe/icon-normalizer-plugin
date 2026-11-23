@@ -130,6 +130,29 @@ export function actionsSummary(summary) {
     return parts.join(' · ');
 }
 
+// Why a launcher group was excluded (desktop.py entry_visibility). Labels are
+// message ids: callers translate them via t().
+const EXCLUDED_REASON_LABELS = {
+    hidden: '入口已隐藏（Hidden）',
+    no_display: '入口不在菜单显示（NoDisplay）',
+    only_show_in_other_desktop: '仅用于其他桌面（OnlyShowIn）',
+    not_show_in_current_desktop: '当前桌面不显示（NotShowIn）',
+    tryexec_missing: '程序未安装（TryExec）',
+    exec_missing: '程序未安装',
+    invalid_exec: 'Exec 无法解析',
+};
+const LEFTOVER_REASONS = new Set(['tryexec_missing', 'exec_missing', 'invalid_exec']);
+
+export function excludedReasonText(reason) {
+    const label = EXCLUDED_REASON_LABELS[reason];
+    return label ? t(label) : '';
+}
+
+export function isLeftoverReason(reason) {
+    // Unknown/absent reasons keep the historical "leftover" wording.
+    return !reason || !(reason in EXCLUDED_REASON_LABELS) || LEFTOVER_REASONS.has(reason);
+}
+
 export function ruleOriginLabel(group) {
     if (group?.classification_origin === 'user') return '用户规则';
     if (group?.classification_origin === 'reviewed') return '已复核';
